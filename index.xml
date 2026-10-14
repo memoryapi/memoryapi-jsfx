@@ -1,3 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX">
-</index>
+<index version="1" name="MemoryAPI JSFX" commit="9dc53df5b9bdb8986e8dc513b06e8c9215ae35b0">
+<category name="Dynamics"><reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)"><metadata><description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 SpectralCarver\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 32-Band Dynamic Spectral Ducker using Cytomic SVF filters.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 32-band Cytomic SVF dynamic spectral ducking\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Stereo (L/R) and Mid/Side (M/S) processing modes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Low-cut and high-cut sidechain filtering with interactive spectrum display\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Sidechain audition mode and freeze function\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Safe ceiling and NaN/Inf protection\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Routing\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Route sidechain control audio to Channels 3/4.\par}
+}
+]]></description></metadata><version name="1.1" author="Custom DSP" time="2026-10-14T22:52:23Z"><changelog><![CDATA[Initial release]]></changelog><source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/9dc53df5b9bdb8986e8dc513b06e8c9215ae35b0/Dynamics/SpectralCarver.jsfx</source></version></reapack></category><metadata><description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MemoryAPI JSFX Repository\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A collection of custom audio DSP effects and JSFX plugins for {\field{\*\fldinst{HYPERLINK "https://www.reaper.fm/"}}{\fldrslt{\ul
+Cockos REAPER
+}}}
+, packaged for seamless installation and automatic updates via {\field{\*\fldinst{HYPERLINK "https://reapack.com/"}}{\fldrslt{\ul
+ReaPack
+}}}
+.\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56550 ? How to Install via ReaPack\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Ensure {\b ReaPack} is installed in REAPER (included by default in many setups, or downloadable from {\field{\*\fldinst{HYPERLINK "https://reapack.com"}}{\fldrslt{\ul
+reapack.com
+}}}
+).\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab In REAPER's top menu, go to: {\b Extensions} > {\b ReaPack} > {\b Import repositories...}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Paste your repository URL:\par}
+{\pard \ql \f0 \sa180 \li360 \fi0 \f1 https://raw.githubusercontent.com/memoryapi/memoryapi-jsfx/master/index.xml\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab Click {\b OK}. ReaPack will fetch the repository index.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 5.\tx360\tab In REAPER, go to: {\b Extensions} > {\b ReaPack} > {\b Browse packages...}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 6.\tx360\tab Search for {\f1 SpectralCarver} (or any plugin from this repo), right-click the package, select {\b Install}, and click {\b Apply}.\sa180\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55356 ?\u57243 ? Included Plugins\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 1. Dynamics / SpectralCarver\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/SpectralCarver.jsfx}\line {\b Description}: 32-Band Dynamic Spectral Ducker with Cytomic State Variable Filters (SVF)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 32-Band SVF Dynamic Carving}: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Routing}: Route your kick, vocals, or sidechain trigger audio to {\b Channels 3/4} of the track.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Spectrum Display}: Visual real-time sidechain energy and gain reduction meters with draggable Low-Cut and High-Cut filter boundary curtains.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo & Mid/Side Processing}: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Freeze & Audition}: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \f1 .\line
+\u9500 ?\u9472 ?\u9472 ? .github/\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? workflows/\line
+\u9474 ?       \u9500 ?\u9472 ?\u9472 ? deploy.yml          # Automatically regenerates index.xml on push\line
+\u9474 ?       \u9492 ?\u9472 ?\u9472 ? check.yml           # Validates package headers on PRs/pushes\line
+\u9500 ?\u9472 ?\u9472 ? .reapack-index.conf         # reapack-index options\line
+\u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
+\u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
+\u9492 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
+    \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u57056 ? Adding New Plugins & Maintaining with {\f1 jj} (Jujutsu)\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 This repository uses {\b {\f1 jj}} (Jujutsu) for source control.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Adding a New Plugin\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Place your new {\f1 .jsfx} file inside the appropriate category folder (e.g. {\f1 Dynamics/}, {\f1 EQ/}, {\f1 Utility/}, {\f1 Synth/}, etc.).\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Include the standard ReaPack metadata comment header at the top of the file:\par}
+{\pard \ql \f0 \sa180 \li360 \fi0 \f1 desc:MyPlugin (Effect Description)\line
+// @description MyPlugin (Short description for ReaPack)\line
+// @author YourName\line
+// @version 1.0.0\line
+// @changelog Initial release\line
+// @about\line
+//   # MyPlugin\line
+//   Detailed description formatted in Markdown.\line
+// @provides\line
+//   [effect] MyPlugin.jsfx\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Commit your changes using {\f1 jj}:\par}
+{\pard \ql \f0 \sa180 \li360 \fi0 \f1 jj describe -m "feat: add MyPlugin"\line
+jj bookmark set master -r @\line
+jj git push --bookmark master\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab The included GitHub Actions workflow will automatically run {\f1 reapack-index}, compile {\f1 index.xml}, and update the repository on GitHub.\sa180\par}
+}
+]]></description></metadata></index>
