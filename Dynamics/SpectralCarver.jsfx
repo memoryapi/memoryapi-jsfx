@@ -1,0 +1,755 @@
+desc:SpectralCarver (32-Band Dynamic Spectral Ducker)
+// @description SpectralCarver (32-Band Dynamic Spectral Ducker)
+// @author Custom DSP
+// @version 1.1
+// @changelog Initial release
+// @about
+//   # SpectralCarver
+//   32-Band Dynamic Spectral Ducker using Cytomic SVF filters.
+//
+//   ### Features
+//   - 32-band Cytomic SVF dynamic spectral ducking
+//   - Stereo (L/R) and Mid/Side (M/S) processing modes
+//   - Low-cut and high-cut sidechain filtering with interactive spectrum display
+//   - Sidechain audition mode and freeze function
+//   - Safe ceiling and NaN/Inf protection
+//
+//   ### Routing
+//   Route sidechain control audio to Channels 3/4.
+// @provides
+//   [effect] SpectralCarver.jsfx
+
+slider1:amount_pct=25<0,100,0.1>-Amount (%)
+slider2:low_cut_hz=20<20,20000,1>-Low Cut (Hz)
+slider3:high_cut_hz=20000<20,20000,1>-High Cut (Hz)
+slider4:attack_ms=10<0.1,200,0.1>-Attack (ms)
+slider5:release_ms=80<5,1000,1>-Release (ms)
+slider6:proc_mode=0<0,1,1{L/R,M/S}>-Processing Mode
+slider7:pan_val=0<-100,100,1>-Pan / M-S Balance (%)
+slider8:freeze_on=0<0,1,1{Off,On}>-Freeze
+slider9:audition_on=0<0,1,1{Off,On}>-SC Audition
+slider10:adv_open=0<0,1,1{Closed,Open}>-Advanced Panel
+
+in_pin:Main Left
+in_pin:Main Right
+in_pin:Sidechain Left
+in_pin:Sidechain Right
+out_pin:Output Left
+out_pin:Output Right
+
+@init
+// Prevent REAPER from wiping filter states and arrays on transport play/stop
+ext_noinit = 1.0;
+
+NUM_BANDS = 32;
+MIN_FREQ = 20.0;
+MAX_FREQ = 20000.0;
+LOG_MIN = log(MIN_FREQ);
+LOG_MAX = log(MAX_FREQ);
+SAFE_SRATE = max(8000.0, srate);
+
+// Memory allocation map (non-overlapping blocks of 64 floats)
+freq_table  = 100;  // Band center frequencies
+svf_g       = 200;  // Precomputed tan(pi * fc / srate) per band
+sc_a1       = 300;  // Sidechain bandpass SVF coeff a1
+sc_a2       = 400;  // Sidechain bandpass SVF coeff a2
+sc_ic1      = 500;  // Sidechain SVF state 1
+sc_ic2      = 600;  // Sidechain SVF state 2
+
+env_state   = 700;  // Linear envelope detector state
+env_db_arr  = 800;  // Sidechain level in dB
+red_db_arr  = 900;  // Target gain reduction in dB
+
+// Cytomic SVF Bell coefficients for Ch0 (Left/Mid) and Ch1 (Right/Side)
+eq0_a1 = 1000; eq0_a2 = 1100; eq0_m1 = 1200;
+eq1_a1 = 1300; eq1_a2 = 1400; eq1_m1 = 1500;
+
+// Cytomic SVF states for Ch0 and Ch1
+eq0_ic1 = 1600; eq0_ic2 = 1700;
+eq1_ic1 = 1800; eq1_ic2 = 1900;
+
+// UI visual smoothing buffers
+ui_sc_norm  = 2000;
+ui_red_norm = 2100;
+
+function update_parameters()
+  local(g_hp, k_hp, g_lp, k_lp, pan_norm)
+(
+  SAFE_SRATE = max(8000.0, srate);
+
+  low_cut_hz > high_cut_hz - 20.0 ? (
+    low_cut_hz = max(20.0, high_cut_hz - 20.0);
+  );
+
+  // Sidechain High-Pass (Cytomic SVF 12dB/oct Butterworth)
+  g_hp = tan($pi * max(20.0, min(low_cut_hz, SAFE_SRATE * 0.45)) / SAFE_SRATE);
+  k_hp = 1.41421356;
+  hp_a1 = 1.0 / (1.0 + g_hp * (g_hp + k_hp));
+  hp_a2 = g_hp * hp_a1;
+  hp_a3 = g_hp * hp_a2;
+  hp_k  = k_hp;
+
+  // Sidechain Low-Pass (Cytomic SVF 12dB/oct Butterworth)
+  g_lp = tan($pi * max(20.0, min(high_cut_hz, SAFE_SRATE * 0.45)) / SAFE_SRATE);
+  k_lp = 1.41421356;
+  lp_a1 = 1.0 / (1.0 + g_lp * (g_lp + k_lp));
+  lp_a2 = g_lp * lp_a1;
+  lp_a3 = g_lp * lp_a2;
+
+  // Envelope time constants
+  att_coeff = exp(-1.0 / max(1.0, (attack_ms * 0.001) * SAFE_SRATE));
+  rel_coeff = exp(-1.0 / max(1.0, (release_ms * 0.001) * SAFE_SRATE));
+
+  // Pan / M-S channel weighting
+  pan_norm = pan_val * 0.01;
+  weight_ch0 = pan_norm <= 0.0 ? 1.0 : (1.0 - pan_norm);
+  weight_ch1 = pan_norm >= 0.0 ? 1.0 : (1.0 + pan_norm);
+);
+
+function init_filterbank()
+  local(i, pct, fc, g, k_bp, a1_bp)
+(
+  SAFE_SRATE = max(8000.0, srate);
+  EQ_Q = 4.3;
+
+  i = 0;
+  loop(NUM_BANDS,
+    pct = (i + 0.5) / NUM_BANDS;
+    fc = exp(LOG_MIN + pct * (LOG_MAX - LOG_MIN));
+    fc = min(fc, SAFE_SRATE * 0.44);
+    freq_table[i] = fc;
+
+    // Precompute frequency warping tan() once per sample-rate change
+    g = tan($pi * fc / SAFE_SRATE);
+    svf_g[i] = g;
+
+    // Constant-0dB-peak SVF bandpass for sidechain analysis
+    k_bp = 1.0 / EQ_Q;
+    a1_bp = 1.0 / (1.0 + g * (g + k_bp));
+    sc_a1[i] = a1_bp;
+    sc_a2[i] = g * a1_bp;
+
+    // Initialize main EQ bands to unity (0 dB gain)
+    eq0_a1[i] = a1_bp; eq0_a2[i] = g * a1_bp; eq0_m1[i] = 0.0;
+    eq1_a1[i] = a1_bp; eq1_a2[i] = g * a1_bp; eq1_m1[i] = 0.0;
+
+    i += 1;
+  );
+  last_srate = SAFE_SRATE;
+);
+
+// Only clear filter states once on first load or if sample rate changes
+!dsp_initialized || (last_srate != srate) ? (
+  init_filterbank();
+  update_parameters();
+  dsp_initialized = 1;
+);
+
+@slider
+update_parameters();
+
+@block
+last_srate != srate ? init_filterbank();
+update_parameters();
+
+// Update 32-band SVF Bell coefficients once per block
+i = 0;
+loop(NUM_BANDS,
+  fc = freq_table[i];
+
+  // Smooth roll-off outside Low-Cut and High-Cut boundaries
+  mask = 1.0;
+  fc < low_cut_hz ? (
+    oct_below = log(low_cut_hz / fc) / log(2.0);
+    mask = max(0.0, 1.0 - oct_below * 1.5);
+  );
+  fc > high_cut_hz ? (
+    oct_above = log(fc / high_cut_hz) / log(2.0);
+    mask = min(mask, max(0.0, 1.0 - oct_above * 1.5));
+  );
+
+  // Convert linear envelope to dB (-60 dB floor)
+  env_lin = max(0.000001, env_state[i]);
+  env_db = 8.685889638 * log(env_lin); // 20 / ln(10) * ln(x)
+  env_db_arr[i] = env_db;
+
+  // Calculate gain reduction (0 to -24 dB max)
+  excess_db = max(0.0, env_db + 54.0);
+  raw_red_db = -(excess_db * (amount_pct * 0.01) * 0.55) * mask;
+  target_red_db = max(-24.0, min(0.0, raw_red_db));
+  red_db_arr[i] = target_red_db;
+
+  g = svf_g[i];
+
+  // Channel 0 (Left or Mid) Cytomic Bell SVF
+  g0_db = target_red_db * weight_ch0;
+  A0 = exp(g0_db * 0.0575646273); // 10^(dB/40) = exp(dB * ln(10)/40)
+  k0 = 1.0 / (EQ_Q * A0);
+  a1_0 = 1.0 / (1.0 + g * (g + k0));
+  eq0_a1[i] = a1_0;
+  eq0_a2[i] = g * a1_0;
+  eq0_m1[i] = k0 * (A0 * A0 - 1.0);
+
+  // Channel 1 (Right or Side) Cytomic Bell SVF
+  g1_db = target_red_db * weight_ch1;
+  A1 = exp(g1_db * 0.0575646273);
+  k1 = 1.0 / (EQ_Q * A1);
+  a1_1 = 1.0 / (1.0 + g * (g + k1));
+  eq1_a1[i] = a1_1;
+  eq1_a2[i] = g * a1_1;
+  eq1_m1[i] = k1 * (A1 * A1 - 1.0);
+
+  i += 1;
+);
+
+@sample
+in_l = spl0;
+in_r = spl1;
+sc_l = spl2;
+sc_r = spl3;
+
+// Sum sidechain to mono and apply Low-Cut / High-Cut SVF filters
+sc_mono = (sc_l + sc_r) * 0.5;
+
+low_cut_hz > 21.0 ? (
+  v3 = sc_mono - hp_ic2;
+  v1 = hp_a1 * hp_ic1 + hp_a2 * v3;
+  v2 = hp_ic2 + hp_a2 * hp_ic1 + hp_a3 * v3;
+  hp_ic1 = 2.0 * v1 - hp_ic1;
+  hp_ic2 = 2.0 * v2 - hp_ic2;
+  sc_mono = sc_mono - hp_k * v1 - v2;
+);
+
+high_cut_hz < 19900.0 ? (
+  v3 = sc_mono - lp_ic2;
+  v1 = lp_a1 * lp_ic1 + lp_a2 * v3;
+  v2 = lp_ic2 + lp_a2 * lp_ic1 + lp_a3 * v3;
+  lp_ic1 = 2.0 * v1 - lp_ic1;
+  lp_ic2 = 2.0 * v2 - lp_ic2;
+  sc_mono = v2;
+);
+
+// Update 32-band sidechain envelope detectors unless Freeze is active
+!freeze_on ? (
+  k_bp = 1.0 / EQ_Q;
+  b = 0;
+  loop(NUM_BANDS,
+    ic1 = sc_ic1[b];
+    ic2 = sc_ic2[b];
+    a1  = sc_a1[b];
+    a2  = sc_a2[b];
+
+    v3 = sc_mono - ic2;
+    v1 = a1 * ic1 + a2 * v3;
+    v2 = ic2 + a2 * ic1 + (svf_g[b] * a2) * v3;
+    sc_ic1[b] = 2.0 * v1 - ic1;
+    sc_ic2[b] = 2.0 * v2 - ic2;
+
+    // Normalized bandpass output = k_bp * v1
+    rect = abs(k_bp * v1);
+    curr_env = env_state[b];
+    rect > curr_env ? (
+      env_state[b] = att_coeff * curr_env + (1.0 - att_coeff) * rect;
+    ) : (
+      env_state[b] = rel_coeff * curr_env + (1.0 - rel_coeff) * rect;
+    );
+    b += 1;
+  );
+);
+
+audition_on ? (
+  spl0 = sc_mono;
+  spl1 = sc_mono;
+) : (
+  // Encode Mid/Side if selected
+  proc_mode == 1 ? (
+    ch0 = (in_l + in_r) * 0.70710678;
+    ch1 = (in_l - in_r) * 0.70710678;
+  ) : (
+    ch0 = in_l;
+    ch1 = in_r;
+  );
+
+  // Cascade through 32 unconditionally stable SVF Bell filters
+  b = 0;
+  loop(NUM_BANDS,
+    g_b = svf_g[b];
+
+    // Channel 0
+    ic1 = eq0_ic1[b]; ic2 = eq0_ic2[b];
+    a1  = eq0_a1[b];  a2  = eq0_a2[b];
+    v3  = ch0 - ic2;
+    v1  = a1 * ic1 + a2 * v3;
+    v2  = ic2 + a2 * ic1 + (g_b * a2) * v3;
+    eq0_ic1[b] = 2.0 * v1 - ic1;
+    eq0_ic2[b] = 2.0 * v2 - ic2;
+    ch0 = ch0 + eq0_m1[b] * v1;
+
+    // Channel 1
+    ic1 = eq1_ic1[b]; ic2 = eq1_ic2[b];
+    a1  = eq1_a1[b];  a2  = eq1_a2[b];
+    v3  = ch1 - ic2;
+    v1  = a1 * ic1 + a2 * v3;
+    v2  = ic2 + a2 * ic1 + (g_b * a2) * v3;
+    eq1_ic1[b] = 2.0 * v1 - ic1;
+    eq1_ic2[b] = 2.0 * v2 - ic2;
+    ch1 = ch1 + eq1_m1[b] * v1;
+
+    b += 1;
+  );
+
+  // Decode Mid/Side back to L/R
+  proc_mode == 1 ? (
+    out_l = (ch0 + ch1) * 0.70710678;
+    out_r = (ch0 - ch1) * 0.70710678;
+  ) : (
+    out_l = ch0;
+    out_r = ch1;
+  );
+
+  // Hard NaN/Inf protection + +6 dB safety ceiling so meters can never explode
+  (out_l != out_l || abs(out_l) > 2.0) ? (
+    out_l = max(-2.0, min(2.0, out_l));
+  );
+  (out_r != out_r || abs(out_r) > 2.0) ? (
+    out_r = max(-2.0, min(2.0, out_r));
+  );
+
+  spl0 = out_l;
+  spl1 = out_r;
+);
+
+@gfx 650 650
+// Solid RGB clear (R=20, G=23, B=30) prevents Linux X11/Wayland buffer flickering
+gfx_clear = 20 + (23 * 256) + (30 * 65536);
+W = max(500, gfx_w);
+H = max(520, gfx_h);
+
+// Strictly scoped UI helper functions using local()
+function freq_to_x(f, x0, xw)
+  local(clamped)
+(
+  clamped = max(MIN_FREQ, min(MAX_FREQ, f));
+  x0 + ((log(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * xw;
+);
+
+function x_to_freq(px, x0, xw)
+  local(norm)
+(
+  norm = max(0.0, min(1.0, (px - x0) / xw));
+  exp(LOG_MIN + norm * (LOG_MAX - LOG_MIN));
+);
+
+function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_accent)
+  local(norm, hit, sens, delta, ang_start, ang_end, ang_val, steps, st, t0, t1, a0, a1, px0, py0, px1, py1, lw, lh, vw, vh)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 8)*(r + 8));
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 500.0 : 150.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  // Knob body
+  gfx_set(0.05, 0.06, 0.08, 1.0);
+  gfx_circle(cx, cy + 2, r, 1, 1);
+  gfx_set(0.14, 0.16, 0.21, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  gfx_set(0.26, 0.30, 0.38, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+
+  // Value arc
+  steps = 32;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+    t1 <= norm ? (
+      is_accent ? gfx_set(0.18, 0.70, 1.0, 1.0) : gfx_set(0.45, 0.78, 0.98, 0.95);
+    ) : (
+      gfx_set(0.22, 0.25, 0.31, 0.8);
+    );
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    st += 1;
+  );
+
+  // Pointer indicator
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.28);
+  py0 = cy - cos(ang_val) * (r * 0.28);
+  px1 = cx + sin(ang_val) * (r - 7);
+  py1 = cy - cos(ang_val) * (r - 7);
+  gfx_line(px0, py0, px1, py1, 1);
+
+  // Text label & readout
+  gfx_setfont(1, "sans-serif", 13, 'b');
+  gfx_measurestr(label, lw, lh);
+  gfx_set(0.68, 0.73, 0.82, 1.0);
+  gfx_x = cx - lw * 0.5; gfx_y = cy + r + 8;
+  gfx_drawstr(label);
+
+  gfx_setfont(1, "sans-serif", 12, 0);
+  gfx_measurestr(val_str, vw, vh);
+  gfx_set(0.92, 0.95, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5; gfx_y = cy + r + 24;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// 1. Header Bar
+gfx_set(0.11, 0.13, 0.17, 1.0);
+gfx_rect(0, 0, W, 44);
+gfx_set(0.20, 0.23, 0.29, 1.0);
+gfx_line(0, 44, W, 44);
+
+gfx_setfont(1, "sans-serif", 18, 'b');
+gfx_set(0.22, 0.72, 1.0, 1.0);
+gfx_x = 20; gfx_y = 12;
+gfx_drawstr("SPECTRAL");
+gfx_set(0.92, 0.95, 1.0, 1.0);
+gfx_drawstr("CARVER");
+
+title_hit = mouse_x >= 16 && mouse_x <= 200 && mouse_y >= 8 && mouse_y <= 38;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// Freeze Button
+frz_x = W - 115; frz_y = 9; frz_w = 95; frz_h = 26;
+frz_hit = mouse_x >= frz_x && mouse_x <= frz_x + frz_w && mouse_y >= frz_y && mouse_y <= frz_y + frz_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && frz_hit ? (
+  freeze_on = !freeze_on;
+  slider_automate(slider8);
+);
+freeze_on ? gfx_set(0.16, 0.62, 0.95, 1.0) : gfx_set(0.17, 0.20, 0.26, 1.0);
+gfx_rect(frz_x, frz_y, frz_w, frz_h);
+gfx_set(0.35, 0.42, 0.52, 1.0);
+gfx_rect(frz_x, frz_y, frz_w, frz_h, 0);
+gfx_setfont(1, "sans-serif", 12, 'b');
+freeze_on ? gfx_set(1, 1, 1, 1) : gfx_set(0.75, 0.80, 0.88, 1);
+gfx_measurestr("FREEZE", fw, fh);
+gfx_x = frz_x + (frz_w - fw) * 0.5; gfx_y = frz_y + (frz_h - fh) * 0.5;
+gfx_drawstr("FREEZE");
+
+// 2. Spectrum Analyzer Viewport
+spec_x = 20; spec_y = 58; spec_w = W - 40; spec_h = 240;
+gfx_set(0.05, 0.06, 0.08, 1.0);
+gfx_rect(spec_x, spec_y, spec_w, spec_h);
+
+// Grid lines: Frequency verticals
+gfx_setfont(1, "sans-serif", 10, 0);
+f_idx = 0;
+loop(8,
+  f_idx == 0 ? gf = 50 :
+  f_idx == 1 ? gf = 100 :
+  f_idx == 2 ? gf = 200 :
+  f_idx == 3 ? gf = 500 :
+  f_idx == 4 ? gf = 1000 :
+  f_idx == 5 ? gf = 2000 :
+  f_idx == 6 ? gf = 5000 : gf = 10000;
+
+  gx = freq_to_x(gf, spec_x, spec_w);
+  gfx_set(0.13, 0.15, 0.19, 1.0);
+  gfx_line(gx, spec_y, gx, spec_y + spec_h);
+
+  gfx_set(0.42, 0.46, 0.54, 1.0);
+  gf >= 1000 ? sprintf(#flbl, "%dk", gf/1000) : sprintf(#flbl, "%d", gf);
+  gfx_measurestr(#flbl, flw, flh);
+  gfx_x = gx - flw * 0.5; gfx_y = spec_y + spec_h - 14;
+  gfx_drawstr(#flbl);
+  f_idx += 1;
+);
+
+// Grid lines: Horizontal dB markers
+db_idx = 1;
+loop(4,
+  gy = spec_y + (db_idx / 5.0) * spec_h;
+  gfx_set(0.13, 0.15, 0.19, 1.0);
+  gfx_line(spec_x, gy, spec_x + spec_w, gy);
+  gfx_set(0.42, 0.46, 0.54, 1.0);
+  sprintf(#dblbl, "-%d dB", db_idx * 6);
+  gfx_x = spec_x + 6; gfx_y = gy + 2;
+  gfx_drawstr(#dblbl);
+  db_idx += 1;
+);
+
+// Smooth and render Sidechain (blue, bottom-up) and Reduction (white, top-down)
+ui_b = 0;
+loop(NUM_BANDS,
+  target_sc = max(0.0, min(1.0, (env_db_arr[ui_b] + 60.0) / 60.0));
+  ui_sc_norm[ui_b] = ui_sc_norm[ui_b] * 0.65 + target_sc * 0.35;
+
+  target_red = max(0.0, min(1.0, abs(red_db_arr[ui_b]) / 24.0));
+  ui_red_norm[ui_b] = ui_red_norm[ui_b] * 0.65 + target_red * 0.35;
+  ui_b += 1;
+);
+
+ui_b = 0;
+loop(NUM_BANDS,
+  bx = freq_to_x(freq_table[ui_b], spec_x, spec_w);
+  by_sc = spec_y + spec_h - ui_sc_norm[ui_b] * (spec_h - 18);
+  by_red = spec_y + ui_red_norm[ui_b] * (spec_h * 0.85);
+
+  col_w = (spec_w / NUM_BANDS) * 0.78;
+  gfx_set(0.12, 0.55, 0.95, 0.25);
+  gfx_rect(bx - col_w*0.5, by_sc, col_w, (spec_y + spec_h) - by_sc);
+
+  ui_b > 0 ? (
+    gfx_set(0.20, 0.72, 1.0, 0.95);
+    gfx_line(prev_bx, prev_by_sc, bx, by_sc, 1);
+    gfx_line(prev_bx, prev_by_sc + 1, bx, by_sc + 1, 1);
+
+    gfx_set(0.96, 0.98, 1.0, 0.95);
+    gfx_line(prev_bx, prev_by_red, bx, by_red, 1);
+    gfx_line(prev_bx, prev_by_red + 1, bx, by_red + 1, 1);
+  );
+
+  prev_bx = bx;
+  prev_by_sc = by_sc;
+  prev_by_red = by_red;
+  ui_b += 1;
+);
+
+// Interactive Low-Cut / High-Cut curtains
+lc_x = freq_to_x(low_cut_hz, spec_x, spec_w);
+hc_x = freq_to_x(high_cut_hz, spec_x, spec_w);
+
+gfx_set(0.02, 0.03, 0.05, 0.58);
+lc_x > spec_x ? gfx_rect(spec_x, spec_y, lc_x - spec_x, spec_h);
+hc_x < spec_x + spec_w ? gfx_rect(hc_x, spec_y, (spec_x + spec_w) - hc_x, spec_h);
+
+gfx_set(0.35, 0.75, 1.0, 0.85);
+gfx_line(lc_x, spec_y, lc_x, spec_y + spec_h);
+gfx_line(hc_x, spec_y, hc_x, spec_y + spec_h);
+gfx_circle(lc_x, spec_y + 18, 5, 1, 1);
+gfx_circle(hc_x, spec_y + 18, 5, 1, 1);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) && drag_id == 0 ? (
+  mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
+    abs(mouse_x - lc_x) < 10 ? drag_id = 101 :
+    abs(mouse_x - hc_x) < 10 ? drag_id = 102;
+  );
+);
+drag_id == 101 ? (
+  (mouse_cap & 1) ? (
+    low_cut_hz = min(high_cut_hz - 20, max(20, x_to_freq(mouse_x, spec_x, spec_w)));
+    update_parameters();
+    slider_automate(slider2);
+  ) : drag_id = 0;
+);
+drag_id == 102 ? (
+  (mouse_cap & 1) ? (
+    high_cut_hz = max(low_cut_hz + 20, min(20000, x_to_freq(mouse_x, spec_x, spec_w)));
+    update_parameters();
+    slider_automate(slider3);
+  ) : drag_id = 0;
+);
+
+// Spectrum Border
+gfx_set(0.22, 0.26, 0.33, 1.0);
+gfx_rect(spec_x, spec_y, spec_w, spec_h, 0);
+
+// Hover Readout
+mouse_x >= spec_x && mouse_x <= spec_x + spec_w && mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
+  hover_freq = x_to_freq(mouse_x, spec_x, spec_w);
+  hover_db   = -((mouse_y - spec_y) / spec_h) * 24.0;
+  hover_freq >= 1000 ? (
+    sprintf(#hover_str, "%.2f kHz  |  %.1f dB", hover_freq * 0.001, hover_db);
+  ) : (
+    sprintf(#hover_str, "%d Hz  |  %.1f dB", hover_freq, hover_db);
+  );
+  gfx_setfont(1, "sans-serif", 11, 0);
+  gfx_measurestr(#hover_str, hw, hh);
+  gfx_set(0.08, 0.10, 0.14, 0.90);
+  gfx_rect(spec_x + spec_w - hw - 18, spec_y + 8, hw + 12, hh + 8);
+  gfx_set(0.82, 0.88, 0.96, 1.0);
+  gfx_x = spec_x + spec_w - hw - 12; gfx_y = spec_y + 12;
+  gfx_drawstr(#hover_str);
+);
+
+// Little Blue Dot (toggles Advanced Panel)
+dot_cx = spec_x + spec_w - 16;
+dot_cy = spec_y + spec_h - 16;
+dot_r  = 7;
+dot_hit = ((mouse_x - dot_cx)*(mouse_x - dot_cx) + (mouse_y - dot_cy)*(mouse_y - dot_cy)) <= ((dot_r + 5)*(dot_r + 5));
+(mouse_cap & 1) && !(last_mouse_cap & 1) && dot_hit ? (
+  adv_open = !adv_open;
+  slider_automate(slider10);
+);
+adv_open ? gfx_set(0.22, 0.80, 1.0, 1.0) : gfx_set(0.14, 0.48, 0.78, 0.85);
+gfx_circle(dot_cx, dot_cy, dot_r, 1, 1);
+gfx_set(0.85, 0.95, 1.0, 0.9);
+gfx_circle(dot_cx, dot_cy, dot_r, 0, 1);
+
+// 3. Main Controls (Low Cut, Amount, High Cut)
+main_cy = 405;
+
+lc_norm = (log(max(MIN_FREQ, low_cut_hz)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+low_cut_hz >= 1000 ? sprintf(#lc_str, "%.2f kHz", low_cut_hz*0.001) : sprintf(#lc_str, "%d Hz", low_cut_hz);
+new_lc_norm = draw_rotary_knob(1, 135, main_cy, 34, lc_norm, 0.0, 1.0, 0.0, "LOW CUT", #lc_str, 0);
+abs(new_lc_norm - lc_norm) > 0.0001 ? (
+  low_cut_hz = min(high_cut_hz - 20, exp(LOG_MIN + new_lc_norm * (LOG_MAX - LOG_MIN)));
+  update_parameters();
+  slider_automate(slider2);
+);
+
+sprintf(#amt_str, "%.1f %%", amount_pct);
+new_amt = draw_rotary_knob(2, W * 0.5, main_cy - 6, 56, amount_pct, 0.0, 100.0, 25.0, "AMOUNT", #amt_str, 1);
+abs(new_amt - amount_pct) > 0.001 ? (
+  amount_pct = new_amt;
+  slider_automate(slider1);
+);
+
+hc_norm = (log(max(MIN_FREQ, high_cut_hz)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+high_cut_hz >= 1000 ? sprintf(#hc_str, "%.2f kHz", high_cut_hz*0.001) : sprintf(#hc_str, "%d Hz", high_cut_hz);
+new_hc_norm = draw_rotary_knob(3, W - 135, main_cy, 34, hc_norm, 0.0, 1.0, 1.0, "HIGH CUT", #hc_str, 0);
+abs(new_hc_norm - hc_norm) > 0.0001 ? (
+  high_cut_hz = max(low_cut_hz + 20, exp(LOG_MIN + new_hc_norm * (LOG_MAX - LOG_MIN)));
+  update_parameters();
+  slider_automate(slider3);
+);
+
+// 4. Collapsible Advanced Panel
+adv_y = 505;
+adv_h = 125;
+adv_open ? (
+  gfx_set(0.11, 0.13, 0.17, 1.0);
+  gfx_rect(20, adv_y, W - 40, adv_h);
+  gfx_set(0.22, 0.26, 0.33, 1.0);
+  gfx_rect(20, adv_y, W - 40, adv_h, 0);
+
+  adv_cy = adv_y + 48;
+
+  proc_mode == 0 ? (
+    pan_val < -0.5 ? sprintf(#pan_str, "%d L", abs(pan_val)) :
+    pan_val >  0.5 ? sprintf(#pan_str, "%d R", pan_val) : strcpy(#pan_str, "Center");
+    strcpy(#pan_lbl, "PAN (L/R)");
+  ) : (
+    pan_val < -0.5 ? sprintf(#pan_str, "%d M", abs(pan_val)) :
+    pan_val >  0.5 ? sprintf(#pan_str, "%d S", pan_val) : strcpy(#pan_str, "Even M/S");
+    strcpy(#pan_lbl, "BALANCE (M/S)");
+  );
+  new_pan = draw_rotary_knob(4, 95, adv_cy, 24, pan_val, -100.0, 100.0, 0.0, #pan_lbl, #pan_str, 0);
+  abs(new_pan - pan_val) > 0.01 ? (
+    pan_val = new_pan;
+    update_parameters();
+    slider_automate(slider7);
+  );
+
+  sprintf(#att_str, "%.1f ms", attack_ms);
+  new_att = draw_rotary_knob(5, 220, adv_cy, 24, attack_ms, 0.1, 200.0, 10.0, "ATTACK", #att_str, 0);
+  abs(new_att - attack_ms) > 0.01 ? (
+    attack_ms = new_att;
+    update_parameters();
+    slider_automate(slider4);
+  );
+
+  sprintf(#rel_str, "%d ms", release_ms);
+  new_rel = draw_rotary_knob(6, 345, adv_cy, 24, release_ms, 5.0, 1000.0, 80.0, "RELEASE", #rel_str, 0);
+  abs(new_rel - release_ms) > 0.01 ? (
+    release_ms = new_rel;
+    update_parameters();
+    slider_automate(slider5);
+  );
+
+  // Mode Toggle Button
+  mode_x = 435; mode_y = adv_y + 26; mode_w = 82; mode_h = 34;
+  mode_hit = mouse_x >= mode_x && mouse_x <= mode_x + mode_w && mouse_y >= mode_y && mouse_y <= mode_y + mode_h;
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && mode_hit ? (
+    proc_mode = !proc_mode;
+    slider_automate(slider6);
+  );
+  gfx_set(0.17, 0.21, 0.28, 1.0);
+  gfx_rect(mode_x, mode_y, mode_w, mode_h);
+  gfx_set(0.32, 0.39, 0.49, 1.0);
+  gfx_rect(mode_x, mode_y, mode_w, mode_h, 0);
+  gfx_setfont(1, "sans-serif", 13, 'b');
+  gfx_set(0.22, 0.75, 1.0, 1.0);
+  proc_mode == 0 ? strcpy(#m_str, "MODE: L/R") : strcpy(#m_str, "MODE: M/S");
+  gfx_measurestr(#m_str, mw, mh);
+  gfx_x = mode_x + (mode_w - mw) * 0.5; gfx_y = mode_y + (mode_h - mh) * 0.5;
+  gfx_drawstr(#m_str);
+
+  // SC Audition Button
+  aud_x = 530; aud_y = adv_y + 26; aud_w = 85; aud_h = 34;
+  aud_hit = mouse_x >= aud_x && mouse_x <= aud_x + aud_w && mouse_y >= aud_y && mouse_y <= aud_y + aud_h;
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && aud_hit ? (
+    audition_on = !audition_on;
+    slider_automate(slider9);
+  );
+  audition_on ? gfx_set(0.90, 0.52, 0.12, 1.0) : gfx_set(0.17, 0.21, 0.28, 1.0);
+  gfx_rect(aud_x, aud_y, aud_w, aud_h);
+  gfx_set(0.35, 0.42, 0.52, 1.0);
+  gfx_rect(aud_x, aud_y, aud_w, aud_h, 0);
+  gfx_setfont(1, "sans-serif", 12, 'b');
+  audition_on ? gfx_set(1, 1, 1, 1) : gfx_set(0.75, 0.80, 0.88, 1);
+  gfx_measurestr("SC AUDITION", aw, ah);
+  gfx_x = aud_x + (aud_w - aw) * 0.5; gfx_y = aud_y + (aud_h - ah) * 0.5;
+  gfx_drawstr("SC AUDITION");
+) : (
+  gfx_setfont(1, "sans-serif", 11, 0);
+  gfx_set(0.42, 0.47, 0.55, 1.0);
+  strcpy(#hint_str, "Click the blue dot in the bottom-right of the analyzer to open the Advanced Panel");
+  gfx_measurestr(#hint_str, htw, hth);
+  gfx_x = (W - htw) * 0.5; gfx_y = adv_y + 50;
+  gfx_drawstr(#hint_str);
+);
+
+// 5. Info Overlay
+info_open ? (
+  gfx_set(0.05, 0.06, 0.09, 0.96);
+  gfx_rect(120, 150, W - 240, 210);
+  gfx_set(0.22, 0.72, 1.0, 1.0);
+  gfx_rect(120, 150, W - 240, 210, 0);
+
+  gfx_setfont(1, "sans-serif", 16, 'b');
+  gfx_x = 145; gfx_y = 172;
+  gfx_drawstr("SpectralCarver JSFX v1.1");
+
+  gfx_setfont(1, "sans-serif", 12, 0);
+  gfx_set(0.82, 0.86, 0.92, 1.0);
+  gfx_x = 145; gfx_y = 204;
+  gfx_drawstr("- 32-band Cytomic SVF spectral ducker");
+  gfx_x = 145; gfx_y = 226;
+  gfx_drawstr("- Route Sidechain audio to Channels 3/4");
+  gfx_x = 145; gfx_y = 248;
+  gfx_drawstr("- Drag knobs vertically (hold Ctrl for fine control)");
+  gfx_x = 145; gfx_y = 270;
+  gfx_drawstr("- Double-click any knob to reset to default");
+  gfx_x = 145; gfx_y = 292;
+  gfx_drawstr("- Drag Low/High Cut lines directly inside the spectrum");
+  gfx_set(0.55, 0.62, 0.72, 1.0);
+  gfx_x = 145; gfx_y = 324;
+  gfx_drawstr("Click the logo again to close this panel.");
+);
+
+last_mouse_cap = mouse_cap;
