@@ -1,0 +1,771 @@
+desc:PocketQ (Compact Console & Air EQ)
+// @description PocketQ (Compact Console & Air EQ)
+// @author MemoryAPI
+// @version 1.0.0
+// @changelog Initial release in repository
+// @about
+//   # PocketQ
+//   Compact, ultra-low CPU console channel strip equalizer with fixed musical frequencies, E/G curves, and high-headroom Air Band.
+//
+//   ### Features
+//   - Fixed musical frequency bands: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell)
+//   - High-headroom Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz)
+//   - 18 dB/oct HPF and 12 dB/oct LPF console cut filters
+//   - E-Series (tight constant Q) and G-Series (smooth proportional Q) response curves
+//   - Console Drive switch with Clean and Warm analog saturation
+//   - Auto-gain compensation and phase invert toggle
+//   - Ultra-lightweight DSP footprint optimized for loading across every mixer track
+//   - Scalable HiDPI text zoom (100% - 140%)
+// @provides
+//   [effect] PocketQ.jsfx
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:hpf_hz=20<20,500,1>-HPF Frequency (Hz)
+slider2:lpf_hz=22000<3000,22000,10>-LPF Frequency (Hz)
+slider3:sub_db=0<-6,15,0.1>-Sub 10Hz (dB)
+slider4:low_db=0<-12,15,0.1>-40Hz Band (dB)
+slider5:lmid_db=0<-12,15,0.1>-160Hz Band (dB)
+slider6:mid_db=0<-12,15,0.1>-650Hz Band (dB)
+slider7:hmid_db=0<-12,15,0.1>-2.5kHz Shelf/Bell (dB)
+slider8:air_db=0<0,20,0.1>-Air Gain (dB)
+slider9:air_freq_idx=2<0,4,1{2.5 kHz,5 kHz,10 kHz,20 kHz,40 kHz}>-Air Frequency
+slider10:out_db=0<-18,18,0.1>-Output Trim (dB)
+slider11:eq_mode_g=1<0,1,1{E-Series (Tight),G-Series (Smooth)}>-Curve Mode
+slider12:hmid_bell=0<0,1,1{Shelf,Bell}>-2.5kHz Shape
+slider13:char_on=1<0,1,1{Clean,Warm}>-Console Drive
+slider14:auto_gain=0<0,1,1{Off,On}>-Auto Gain
+slider15:phase_inv=0<0,1,1{Normal,Inverted}>-Phase Invert
+slider16:eq_active=1<0,1,1{Bypass,Active}>-EQ Active
+slider17:ui_zoom=1.15<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+air_freq_tbl = 100;
+air_freq_tbl[0] = 2500.0;
+air_freq_tbl[1] = 5000.0;
+air_freq_tbl[2] = 10000.0;
+air_freq_tbl[3] = 20000.0;
+air_freq_tbl[4] = 40000.0;
+
+// Coefficient memory blocks (8 floats each)
+C_HPF  = 200;
+C_LPF  = 210;
+C_SUB  = 220;
+C_40   = 230;
+C_160  = 240;
+C_650  = 250;
+C_2K5  = 260;
+C_AIR  = 270;
+
+// Filter state blocks
+S_L = 300;
+S_R = 350;
+
+function DB_TO_K(x)
+(
+  10 ^ (x / 20.0)
+);
+
+function K_TO_DB(lin)
+(
+  8.685889638 * log(max(0.0000001, lin))
+);
+
+// Cytomic SVF Filter Designer
+// type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=HPF12, 4=LPF12
+function svf_design(ptr, type, fc, gain_db, Q, srate_val)
+  local(nyq, fc_safe, g, A, k, a1, a2, a3, m0, m1, m2, air_scale)
+(
+  nyq = srate_val * 0.475;
+  type == 2 && fc > (srate_val * 0.32) ? (
+    air_scale = min(1.0, (srate_val * 0.42) / fc);
+    fc_safe   = srate_val * 0.40 * (1.0 - 0.15 * (1.0 - air_scale));
+    gain_db  *= (0.55 + 0.45 * air_scale);
+  ) : (
+    fc_safe = max(8.0, min(nyq, fc));
+  );
+
+  g = tan($pi * fc_safe / srate_val);
+
+  type == 0 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    k  = 1.0 / max(0.1, Q * A);
+    a1 = 1.0 / (1.0 + g * (g + k));
+    a2 = g * a1;
+    a3 = g * a2;
+    m0 = 1.0;
+    m1 = k * (A * A - 1.0);
+    m2 = 0.0;
+  ) : type == 2 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    g  = g * sqrt(A);
+    k  = 1.0 / max(0.2, Q);
+    a1 = 1.0 / (1.0 + g * (g + k));
+    a2 = g * a1;
+    a3 = g * a2;
+    m0 = A * A;
+    m1 = k * (1.0 - A) * A;
+    m2 = (1.0 - A * A);
+  ) : type == 3 ? (
+    k  = 1.0 / max(0.2, Q);
+    a1 = 1.0 / (1.0 + g * (g + k));
+    a2 = g * a1;
+    a3 = g * a2;
+    m0 = 1.0;
+    m1 = -k;
+    m2 = -1.0;
+  ) : (
+    k  = 1.0 / max(0.2, Q);
+    a1 = 1.0 / (1.0 + g * (g + k));
+    a2 = g * a1;
+    a3 = g * a2;
+    m0 = 0.0;
+    m1 = 0.0;
+    m2 = 1.0;
+  );
+
+  ptr[0] = a1; ptr[1] = a2; ptr[2] = a3;
+  ptr[3] = m0; ptr[4] = m1; ptr[5] = m2;
+);
+
+function process_svf(x, coeff_ptr, state_ptr)
+  local(ic1, ic2, v1, v2, v3)
+(
+  ic1 = state_ptr[0];
+  ic2 = state_ptr[1];
+  v3  = x - ic2;
+  v1  = coeff_ptr[0] * ic1 + coeff_ptr[1] * v3;
+  v2  = ic2 + coeff_ptr[1] * ic1 + coeff_ptr[2] * v3;
+  state_ptr[0] = 2.0 * v1 - ic1;
+  state_ptr[1] = 2.0 * v2 - ic2;
+  coeff_ptr[3] * x + coeff_ptr[4] * v1 + coeff_ptr[5] * v2;
+);
+
+function update_parameters()
+  local(SAFE_SRATE, base_q, q_40, q_160, q_650, q_2k5, air_fc, est_auto_db)
+(
+  SAFE_SRATE = max(8000.0, srate);
+
+  // 18 dB/oct HPF = 1st-order RC pole + 2nd-order SVF
+  w_hp1 = 2.0 * $pi * max(20.0, min(hpf_hz, SAFE_SRATE * 0.44)) / SAFE_SRATE;
+  hp1_a = 1.0 / (1.0 + w_hp1);
+  svf_design(C_HPF, 3, hpf_hz, 0.0, 0.85, SAFE_SRATE);
+
+  // 12 dB/oct Butterworth LPF
+  svf_design(C_LPF, 4, lpf_hz, 0.0, 0.7071, SAFE_SRATE);
+
+  // E-Series (Constant tighter Q) vs G-Series (Smooth proportional Q)
+  base_q = eq_mode_g ? 0.85 : 1.35;
+  q_40   = eq_mode_g ? (base_q * (0.65 + 0.65 * (abs(low_db)  / 15.0))) : base_q;
+  q_160  = eq_mode_g ? (base_q * (0.65 + 0.65 * (abs(lmid_db) / 15.0))) : base_q;
+  q_650  = eq_mode_g ? (base_q * (0.65 + 0.65 * (abs(mid_db)  / 15.0))) : base_q;
+  q_2k5  = hmid_bell ? (eq_mode_g ? 1.0 : 1.4) : (eq_mode_g ? 0.88 : 0.68);
+
+  // Fixed Maag-style musical center frequencies: Sub (10Hz), 40Hz, 160Hz, 650Hz, 2.5kHz
+  svf_design(C_SUB, 0, 10.0,   sub_db,  1.1,   SAFE_SRATE);
+  svf_design(C_40,  0, 40.0,   low_db,  q_40,  SAFE_SRATE);
+  svf_design(C_160, 0, 160.0,  lmid_db, q_160, SAFE_SRATE);
+  svf_design(C_650, 0, 650.0,  mid_db,  q_650, SAFE_SRATE);
+  svf_design(C_2K5, hmid_bell ? 0 : 2, 2500.0, hmid_db, q_2k5, SAFE_SRATE);
+
+  // Air Band Boost-Only Shelf (2.5k, 5k, 10k, 20k, 40k)
+  air_fc = air_freq_tbl[air_freq_idx];
+  svf_design(C_AIR, 2, air_fc, air_db, 0.52, SAFE_SRATE);
+  air_broadband_lin = DB_TO_K(air_db * 0.12);
+
+  // Auto-Gain Compensation
+  auto_gain ? (
+    est_auto_db = -(sub_db * 0.08 + low_db * 0.22 + lmid_db * 0.28 +
+                    mid_db * 0.28 + hmid_db * 0.24 + air_db * 0.24);
+  ) : (
+    est_auto_db = 0.0;
+  );
+
+  out_lin = DB_TO_K(out_db + est_auto_db) * (phase_inv ? -1.0 : 1.0);
+  meter_decay = exp(-1.0 / (0.15 * SAFE_SRATE));
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.15;
+  eq_active = 1;
+  eq_mode_g = 1;
+  char_on   = 1;
+  update_parameters();
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+
+@sample
+sig_l = spl0;
+sig_r = spl1;
+
+eq_active ? (
+  // 1. 18 dB/oct HPF
+  hpf_hz > 21.0 ? (
+    hp1_l = hp1_a * (hp1_l + sig_l - hp1_prev_in_l); hp1_prev_in_l = sig_l; sig_l = hp1_l;
+    hp1_r = hp1_a * (hp1_r + sig_r - hp1_prev_in_r); hp1_prev_in_r = sig_r; sig_r = hp1_r;
+    sig_l = process_svf(sig_l, C_HPF, S_L + 0);
+    sig_r = process_svf(sig_r, C_HPF, S_R + 0);
+  );
+
+  // 2. 12 dB/oct LPF
+  lpf_hz < 21500.0 ? (
+    sig_l = process_svf(sig_l, C_LPF, S_L + 2);
+    sig_r = process_svf(sig_r, C_LPF, S_R + 2);
+  );
+
+  // 3. Fixed Console & Maag Bands (Sub 10Hz, 40Hz, 160Hz, 650Hz, 2.5kHz)
+  abs(sub_db) > 0.05 ? (
+    sig_l = process_svf(sig_l, C_SUB, S_L + 4);
+    sig_r = process_svf(sig_r, C_SUB, S_R + 4);
+  );
+  abs(low_db) > 0.05 ? (
+    sig_l = process_svf(sig_l, C_40, S_L + 6);
+    sig_r = process_svf(sig_r, C_40, S_R + 6);
+  );
+  abs(lmid_db) > 0.05 ? (
+    sig_l = process_svf(sig_l, C_160, S_L + 8);
+    sig_r = process_svf(sig_r, C_160, S_R + 8);
+  );
+  abs(mid_db) > 0.05 ? (
+    sig_l = process_svf(sig_l, C_650, S_L + 10);
+    sig_r = process_svf(sig_r, C_650, S_R + 10);
+  );
+  abs(hmid_db) > 0.05 ? (
+    sig_l = process_svf(sig_l, C_2K5, S_L + 12);
+    sig_r = process_svf(sig_r, C_2K5, S_R + 12);
+  );
+
+  // 4. Air Band Shelf (2.5k .. 40k)
+  air_db > 0.05 ? (
+    sig_l = process_svf(sig_l, C_AIR, S_L + 14) * air_broadband_lin;
+    sig_r = process_svf(sig_r, C_AIR, S_R + 14) * air_broadband_lin;
+  );
+
+  // 5. Console Transformer Saturation (Warm Mode)
+  char_on ? (
+    sig_l = sig_l - 0.07 * (sig_l * sig_l * sig_l);
+    sig_r = sig_r - 0.07 * (sig_r * sig_r * sig_r);
+  );
+
+  sig_l *= out_lin;
+  sig_r *= out_lin;
+);
+
+// Safety NaN/Clip protection
+(sig_l != sig_l || abs(sig_l) > 4.0) ? sig_l = max(-4.0, min(4.0, sig_l));
+(sig_r != sig_r || abs(sig_r) > 4.0) ? sig_r = max(-4.0, min(4.0, sig_r));
+
+spl0 = sig_l;
+spl1 = sig_r;
+
+out_pk = max(abs(sig_l), abs(sig_r));
+env_out = max(out_pk, env_out * meter_decay);
+out_pk > 1.0 ? peak_led_latched = 1;
+
+@gfx 680 360
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(560, gfx_w);
+H = max(310, gfx_h);
+
+// Responsive geometry scale & Linux X11 font multiplier
+S  = min(W / 680.0, H / 360.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(16, floor(20 * TS));
+f_sec   = max(12, floor(13 * TS));
+f_val   = max(12, floor(13 * TS));
+f_btn   = max(11, floor(12 * TS));
+f_sub   = max(10, floor(11 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_sub,   0);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Hardware-Style Detented Rotary Knob with Tick Ring & Pill Readout
+function draw_pocket_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh,
+        pill_w, pill_h, pill_x, pill_y, tk_i, tk_a, tx0, ty0, tx1, ty1)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 9)*(r + 9));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 500.0 : 135.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  // Outer Hardware Detent Tick Marks (11 ticks around perimeter)
+  gfx_set(0.30, 0.33, 0.44, 0.85);
+  tk_i = 0;
+  loop(11,
+    tk_a = ang_start + (tk_i / 10.0) * (ang_end - ang_start);
+    tx0  = cx + sin(tk_a) * (r + 3);
+    ty0  = cy - cos(tk_a) * (r + 3);
+    tx1  = cx + sin(tk_a) * (r + 6);
+    ty1  = cy - cos(tk_a) * (r + 6);
+    gfx_line(tx0, ty0, tx1, ty1, 1);
+    tk_i += 1;
+  );
+
+  // Drop shadow & hover halo
+  gfx_set(0.04, 0.04, 0.08, 0.85);
+  gfx_circle(cx, cy + 2, r + 1, 1, 1);
+  hover ? (
+    gfx_set(rc, gc, bc, 0.16);
+    gfx_circle(cx, cy, r + 5, 1, 1);
+  );
+
+  // Dark Slate Knob Body
+  gfx_set(0.11, 0.12, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.24, 0.26, 0.36, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  // Value Arc
+  steps = 30;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? (
+      gfx_set(rc, gc, bc, 0.98);
+    ) : (
+      gfx_set(0.19, 0.20, 0.28, 0.85);
+    );
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    st += 1;
+  );
+
+  // Inner cap & pointer
+  gfx_set(0.16, 0.18, 0.25, 1.0);
+  gfx_circle(cx, cy, floor(r * 0.28), 1, 1);
+  gfx_set(0.96, 0.97, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.22);
+  py0 = cy - cos(ang_val) * (r * 0.22);
+  px1 = cx + sin(ang_val) * (r - 5);
+  py1 = cy - cos(ang_val) * (r - 5);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.5, py0, px1 + 0.5, py1, 1);
+
+  // Frequency / Band Label Above or Below
+  gfx_setfont(2);
+  gfx_measurestr(label, lw, lh);
+  gfx_set(0.84, 0.88, 0.96, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(7 * S);
+  gfx_drawstr(label);
+
+  // Pill Value Readout
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(14 * S), floor(68 * S));
+  pill_h = vh + floor(5 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(9 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.20, hover ? gc : 0.22, hover ? bc : 0.32);
+  gfx_set(0.94, 0.96, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR (COMPACT HARDWARE SWITCHES & SIGNAL/PEAK LEDS)
+// =========================================================================
+hdr_h = floor(44 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.22, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// Brand Title: POCKETQ in Catppuccin Sapphire (#74C7EC)
+gfx_setfont(1);
+gfx_set(0.45, 0.78, 0.98, 1.0);
+gfx_x = floor(16 * S);
+gfx_measurestr("POCKET", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("POCKET");
+gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_drawstr("Q");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(8 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 10, qh + 4);
+gfx_set(0.45, 0.78, 0.98, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 14 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// Signal (Green) & Peak (Red) LEDs next to logo (click to clear Peak)
+sig_on = K_TO_DB(env_out) > -42.0;
+led_x = q_x + qw + floor(24 * S);
+led_y = hdr_h * 0.5;
+gfx_set(sig_on ? 0.40 : 0.15, sig_on ? 0.88 : 0.22, sig_on ? 0.60 : 0.18, 1.0);
+gfx_circle(led_x, led_y, floor(4 * S), 1, 1);
+gfx_set(peak_led_latched ? 0.95 : 0.24, peak_led_latched ? 0.35 : 0.15, peak_led_latched ? 0.45 : 0.18, 1.0);
+gfx_circle(led_x + floor(14 * S), led_y, floor(4 * S), 1, 1);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= led_x - 8 && mouse_x <= led_x + 24 && mouse_y >= 6 && mouse_y <= hdr_h - 6) ? (
+  peak_led_latched = 0;
+);
+
+hb_h = floor(26 * S);
+hb_y = (hdr_h - hb_h) * 0.5;
+
+// 1. E / G Mode Button
+eg_w = floor(74 * S);
+eg_x = W - floor(446 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= eg_x && mouse_x <= eg_x + eg_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  eq_mode_g = !eq_mode_g; update_parameters(); slider_automate(slider11);
+);
+eq_mode_g ? (
+  draw_panel_box(eg_x, hb_y, eg_w, hb_h, 0.16, 0.36, 0.62, 0.45, 0.78, 0.98);
+  strcpy(#eg_s, "G-CURVE");
+) : (
+  draw_panel_box(eg_x, hb_y, eg_w, hb_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+  strcpy(#eg_s, "E-CURVE");
+);
+gfx_setfont(4); gfx_set(0.95, 0.97, 1.0, 1.0);
+gfx_measurestr(#eg_s, tw, th);
+gfx_x = eg_x + (eg_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#eg_s);
+
+// 2. Console Drive (Clean / Warm)
+dr_w = floor(68 * S);
+dr_x = eg_x + eg_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= dr_x && mouse_x <= dr_x + dr_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  char_on = !char_on; slider_automate(slider13);
+);
+char_on ? (
+  draw_panel_box(dr_x, hb_y, dr_w, hb_h, 0.38, 0.32, 0.18, 0.98, 0.89, 0.69);
+  strcpy(#dr_s, "WARM");
+) : (
+  draw_panel_box(dr_x, hb_y, dr_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#dr_s, "CLEAN");
+);
+gfx_measurestr(#dr_s, tw, th);
+gfx_x = dr_x + (dr_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#dr_s);
+
+// 3. Auto Gain Button
+ag_w = floor(74 * S);
+ag_x = dr_x + dr_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= ag_x && mouse_x <= ag_x + ag_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  auto_gain = !auto_gain; update_parameters(); slider_automate(slider14);
+);
+auto_gain ? (
+  draw_panel_box(ag_x, hb_y, ag_w, hb_h, 0.16, 0.36, 0.62, 0.45, 0.78, 0.98);
+) : (
+  draw_panel_box(ag_x, hb_y, ag_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+);
+gfx_measurestr("AUTO-G", tw, th);
+gfx_x = ag_x + (ag_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr("AUTO-G");
+
+// 4. Phase Invert Button
+ph_w = floor(48 * S);
+ph_x = ag_x + ag_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= ph_x && mouse_x <= ph_x + ph_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  phase_inv = !phase_inv; update_parameters(); slider_automate(slider15);
+);
+phase_inv ? (
+  draw_panel_box(ph_x, hb_y, ph_w, hb_h, 0.16, 0.36, 0.62, 0.45, 0.78, 0.98);
+) : (
+  draw_panel_box(ph_x, hb_y, ph_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+);
+gfx_measurestr("INV", tw, th);
+gfx_x = ph_x + (ph_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr("INV");
+
+// 5. Text Scaling Button
+zm_w = floor(64 * S);
+zm_x = ph_x + ph_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider17);
+);
+draw_panel_box(zm_x, hb_y, zm_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+ui_zoom < 1.1 ? strcpy(#z_s, "100%") : ui_zoom < 1.3 ? strcpy(#z_s, "120%") : strcpy(#z_s, "140%");
+gfx_measurestr(#z_s, tw, th);
+gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#z_s);
+
+// 6. EQ IN / BYPASS Button
+in_w = floor(72 * S);
+in_x = W - in_w - floor(14 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= in_x && mouse_x <= in_x + in_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  eq_active = !eq_active; slider_automate(slider16);
+);
+eq_active ? (
+  draw_panel_box(in_x, hb_y, in_w, hb_h, 0.20, 0.52, 0.88, 0.54, 0.80, 1.0);
+  strcpy(#in_s, "EQ: IN");
+) : (
+  draw_panel_box(in_x, hb_y, in_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#in_s, "BYP");
+);
+gfx_measurestr(#in_s, tw, th);
+gfx_x = in_x + (in_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#in_s);
+
+// =========================================================================
+// 2. TWO-ROW HARDWARE KNOB DECK (ZERO GRAPH / PURE TACTILE WORKFLOW)
+// =========================================================================
+pad    = floor(12 * S);
+full_w = W - (pad * 2);
+avail_h = H - hdr_h - (pad * 3);
+
+row1_y = hdr_h + pad;
+row1_h = floor(avail_h * 0.50);
+row2_y = row1_y + row1_h + pad;
+row2_h = avail_h - row1_h;
+
+r_k = min(floor(26 * S), floor(row1_h * 0.21));
+
+// -------------------------------------------------------------------------
+// ROW 1: 5 MAAG-STYLE FIXED TONAL BANDS (SUB 10Hz, 40Hz, 160Hz, 650Hz, 2.5kHz)
+// -------------------------------------------------------------------------
+draw_panel_box(pad, row1_y, full_w, row1_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+// Subtle Sapphire Accent Strip along Top of Row 1
+gfx_set(0.45, 0.78, 0.98, 0.85);
+gfx_rect(pad + 1, row1_y + 1, full_w - 2, floor(3 * S));
+
+r1_cy = row1_y + floor(row1_h * 0.38);
+
+// 1. SUB (10 Hz)
+sprintf(#s1_s, "%+.1f dB", sub_db);
+new_sub = draw_pocket_knob(1, pad + full_w * 0.10, r1_cy, r_k, sub_db, -6.0, 15.0, 0.0, "SUB (10 Hz)", #s1_s, 1, 0.45, 0.78, 0.98);
+abs(new_sub - sub_db) > 0.01 ? ( sub_db = new_sub; update_parameters(); slider_automate(slider3); );
+
+// 2. 40 Hz
+sprintf(#s2_s, "%+.1f dB", low_db);
+new_low = draw_pocket_knob(2, pad + full_w * 0.30, r1_cy, r_k, low_db, -12.0, 15.0, 0.0, "40 Hz", #s2_s, 1, 0.54, 0.71, 0.98);
+abs(new_low - low_db) > 0.01 ? ( low_db = new_low; update_parameters(); slider_automate(slider4); );
+
+// 3. 160 Hz
+sprintf(#s3_s, "%+.1f dB", lmid_db);
+new_lmid = draw_pocket_knob(3, pad + full_w * 0.50, r1_cy, r_k, lmid_db, -12.0, 15.0, 0.0, "160 Hz", #s3_s, 1, 0.54, 0.71, 0.98);
+abs(new_lmid - lmid_db) > 0.01 ? ( lmid_db = new_lmid; update_parameters(); slider_automate(slider5); );
+
+// 4. 650 Hz
+sprintf(#s4_s, "%+.1f dB", mid_db);
+new_mid = draw_pocket_knob(4, pad + full_w * 0.70, r1_cy, r_k, mid_db, -12.0, 15.0, 0.0, "650 Hz", #s4_s, 1, 0.54, 0.71, 0.98);
+abs(new_mid - mid_db) > 0.01 ? ( mid_db = new_mid; update_parameters(); slider_automate(slider6); );
+
+// 5. 2.5 kHz (with clickable Shelf/Bell badge in top-right of Row 1)
+hmid_bell ? strcpy(#k5_lbl, "2.5 kHz (BELL)") : strcpy(#k5_lbl, "2.5 kHz (SHF)");
+sprintf(#s5_s, "%+.1f dB", hmid_db);
+new_hmid = draw_pocket_knob(5, pad + full_w * 0.90, r1_cy, r_k, hmid_db, -12.0, 15.0, 0.0, #k5_lbl, #s5_s, 1, 0.54, 0.71, 0.98);
+abs(new_hmid - hmid_db) > 0.01 ? ( hmid_db = new_hmid; update_parameters(); slider_automate(slider7); );
+
+// Small Shelf/Bell toggle badge above 2.5 kHz knob
+sb_w = floor(48 * S); sb_h = floor(18 * S);
+sb_x = pad + full_w - sb_w - floor(8 * S);
+sb_y = row1_y + floor(7 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= sb_x && mouse_x <= sb_x + sb_w && mouse_y >= sb_y && mouse_y <= sb_y + sb_h) ? (
+  hmid_bell = !hmid_bell; update_parameters(); slider_automate(slider12);
+);
+draw_panel_box(sb_x, sb_y, sb_w, sb_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+gfx_setfont(5); gfx_set(0.82, 0.86, 0.96, 1.0);
+hmid_bell ? strcpy(#sb_t, "BELL") : strcpy(#sb_t, "SHELF");
+gfx_measurestr(#sb_t, tw, th);
+gfx_x = sb_x + (sb_w - tw)*0.5; gfx_y = sb_y + (sb_h - th)*0.5; gfx_drawstr(#sb_t);
+
+// -------------------------------------------------------------------------
+// ROW 2: [SSL HPF & LPF FILTERS] | [MAAG AIR BAND MODULE] | [OUTPUT TRIM]
+// -------------------------------------------------------------------------
+c_flt_w = floor((full_w - pad * 2) * 0.36);
+c_air_w = floor((full_w - pad * 2) * 0.42);
+c_out_w = full_w - (pad * 2) - c_flt_w - c_air_w;
+
+c_flt_x = pad;
+c_air_x = c_flt_x + c_flt_w + pad;
+c_out_x = c_air_x + c_air_w + pad;
+
+r2_cy = row2_y + floor(row2_h * 0.38);
+
+// --- CARD A: SSL CUT FILTERS (HPF 18dB & LPF 12dB) ---
+draw_panel_box(c_flt_x, row2_y, c_flt_w, row2_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+gfx_set(0.45, 0.78, 0.98, 0.85);
+gfx_rect(c_flt_x + 1, row2_y + 1, c_flt_w - 2, floor(3 * S));
+
+hpf_hz <= 21.0 ? strcpy(#hp_s, "OUT") : sprintf(#hp_s, "%d Hz", hpf_hz);
+new_hp = draw_pocket_knob(6, c_flt_x + c_flt_w * 0.28, r2_cy, r_k, hpf_hz, 20.0, 500.0, 20.0, "HPF 18dB", #hp_s, 0, 0.45, 0.78, 0.98);
+abs(new_hp - hpf_hz) > 0.1 ? ( hpf_hz = new_hp; update_parameters(); slider_automate(slider1); );
+
+lpf_hz >= 21500.0 ? strcpy(#lp_s, "OUT") : sprintf(#lp_s, "%.1f kHz", lpf_hz * 0.001);
+new_lp = draw_pocket_knob(7, c_flt_x + c_flt_w * 0.72, r2_cy, r_k, lpf_hz, 3000.0, 22000.0, 22000.0, "LPF 12dB", #lp_s, 0, 0.45, 0.78, 0.98);
+abs(new_lp - lpf_hz) > 1.0 ? ( lpf_hz = new_lp; update_parameters(); slider_automate(slider2); );
+
+// --- CARD B: MAAG AIR BAND (AIR GAIN KNOB + 5-FREQUENCY SELECTOR BUTTONS) ---
+draw_panel_box(c_air_x, row2_y, c_air_w, row2_h, 0.095, 0.098, 0.145, 0.22, 0.24, 0.34);
+// Champagne Gold Accent Bar for Air Module
+gfx_set(0.98, 0.89, 0.69, 0.90);
+gfx_rect(c_air_x + 1, row2_y + 1, c_air_w - 2, floor(3 * S));
+
+sprintf(#ag_s, "+%.1f dB", air_db);
+new_air = draw_pocket_knob(8, c_air_x + c_air_w * 0.27, r2_cy, r_k, air_db, 0.0, 20.0, 0.0, "AIR GAIN", #ag_s, 0, 0.98, 0.89, 0.69);
+abs(new_air - air_db) > 0.01 ? ( air_db = new_air; update_parameters(); slider_automate(slider8); );
+
+// 5 Dedicated Air Frequency Buttons on the right half of the Air Card (2.5k, 5k, 10k, 20k, 40k)
+af_x0 = c_air_x + floor(c_air_w * 0.52);
+af_w  = (c_air_x + c_air_w - floor(12 * S)) - af_x0;
+af_gap = floor(3 * S);
+af_btn_h = floor((row2_h - floor(20 * S) - af_gap * 4) / 5.0);
+af_top_y = row2_y + floor(10 * S);
+
+ai = 0;
+loop(5,
+  ay = af_top_y + ai * (af_btn_h + af_gap);
+  ahit = (mouse_x >= af_x0 && mouse_x <= af_x0 + af_w && mouse_y >= ay && mouse_y <= ay + af_btn_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && ahit ? (
+    air_freq_idx = ai;
+    update_parameters();
+    slider_automate(slider9);
+  );
+
+  air_freq_idx == ai ? (
+    draw_panel_box(af_x0, ay, af_w, af_btn_h, 0.42, 0.35, 0.18, 0.98, 0.89, 0.69);
+    gfx_set(1.0, 0.98, 0.90, 1.0);
+  ) : (
+    draw_panel_box(af_x0, ay, af_w, af_btn_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+    gfx_set(0.72, 0.76, 0.86, 1.0);
+  );
+
+  ai == 0 ? strcpy(#a_lbl, "2.5 kHz") :
+  ai == 1 ? strcpy(#a_lbl, "5 kHz")   :
+  ai == 2 ? strcpy(#a_lbl, "10 kHz")  :
+  ai == 3 ? strcpy(#a_lbl, "20 kHz")  :
+            strcpy(#a_lbl, "40 kHz");
+
+  gfx_setfont(5);
+  gfx_measurestr(#a_lbl, tw, th);
+  gfx_x = af_x0 + (af_w - tw)*0.5;
+  gfx_y = ay + (af_btn_h - th)*0.5;
+  gfx_drawstr(#a_lbl);
+  ai += 1;
+);
+
+// --- CARD C: OUTPUT TRIM ---
+draw_panel_box(c_out_x, row2_y, c_out_w, row2_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+gfx_set(0.45, 0.78, 0.98, 0.85);
+gfx_rect(c_out_x + 1, row2_y + 1, c_out_w - 2, floor(3 * S));
+
+sprintf(#out_s, "%+.1f dB", out_db);
+new_out = draw_pocket_knob(9, c_out_x + c_out_w * 0.50, r2_cy, r_k, out_db, -18.0, 18.0, 0.0, "OUTPUT", #out_s, 1, 0.45, 0.78, 0.98);
+abs(new_out - out_db) > 0.01 ? ( out_db = new_out; update_parameters(); slider_automate(slider10); );
+
+// =========================================================================
+// 3. COMPACT INFO OVERLAY MODAL (Click POCKETQ Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.82);
+  mh = floor(H * 0.82);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.45, 0.78, 0.98);
+
+  gfx_setfont(1);
+  gfx_set(0.45, 0.78, 0.98, 1.0);
+  gfx_x = mx + 20; gfx_y = my + 16;
+  gfx_drawstr("PocketQ v1.0 (Compact Console & Air Strip)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.94, 0.98, 1.0);
+  lh_step = floor(24 * S);
+  ty = my + 52;
+  gfx_x = mx + 20; gfx_y = ty;             gfx_drawstr("• Fixed musical bands: Sub (10Hz), 40Hz, 160Hz, 650Hz & 2.5kHz");
+  gfx_x = mx + 20; gfx_y = ty + lh_step;   gfx_drawstr("• High-headroom Air Band (2.5k, 5k, 10k, 20k, 40kHz) + 18dB HPF / 12dB LPF");
+  gfx_x = mx + 20; gfx_y = ty + lh_step*2; gfx_drawstr("• E-Curve (tight constant Q) vs G-Curve (smooth proportional Q)");
+  gfx_x = mx + 20; gfx_y = ty + lh_step*3; gfx_drawstr("• Zero FFT overhead — ultra-low CPU for placing across every track");
+  gfx_x = mx + 20; gfx_y = ty + lh_step*4; gfx_drawstr("• Drag knobs vertically (Ctrl for fine tune, double-click to reset)");
+
+  gfx_set(0.58, 0.68, 0.82, 1.0);
+  gfx_x = mx + 20; gfx_y = my + mh - 28;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

@@ -130,6 +130,20 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Output Section**: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.
   * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
 
+### 9. EQ / PocketQ
+**Path**: `EQ/PocketQ.jsfx`  
+**Description**: Compact Console & Air Channel Strip EQ
+
+* **Key Features**:
+  * **Fixed Musical Frequency Bands**: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).
+  * **Air Band**: Selectable ultra-high frequencies (2.5k, 5k, 10k, 20k, 40 kHz) with up to +20 dB boost.
+  * **Console Cut Filters**: 18 dB/oct HPF (20 - 500 Hz) and 12 dB/oct LPF (3k - 22 kHz).
+  * **E-Series & G-Series Modes**: Switch between tight constant Q and smooth proportional Q response.
+  * **Console Drive**: Clean vs. Warm analog harmonic drive.
+  * **Auto Gain & Phase Invert**: Output level compensation and quick polarity toggle.
+  * **Ultra-Lightweight CPU Footprint**: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.
+  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
+
 ---
 
 ## 📂 Repository Structure
@@ -154,7 +168,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 ├── EQ/                         # ReaPack Category: EQ
-│   └── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
+│   ├── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
+│   └── PocketQ.jsfx            # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
     └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
