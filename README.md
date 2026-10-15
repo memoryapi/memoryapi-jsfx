@@ -114,6 +114,22 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Tone Tilt, Spread & Mix**: Output tone shaping, stereo width spread, and independent dry/wet controls.
   * **Interactive UI**: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).
 
+### 8. EQ / ConsoleQ
+**Path**: `EQ/ConsoleQ.jsfx`  
+**Description**: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer
+
+* **Key Features**:
+  * **4-Band Console EQ**: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.
+  * **Console Cut Filters**: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.
+  * **High-Headroom Air Band & Sub Weight**: Dedicated Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz) up to +20 dB boost, plus a Sub 10Hz resonance weight bell.
+  * **Dual Console Topologies**: Switchable E-Series (Constant Q) and G-Series (Proportional Q) response curves.
+  * **Analog Character Coloring**: Clean, Subtle, and Warm analog harmonic drive modes.
+  * **Interactive Graph Nodes**: Drag band frequency and gain handles directly on the live EQ response curve.
+  * **Real-time 2048-Point FFT Analyzer**: High-resolution spectrum visualizer switchable between Post-EQ, Pre-EQ, and Off.
+  * **Momentary Band Solo**: Hold the [S] audition button on any frequency band column to isolate its processing range.
+  * **Output Section**: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.
+  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
+
 ---
 
 ## 📂 Repository Structure
@@ -137,6 +153,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
+├── EQ/                         # ReaPack Category: EQ
+│   └── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
     └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
