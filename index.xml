@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa">
+<index version="1" name="MemoryAPI JSFX" commit="b707fd49cbecf83900b601769728378c65b422d4">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -277,6 +277,33 @@
       </version>
     </reapack>
   </category>
+  <category name="Reverb">
+    <reapack name="AetherVerb.jsfx" type="effect" desc="AetherVerb (8-Mode Algorithmic, Shimmer &amp; FDN Reverb)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 AetherVerb\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 8-Mode Algorithmic, Shimmer & FDN Reverb workstation with auto-decay ducking, analog preamps, era conversion, hold/freeze, and post parametric EQ.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 8 Distinct Reverb Algorithms: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Shimmer Engine: Multi-voice pitch shifting with selectable intervals (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Chorale Resonators: Formant vowel filtering (AH, OH, OO, Morph) for ethereal vocal-like resonance\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Auto-Decay (SuperPlate Style): Dynamic envelope follower that ducks reverb decay or wet level during active playing to prevent mix clutter\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Preamps & Converter Eras: Clean, Tube V54, Solid State 162 preamps with Modern HiFi, 70s 12-Bit, and 80s Dark converter modeling\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Infinite & Freeze: Instant hold modes for endless ambient sustain drones\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tone & Equalization: Pre Low/High Cut filters plus a 2-band parametric post-EQ\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI Interface: Vector UI with text zoom (100% - 150%) and collapsible tweak drawer\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-15T21:46:35Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/b707fd49cbecf83900b601769728378c65b422d4/Reverb/AetherVerb.jsfx</source>
+      </version>
+    </reapack>
+  </category>
   <category name="Saturation">
     <reapack name="OInflator.jsfx" type="effect" desc="OInflator (Harmonic Waveshaper &amp; Enhancer)">
       <metadata>
@@ -519,6 +546,18 @@ JClones
 Justin Johnson (ReJJ)
 }}}
 .\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 13. Reverb / AetherVerb\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Reverb/AetherVerb.jsfx}\line {\b Description}: 8-Mode Algorithmic, Shimmer & FDN Reverb\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/aetherverb.webp]\cf0}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 8 Reverb Topologies}: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Voice Pitch Shimmer}: Two independent shimmer voices with octave and musical interval transpositions (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Formant Chorale Resonators}: Morphing vowel filtering (AH, OH, OO) for vocal resonances and synthetic choir pads.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dynamic Auto-Decay}: Built-in envelope follower ducks the reverb tail during active performance to preserve clarity and prevent muddy buildups.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Analog Preamp & Converter Modeling}: Clean, Tube V54, and Solid State 162 preamps paired with Modern HiFi, 70s 12-Bit, and 80s Dark digital converter flavors.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Infinite & Freeze}: Instant hold modes for endless ambient sustain drones and atmospheric backdrops.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Integrated Tone & Post-EQ}: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector Interface}: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -549,6 +588,8 @@ Justin Johnson (ReJJ)
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? PocketQ.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header\line
+\u9500 ?\u9472 ?\u9472 ? Reverb/                     # ReaPack Category: Reverb\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
     \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
