@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="cb85e04ca50225adeda90753a8bde762d9198f80">
+<index version="1" name="MemoryAPI JSFX" commit="cdf9dd3f0eef72210a8a8006a5fabbf7c529b789">
   <category name="Dynamics">
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
       <metadata>
@@ -29,6 +29,10 @@
         <changelog><![CDATA[Redesigned UI with DPI text zoom, animated drawer, and hover halos]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/d1b16fe535b8df503097044b82946c359ed2e4c4/Dynamics/SpectralCarver.jsfx</source>
       </version>
+      <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
+        <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Dynamics/SpectralCarver.jsfx</source>
+      </version>
     </reapack>
   </category>
   <category name="Saturation">
@@ -57,6 +61,10 @@
         <changelog><![CDATA[Cleaned up UI, removed trademark references, credited original JClones repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/aa4e695e5f9bf8cb0d9aa419f28b8ee5d0c49fe7/Saturation/OInflator.jsfx</source>
       </version>
+      <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
+        <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Saturation/OInflator.jsfx</source>
+      </version>
     </reapack>
     <reapack name="Phoenix.jsfx" type="effect" desc="Phoenix (Analog Tape Saturator)">
       <metadata>
@@ -82,6 +90,10 @@
       <version name="1.2.0" author="JClones / Custom DSP" time="2026-10-15T10:30:41Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cb85e04ca50225adeda90753a8bde762d9198f80/Saturation/Phoenix.jsfx</source>
+      </version>
+      <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
+        <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Saturation/Phoenix.jsfx</source>
       </version>
     </reapack>
   </category>
