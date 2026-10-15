@@ -26,6 +26,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `Dynamics/SpectralCarver.jsfx`  
 **Description**: 32-Band Dynamic Spectral Ducker with Cytomic State Variable Filters (SVF)
 
+![SpectralCarver](screenshots/spectralcarver.webp)
+
 * **Key Features**:
   * **32-Band SVF Dynamic Carving**: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.
   * **Routing**: Route your kick, vocals, or sidechain trigger audio to **Channels 3/4** of the track.
@@ -38,6 +40,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 ### 2. Dynamics / Opto2A
 **Path**: `Dynamics/Opto2A.jsfx`  
 **Description**: Optical Tube Compressor
+
+![Opto2A](screenshots/opto2a.webp)
 
 * **Key Features**:
   * **T4 Optical Attenuator Modeling**: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.
@@ -52,6 +56,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `Dynamics/OverTop.jsfx`  
 **Description**: 3-Band Upward/Downward Multiband Compressor (OTT Style)
 
+![OverTop](screenshots/overtop.webp)
+
 * **Key Features**:
   * **3-Band Upward & Downward Dynamics**: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).
   * **Interactive Threshold Bars**: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.
@@ -63,6 +69,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 ### 4. Dynamics / PulseDuck
 **Path**: `Dynamics/PulseDuck.jsfx`  
 **Description**: Multiband Sidechain & Envelope Shaper
+
+![PulseDuck](screenshots/pulseduck.webp)
 
 * **Key Features**:
   * **16 Instant Curve Presets**: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.
@@ -77,6 +85,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `Saturation/OInflator.jsfx`  
 **Description**: Harmonic Waveshaper & Loudness Enhancer
 
+![OInflator](screenshots/oinflator.webp)
+
 * **Key Features**:
   * **Authentic Transfer Curve Waveshaping**: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.
   * **Real-time Harmonic Transfer Viewport**: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.
@@ -90,6 +100,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `Saturation/Phoenix.jsfx`  
 **Description**: Analog Tape Saturator
 
+![Phoenix](screenshots/phoenix.webp)
+
 * **Key Features**:
   * **5 Tape Topologies**: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).
   * **3 Brightness Curves**: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).
@@ -100,6 +112,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 ### 7. Creative / ChronoWarp
 **Path**: `Creative/ChronoWarp.jsfx`  
 **Description**: Creative Half-Time & Varispeed Engine
+
+![ChronoWarp](screenshots/chronowarp.webp)
 
 * **Key Features**:
   * **3 Speed Modes**: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).
@@ -114,6 +128,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 ### 8. Creative / VintageFlux
 **Path**: `Creative/VintageFlux.jsfx`  
 **Description**: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation
+
+![VintageFlux](screenshots/vintageflux.webp)
 
 * **Key Features**:
   * **6 Dedicated Vintage FX Modules**:
@@ -132,6 +148,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `Delay/EchoForge.jsfx`  
 **Description**: Analog Tape, Lo-Fi & Diffused Delay Workstation
 
+![EchoForge](screenshots/echoforge.webp)
+
 * **Key Features**:
   * **4 Delay Models**: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).
   * **Tempo Sync & Free Milliseconds**: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.
@@ -148,6 +166,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 **Path**: `EQ/ConsoleQ.jsfx`  
 **Description**: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer
 
+![ConsoleQ](screenshots/consoleq.webp)
+
 * **Key Features**:
   * **4-Band Console EQ**: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.
   * **Console Cut Filters**: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.
@@ -163,6 +183,8 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
 ### 11. EQ / PocketQ
 **Path**: `EQ/PocketQ.jsfx`  
 **Description**: Compact Console & Air Channel Strip EQ
+
+![PocketQ](screenshots/pocketq.webp)
 
 * **Key Features**:
   * **Fixed Musical Frequency Bands**: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).
@@ -189,6 +211,7 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── .reapack-index.conf         # reapack-index options
 ├── index.xml                   # ReaPack package index file
 ├── README.md                   # Repository documentation (shown in ReaPack)
+├── screenshots/                # Plugin screenshot previews (WebP)
 ├── Creative/                   # ReaPack Category: Creative
 │   ├── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
 │   └── VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header
