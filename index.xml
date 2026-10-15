@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="12a0b7fc3bb4b3bd11e7732809eb73d371043835">
+<index version="1" name="MemoryAPI JSFX" commit="073ed513dc2283a76548dbe6a794d5d2bcd5380c">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -138,6 +138,35 @@
       <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
         <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Dynamics/SpectralCarver.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="EQ">
+    <reapack name="ConsoleQ.jsfx" type="effect" desc="ConsoleQ (Hybrid Console EQ &amp; Air Strip)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 ConsoleQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Hybrid Console Channel Strip Equalizer with E/G series curves, high-headroom Air Band, Sub weight, and real-time FFT spectrum analyzer.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 4-Band Console EQ (LF, LMF, HMF, HF) with switchable Bell/Shelf modes on LF and HF\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 18 dB/oct HPF (20 - 500 Hz) and 12 dB/oct LPF (3k - 22 kHz) console filters\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-headroom Air Band with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz) and Sub 10Hz resonance control\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Switchable E-Series (Constant Q) and G-Series (Proportional Q) EQ topologies\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Analog character modes: Clean, Subtle, and Warm saturation\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive draggable EQ nodes directly on the curve display\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Real-time 2048-point FFT Spectrum Analyzer (Post-EQ, Pre-EQ, or Off)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Momentary band solo auditioning per frequency band\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Output stage with M/S stereo width (0-200%), panning, auto-gain, and latched peak LED\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-15T16:36:14Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/073ed513dc2283a76548dbe6a794d5d2bcd5380c/EQ/ConsoleQ.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -310,6 +339,19 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Destination Modulation}: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tone Tilt, Spread & Mix}: Output tone shaping, stereo width spread, and independent dry/wet controls.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive UI}: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 8. EQ / ConsoleQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ConsoleQ.jsfx}\line {\b Description}: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Band Console EQ}: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Cut Filters}: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b High-Headroom Air Band & Sub Weight}: Dedicated Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz) up to +20 dB boost, plus a Sub 10Hz resonance weight bell.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Console Topologies}: Switchable E-Series (Constant Q) and G-Series (Proportional Q) response curves.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Analog Character Coloring}: Clean, Subtle, and Warm analog harmonic drive modes.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Graph Nodes}: Drag band frequency and gain handles directly on the live EQ response curve.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-time 2048-Point FFT Analyzer}: High-resolution spectrum visualizer switchable between Post-EQ, Pre-EQ, and Off.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Momentary Band Solo}: Hold the [S] audition button on any frequency band column to isolate its processing range.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Output Section}: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -329,6 +371,8 @@ JClones
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
+\u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
     \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
