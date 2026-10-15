@@ -1,0 +1,1269 @@
+desc:VintageFlux (6-Module Vintage Multi-FX & Lo-Fi Color)
+// @description VintageFlux (6-Module Vintage Multi-FX & Lo-Fi Color)
+// @author MemoryAPI
+// @version 1.0.0
+// @changelog Initial release in repository
+// @about
+//   # VintageFlux
+//   6-Module vintage texture, retro color, and lo-fi multi-effects workstation with global magnitude scaling and organic parameter flux.
+//
+//   ### Features
+//   - 6 Dedicated Vintage FX Modules:
+//     - Noise: Vinyl, Cassette, VHS, and White noise with envelope following and ducking
+//     - Wobble: Pitch wow and flutter with rate and stereo drift
+//     - Distort: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover
+//     - Digital: Sample rate downsampling and bitcrushing with smoothing and pass/cut options
+//     - Space: Ambient algorithmic reverb with pre-delay, decay, and damping controls
+//     - Magnetic: Vintage tape wear, dropouts, and flutter imperfections
+//   - Global Magnitude slider to scale all module intensities simultaneously
+//   - Dedicated FLUX controls on every module for organic, non-repeating analog drift
+//   - Master Section with 12/24 dB Low & High Cut filters, Tilt/Smile tone EQ, M/S Width, and Output Trim
+//   - Scalable HiDPI text zoom (100% - 140%)
+// @provides
+//   [effect] VintageFlux.jsfx
+
+options:maxmem=2097152
+
+// Global & Master Controls (Sliders hidden for custom @gfx UI, exposed for DAW automation)
+slider1:mag_pct=100<0,100,0.1>-Magnitude (%)
+
+// Module 1: NOISE
+slider2:n_on=1<0,1,1{Off,On}>-Noise Enable
+slider3:n_amt=22<0,100,0.1>-Noise Amount (%)
+slider4:n_type=0<0,3,1{Vinyl,Cassette,VHS,White}>-Noise Type
+slider5:n_tone=0<-100,100,0.1>-Noise Tone
+slider6:n_follow=40<0,100,0.1>-Noise Follow (%)
+slider7:n_duck=0<0,100,0.1>-Noise Duck (%)
+slider8:n_post=0<0,1,1{Pre,Post}>-Noise Routing
+slider9:n_flux=25<0,100,0.1>-Noise Flux (%)
+
+// Module 2: WOBBLE
+slider10:w_on=1<0,1,1{Off,On}>-Wobble Enable
+slider11:w_amt=28<0,100,0.1>-Wobble Amount (%)
+slider12:w_bal=35<0,100,0.1>-Wow/Flutter Balance (%)
+slider13:w_rate=50<0,100,0.1>-Wobble Rate (%)
+slider14:w_stereo=1<0,1,1{Mono,Stereo}>-Wobble Stereo
+slider15:w_mix=100<0,100,0.1>-Wobble Mix (%)
+slider16:w_flux=30<0,100,0.1>-Wobble Flux (%)
+
+// Module 3: DISTORT
+slider17:d_on=1<0,1,1{Off,On}>-Distort Enable
+slider18:d_amt=30<0,100,0.1>-Distort Amount (%)
+slider19:d_type=0<0,3,1{Tube,Tape,Crunch,Fold}>-Distort Type
+slider20:d_f_lo=120<20,4000,1>-Distort Focus Low (Hz)
+slider21:d_f_hi=8000<500,20000,10>-Distort Focus High (Hz)
+slider22:d_mix=100<0,100,0.1>-Distort Mix (%)
+slider23:d_flux=20<0,100,0.1>-Distort Flux (%)
+
+// Module 4: DIGITAL
+slider24:dg_on=0<0,1,1{Off,On}>-Digital Enable
+slider25:dg_amt=35<0,100,0.1>-Digital Amount (%)
+slider26:dg_bal=50<0,100,0.1>-Rate/Bits Balance (%)
+slider27:dg_smooth=40<0,100,0.1>-Digital Smooth (%)
+slider28:dg_cut=0<0,1,1{Pass Outside,Cut Outside}>-Digital Cut Mode
+slider29:dg_mix=100<0,100,0.1>-Digital Mix (%)
+slider30:dg_flux=20<0,100,0.1>-Digital Flux (%)
+
+// Module 5: SPACE
+slider31:sp_on=1<0,1,1{Off,On}>-Space Enable
+slider32:sp_amt=24<0,100,0.1>-Space Amount (%)
+slider33:sp_decay=55<0,100,0.1>-Space Decay (%)
+slider34:sp_predel=20<0,100,0.1>-Space PreDelay (%)
+slider35:sp_damp=50<0,100,0.1>-Space Focus/Damp (%)
+slider36:sp_stereo=1<0,1,1{Mono,Stereo}>-Space Stereo
+slider37:sp_flux=25<0,100,0.1>-Space Flux (%)
+
+// Module 6: MAGNETIC
+slider38:mg_on=1<0,1,1{Off,On}>-Magnetic Enable
+slider39:mg_amt=25<0,100,0.1>-Magnetic Amount (%)
+slider40:mg_bal=35<0,100,0.1>-Wear/Flutter Balance (%)
+slider41:mg_drop=20<0,100,0.1>-Magnetic Dropouts (%)
+slider42:mg_stereo=1<0,1,1{Mono,Stereo}>-Magnetic Stereo
+slider43:mg_flux=35<0,100,0.1>-Magnetic Flux (%)
+
+// Master Section
+slider44:in_gain_db=0<-18,18,0.1>-Master Input Gain (dB)
+slider45:eq_on=1<0,1,1{Off,On}>-Master EQ Enable
+slider46:m_locut_hz=20<20,1000,1>-Master Low Cut (Hz)
+slider47:m_hicut_hz=20000<1000,20000,10>-Master High Cut (Hz)
+slider48:m_slope_hard=0<0,1,1{Soft 12dB,Hard 24dB}>-Cut Slope
+slider49:m_tone_val=0<-100,100,0.1>-Master Tone
+slider50:m_tone_mode=0<0,1,1{Tilt,Mid Smile}>-Master Tone Mode
+slider51:m_width_pct=100<0,200,1>-Master Width (%)
+slider52:out_gain_db=0<-18,18,0.1>-Master Output Gain (dB)
+slider53:ui_zoom=1.15<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+function DB_TO_K(x) ( 10 ^ (x / 20.0) );
+function K_TO_DB(lin) ( 8.685889638 * log(max(0.0000001, lin)) );
+
+// Memory Layout for Wobble Delay Buffer & Space Reverb Comb/Allpass Buffers
+WOB_FRAMES = 16384;
+WOB_MASK   = WOB_FRAMES - 1;
+WOB_BASE   = 4096;
+
+PREDEL_FRAMES = 16384;
+PREDEL_MASK   = PREDEL_FRAMES - 1;
+PREDEL_BASE   = WOB_BASE + (WOB_FRAMES * 2);
+
+// 4 Comb Filters + 2 All-Pass Filters per Stereo Channel for SPACE Module
+COMB_LEN = 8192;
+COMB_MASK = COMB_LEN - 1;
+CB_L1 = PREDEL_BASE + (PREDEL_FRAMES * 2);
+CB_L2 = CB_L1 + COMB_LEN;
+CB_L3 = CB_L2 + COMB_LEN;
+CB_L4 = CB_L3 + COMB_LEN;
+CB_R1 = CB_L4 + COMB_LEN;
+CB_R2 = CB_R1 + COMB_LEN;
+CB_R3 = CB_R2 + COMB_LEN;
+CB_R4 = CB_R3 + COMB_LEN;
+
+AP_LEN  = 4096;
+AP_MASK = AP_LEN - 1;
+AP_L1 = CB_R4 + COMB_LEN;
+AP_L2 = AP_L1 + AP_LEN;
+AP_R1 = AP_L2 + AP_LEN;
+AP_R2 = AP_R1 + AP_LEN;
+
+// Cytomic SVF Filter Design Helper
+// ptr[0]=a1, ptr[1]=a2, ptr[2]=a3, ptr[3]=m0, ptr[4]=m1, ptr[5]=m2
+// type: 0=Bell, 1=LowShelf, 2=HighShelf, 3=HPF12, 4=LPF12
+function svf_design(ptr, type, fc, gain_db, Q, srate_val)
+  local(fc_safe, g, A, k, a1, a2, a3, m0, m1, m2)
+(
+  fc_safe = max(15.0, min(srate_val * 0.45, fc));
+  g = tan($pi * fc_safe / srate_val);
+  k = 1.0 / max(0.25, Q);
+
+  type == 0 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    k  = 1.0 / max(0.2, Q * A);
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = k * (A * A - 1.0); m2 = 0.0;
+  ) : type == 1 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    g  = g / sqrt(A);
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = k * (A - 1.0); m2 = (A * A - 1.0);
+  ) : type == 2 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    g  = g * sqrt(A);
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = A * A; m1 = k * (1.0 - A) * A; m2 = (1.0 - A * A);
+  ) : type == 3 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = -k; m2 = -1.0;
+  ) : (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 0.0; m1 = 0.0; m2 = 1.0;
+  );
+
+  ptr[0] = a1; ptr[1] = a2; ptr[2] = a3;
+  ptr[3] = m0; ptr[4] = m1; ptr[5] = m2;
+);
+
+function process_svf(x, coeff_ptr, state_ptr)
+  local(ic1, ic2, v1, v2, v3)
+(
+  ic1 = state_ptr[0]; ic2 = state_ptr[1];
+  v3  = x - ic2;
+  v1  = coeff_ptr[0] * ic1 + coeff_ptr[1] * v3;
+  v2  = ic2 + coeff_ptr[1] * ic1 + coeff_ptr[2] * v3;
+  state_ptr[0] = 2.0 * v1 - ic1;
+  state_ptr[1] = 2.0 * v2 - ic2;
+  coeff_ptr[3] * x + coeff_ptr[4] * v1 + coeff_ptr[5] * v2;
+);
+
+// Coefficient & State Memory Addresses
+C_DIST_HP = 200; C_DIST_LP = 210;
+C_MASTER_HP = 220; C_MASTER_LP = 230;
+C_TONE_1 = 240; C_TONE_2 = 250;
+C_DG_SM  = 260;
+
+ST_L = 500;
+ST_R = 600;
+
+function update_parameters()
+  local(SAFE_SRATE, mag, sm_fc, tilt_db, mid_db)
+(
+  SAFE_SRATE = max(8000.0, srate);
+  mag = mag_pct * 0.01;
+
+  // Input / Output Gains scaled by Global Magnitude
+  in_lin  = DB_TO_K(in_gain_db  * mag);
+  out_lin = DB_TO_K(out_gain_db * mag);
+
+  // Distort Focus Band Crossover Filters
+  d_f_lo > d_f_hi - 100.0 ? d_f_lo = max(20.0, d_f_hi - 100.0);
+  svf_design(C_DIST_HP, 3, d_f_lo, 0.0, 0.7071, SAFE_SRATE);
+  svf_design(C_DIST_LP, 4, d_f_hi, 0.0, 0.7071, SAFE_SRATE);
+
+  // Digital Smooth Post-Reconstruction LPF (20 kHz down to 1.8 kHz)
+  sm_fc = exp(log(20000.0) - (dg_smooth * 0.01) * (log(20000.0) - log(1800.0)));
+  svf_design(C_DG_SM, 4, sm_fc, 0.0, 0.7071, SAFE_SRATE);
+
+  // Master EQ Cut Filters & Tone (Tilt vs Mid Smile)
+  m_locut_hz > m_hicut_hz - 100.0 ? m_locut_hz = max(20.0, m_hicut_hz - 100.0);
+  svf_design(C_MASTER_HP, 3, m_locut_hz, 0.0, m_slope_hard ? 0.95 : 0.7071, SAFE_SRATE);
+  svf_design(C_MASTER_LP, 4, m_hicut_hz, 0.0, m_slope_hard ? 0.95 : 0.7071, SAFE_SRATE);
+
+  m_tone_mode == 0 ? (
+    // TILT Mode: Simultaneous Low Shelf + High Shelf around 900 Hz
+    tilt_db = (m_tone_val * 0.01) * 9.0 * mag;
+    svf_design(C_TONE_1, 1, 450.0,  -tilt_db, 0.65, SAFE_SRATE);
+    svf_design(C_TONE_2, 2, 1800.0,  tilt_db, 0.65, SAFE_SRATE);
+  ) : (
+    // MID Mode: Smiley / Frowney curve (1 kHz Bell vs Low/High balance)
+    mid_db = (m_tone_val * 0.01) * 10.0 * mag;
+    svf_design(C_TONE_1, 0, 1000.0, mid_db, 0.85, SAFE_SRATE);
+    svf_design(C_TONE_2, 1, 200.0, -mid_db * 0.35, 0.70, SAFE_SRATE);
+  );
+
+  // Space Reverb Comb Tap Lengths (scaled to sample rate)
+  sr_ratio = SAFE_SRATE / 44100.0;
+  c_len_1 = min(COMB_LEN - 8, floor(1116 * sr_ratio));
+  c_len_2 = min(COMB_LEN - 8, floor(1188 * sr_ratio));
+  c_len_3 = min(COMB_LEN - 8, floor(1277 * sr_ratio));
+  c_len_4 = min(COMB_LEN - 8, floor(1356 * sr_ratio));
+  ap_len_1 = min(AP_LEN - 8,  floor(225  * sr_ratio));
+  ap_len_2 = min(AP_LEN - 8,  floor(341  * sr_ratio));
+
+  meter_decay = exp(-1.0 / (0.12 * SAFE_SRATE));
+);
+
+// Helper for linear interpolation on Wobble buffer
+function read_wobble(del_samps, ch_off)
+  local(r_pos, i0, frac, idx0, idx1)
+(
+  del_samps = max(2.0, min(WOB_FRAMES - 4.0, del_samps));
+  r_pos = wob_w_pos - del_samps;
+  i0    = floor(r_pos);
+  frac  = r_pos - i0;
+  idx0  = (i0       & WOB_MASK) * 2 + ch_off;
+  idx1  = ((i0 + 1) & WOB_MASK) * 2 + ch_off;
+  WOB_BASE[idx0] * (1.0 - frac) + WOB_BASE[idx1] * frac;
+);
+
+// Helper for damped Comb Filter in SPACE module
+function proc_comb(x, buf_ptr, d_len, fb, damp, damp_state)
+  local(r_idx, w_idx, y)
+(
+  w_idx = sp_w_pos & COMB_MASK;
+  r_idx = (sp_w_pos - d_len) & COMB_MASK;
+  y = buf_ptr[r_idx];
+  comb_lp = y * (1.0 - damp) + damp_state * damp;
+  buf_ptr[w_idx] = x + comb_lp * fb;
+  y;
+);
+
+function proc_ap(x, buf_ptr, d_len)
+  local(r_idx, w_idx, y, v)
+(
+  w_idx = sp_w_pos & AP_MASK;
+  r_idx = (sp_w_pos - d_len) & AP_MASK;
+  y = buf_ptr[r_idx];
+  v = x - 0.5 * y;
+  buf_ptr[w_idx] = v;
+  y + 0.5 * v;
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.15;
+  mag_pct = 100.0;
+  wob_w_pos = 1024;
+  sp_w_pos  = 1024;
+  drop_gain_l = 1.0;
+  drop_gain_r = 1.0;
+  update_parameters();
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+SAFE_SRATE = max(8000.0, srate);
+
+@sample
+sig_l = spl0 * in_lin;
+sig_r = spl1 * in_lin;
+
+mag = mag_pct * 0.01;
+
+// Input envelope follower (used by Noise Follow, Noise Duck, and UI meters)
+in_pk = max(abs(sig_l), abs(sig_r));
+in_env = in_pk > in_env ? (in_env * 0.992 + in_pk * 0.008) : (in_env * 0.9995 + in_pk * 0.0005);
+
+// Global Organic FLUX Random Walk Generators (slow brownian drift + fast jitter)
+flux_rw1 = max(-1.0, min(1.0, flux_rw1 * 0.9998 + (rand(2.0) - 1.0) * 0.008));
+flux_rw2 = max(-1.0, min(1.0, flux_rw2 * 0.9995 + (rand(2.0) - 1.0) * 0.012));
+
+// =========================================================================
+// MODULE 1: NOISE GENERATOR (COMPUTED HERE, ROUTED PRE OR POST)
+// =========================================================================
+noise_l = 0.0; noise_r = 0.0;
+(n_on && n_amt > 0.1 && mag > 0.001) ? (
+  wh_l = rand(2.0) - 1.0;
+  wh_r = rand(2.0) - 1.0;
+
+  n_type == 0 ? (
+    // Vinyl: Surface rumble + Poisson crackle pops
+    vin_lp_l = vin_lp_l * 0.96 + wh_l * 0.04;
+    vin_lp_r = vin_lp_r * 0.96 + wh_r * 0.04;
+    pop_thresh = 0.9985 - (n_flux * 0.01) * 0.0025;
+    pop_l = abs(wh_l) > pop_thresh ? (wh_l * 3.5) : 0.0;
+    pop_r = abs(wh_r) > pop_thresh ? (wh_r * 3.5) : 0.0;
+    noise_l = vin_lp_l * 0.5 + pop_l;
+    noise_r = vin_lp_r * 0.5 + pop_r;
+  ) : n_type == 1 ? (
+    // Cassette: Warm pink-filtered tape hiss
+    cas_l = cas_l * 0.82 + wh_l * 0.18;
+    cas_r = cas_r * 0.82 + wh_r * 0.18;
+    noise_l = cas_l;
+    noise_r = cas_r;
+  ) : n_type == 2 ? (
+    // VHS: 60Hz mains hum + 180Hz harmonic + head buzz + hiss
+    vhs_ph += (2.0 * $pi * 60.0) / SAFE_SRATE;
+    vhs_ph > 2.0 * $pi ? vhs_ph -= 2.0 * $pi;
+    hum = sin(vhs_ph) * 0.35 + sin(vhs_ph * 3.0) * 0.18;
+    noise_l = hum + wh_l * 0.35;
+    noise_r = hum + wh_r * 0.35;
+  ) : (
+    // White Noise
+    noise_l = wh_l * 0.6;
+    noise_r = wh_r * 0.6;
+  );
+
+  // Noise Tone Tilt Filter (1-pole LP <-> HP balance)
+  nt_lp_l = nt_lp_l * 0.92 + noise_l * 0.08;
+  nt_lp_r = nt_lp_r * 0.92 + noise_r * 0.08;
+  nt_hp_l = noise_l - nt_lp_l;
+  nt_hp_r = noise_r - nt_lp_r;
+  t_bal = (n_tone * 0.01);
+  t_bal < 0.0 ? (
+    noise_l = noise_l * (1.0 + t_bal) + nt_lp_l * (-t_bal * 2.2);
+    noise_r = noise_r * (1.0 + t_bal) + nt_lp_r * (-t_bal * 2.2);
+  ) : (
+    noise_l = noise_l * (1.0 - t_bal) + nt_hp_l * (t_bal * 1.8);
+    noise_r = noise_r * (1.0 - t_bal) + nt_hp_r * (t_bal * 1.8);
+  );
+
+  // Follow & Duck Envelope Scaling
+  fol_amt = n_follow * 0.01;
+  fol_scale = (1.0 - fol_amt) + fol_amt * min(1.5, in_env * 4.0);
+  duck_scale = max(0.0, 1.0 - (n_duck * 0.01) * min(1.0, in_env * 3.5));
+
+  n_gain = pow((n_amt * 0.01) * mag, 1.6) * 0.18 * fol_scale * duck_scale * (1.0 + flux_rw1 * (n_flux * 0.01) * 0.4);
+  noise_l *= n_gain;
+  noise_r *= n_gain;
+
+  // Inject Pre-Chain if Routing == Pre (0)
+  !n_post ? (
+    sig_l += noise_l;
+    sig_r += noise_r;
+  );
+);
+
+// =========================================================================
+// MODULE 2: WOBBLE (WOW & FLUTTER TAPE PITCH MODULATION)
+// =========================================================================
+wob_w_pos += 1;
+w_idx = (wob_w_pos & WOB_MASK) * 2;
+WOB_BASE[w_idx]     = sig_l;
+WOB_BASE[w_idx + 1] = sig_r;
+
+(w_on && w_amt > 0.1 && mag > 0.001) ? (
+  eff_w_amt = (w_amt * 0.01) * mag;
+  wf_flut   = w_bal * 0.01;
+  wf_wow    = 1.0 - wf_flut;
+
+  // Wow Rate (~0.5 to 2.8 Hz) & Flutter Rate (~6 to 18 Hz) modulated by Flux
+  r_norm = w_rate * 0.01;
+  wow_hz  = (0.5 + r_norm * 2.2) * (1.0 + flux_rw1 * (w_flux * 0.01) * 0.35);
+  flut_hz = (6.0 + r_norm * 12.0) * (1.0 + flux_rw2 * (w_flux * 0.01) * 0.25);
+
+  wow_ph  += (2.0 * $pi * wow_hz)  / SAFE_SRATE;
+  flut_ph += (2.0 * $pi * flut_hz) / SAFE_SRATE;
+  wow_ph  > 2.0 * $pi ? wow_ph  -= 2.0 * $pi;
+  flut_ph > 2.0 * $pi ? flut_ph -= 2.0 * $pi;
+
+  // Depth in samples (Wow up to 6 ms, Flutter up to 0.9 ms)
+  wow_dep  = wf_wow  * eff_w_amt * (0.0055 * SAFE_SRATE);
+  flut_dep = wf_flut * eff_w_amt * (0.0008 * SAFE_SRATE);
+
+  base_del = 0.008 * SAFE_SRATE;
+  del_l = base_del + sin(wow_ph) * wow_dep + sin(flut_ph) * flut_dep;
+  w_stereo ? (
+    del_r = base_del + cos(wow_ph) * wow_dep + sin(flut_ph + 1.2) * flut_dep;
+  ) : (
+    del_r = del_l;
+  );
+
+  wob_l = read_wobble(del_l, 0);
+  wob_r = read_wobble(del_r, 1);
+
+  wm = w_mix * 0.01;
+  sig_l = sig_l * (1.0 - wm) + wob_l * wm;
+  sig_r = sig_r * (1.0 - wm) + wob_r * wm;
+);
+
+// =========================================================================
+// MODULE 3: DISTORT (FOCUS-FILTERED MULTI-MODE WAVESHAPER)
+// =========================================================================
+(d_on && d_amt > 0.1 && mag > 0.001) ? (
+  eff_d_amt = (d_amt * 0.01) * mag;
+
+  // Split into Focus Band vs Outside Untouched Frequencies
+  band_l = process_svf(sig_l, C_DIST_HP, ST_L + 0);
+  band_r = process_svf(sig_r, C_DIST_HP, ST_R + 0);
+  band_l = process_svf(band_l, C_DIST_LP, ST_L + 2);
+  band_r = process_svf(band_r, C_DIST_LP, ST_R + 2);
+
+  outside_l = sig_l - band_l;
+  outside_r = sig_r - band_r;
+
+  drv = 1.0 + pow(eff_d_amt, 1.5) * 14.0 * (1.0 + flux_rw1 * (d_flux * 0.01) * 0.35);
+  bias = 0.08 * eff_d_amt * (1.0 + flux_rw2 * (d_flux * 0.01));
+
+  xl = band_l * drv + bias;
+  xr = band_r * drv + bias;
+
+  d_type == 0 ? (
+    // Tube: Asymmetric warm soft-clip
+    dl = (xl / (1.0 + abs(xl))) - bias * 0.6;
+    dr = (xr / (1.0 + abs(xr))) - bias * 0.6;
+  ) : d_type == 1 ? (
+    // Tape: Algebraic tanh-like saturation
+    dl = xl / sqrt(1.0 + xl * xl);
+    dr = xr / sqrt(1.0 + xr * xr);
+  ) : d_type == 2 ? (
+    // Crunch: Harder silicon diode clip
+    dl = max(-0.85, min(0.85, xl)) / 0.85;
+    dr = max(-0.85, min(0.85, xr)) / 0.85;
+  ) : (
+    // Fold: Sine wavefolder
+    dl = sin(max(-3.14, min(3.14, xl * 0.65)));
+    dr = sin(max(-3.14, min(3.14, xr * 0.65)));
+  );
+
+  comp_gain = 1.0 / pow(drv, 0.38);
+  proc_d_l = outside_l + dl * comp_gain;
+  proc_d_r = outside_r + dr * comp_gain;
+
+  dm = d_mix * 0.01;
+  sig_l = sig_l * (1.0 - dm) + proc_d_l * dm;
+  sig_r = sig_r * (1.0 - dm) + proc_d_r * dm;
+);
+
+// =========================================================================
+// MODULE 4: DIGITAL (SAMPLE RATE & BIT DEPTH DECIMATOR + SMOOTH LPF)
+// =========================================================================
+(dg_on && dg_amt > 0.1 && mag > 0.001) ? (
+  eff_dg = (dg_amt * 0.01) * mag;
+  rb_bal = dg_bal * 0.01; // 0 = Rate priority, 1 = Bits priority
+
+  rate_amt = eff_dg * (1.0 - rb_bal * 0.55);
+  bits_amt = eff_dg * (0.45 + rb_bal * 0.55);
+
+  // Sample-and-Hold period (1 to 44 samples, modulated by Flux jitter)
+  sh_period = 1.0 + pow(rate_amt, 2.0) * 42.0 * (1.0 + abs(flux_rw2) * (dg_flux * 0.01) * 0.5);
+  // Quantization steps (16-bit down to 2.5-bit)
+  q_bits  = max(2.5, 16.0 - bits_amt * 13.5);
+  q_steps = pow(2.0, q_bits - 1.0);
+  q_inv   = 1.0 / q_steps;
+
+  dg_phase += 1.0;
+  dg_phase >= sh_period ? (
+    dg_phase -= sh_period;
+    dg_hold_l = floor(sig_l * q_steps + 0.5) * q_inv;
+    dg_hold_r = floor(sig_r * q_steps + 0.5) * q_inv;
+  );
+
+  crushed_l = dg_hold_l;
+  crushed_r = dg_hold_r;
+
+  // Smooth Reconstruction Filter
+  dg_smooth > 1.0 ? (
+    crushed_l = process_svf(crushed_l, C_DG_SM, ST_L + 4);
+    crushed_r = process_svf(crushed_r, C_DG_SM, ST_R + 4);
+  );
+
+  dgm = dg_mix * 0.01;
+  sig_l = sig_l * (1.0 - dgm) + crushed_l * dgm;
+  sig_r = sig_r * (1.0 - dgm) + crushed_r * dgm;
+);
+
+// =========================================================================
+// MODULE 5: SPACE (RESONATOR / STEREO REVERB WITH PREDELAY & DAMPING)
+// =========================================================================
+sp_w_pos += 1;
+pd_idx = (sp_w_pos & PREDEL_MASK) * 2;
+PREDEL_BASE[pd_idx]     = sig_l;
+PREDEL_BASE[pd_idx + 1] = sig_r;
+
+(sp_on && sp_amt > 0.1 && mag > 0.001) ? (
+  eff_sp = (sp_amt * 0.01) * mag;
+  pd_samps = floor((sp_predel * 0.01) * 0.085 * SAFE_SRATE);
+  pd_r_idx = ((sp_w_pos - pd_samps) & PREDEL_MASK) * 2;
+  rv_in_l = PREDEL_BASE[pd_r_idx]     * 0.25;
+  rv_in_r = PREDEL_BASE[pd_r_idx + 1] * 0.25;
+
+  fb_sp   = 0.55 + (sp_decay * 0.01) * 0.39;
+  damp_sp = 0.15 + (sp_damp  * 0.01) * 0.70;
+
+  // 4 Parallel Comb Filters per channel
+  out_c_l = proc_comb(rv_in_l, CB_L1, c_len_1, fb_sp, damp_sp, cb_st_l1); cb_st_l1 = comb_lp;
+  out_c_l += proc_comb(rv_in_l, CB_L2, c_len_2, fb_sp, damp_sp, cb_st_l2); cb_st_l2 = comb_lp;
+  out_c_l += proc_comb(rv_in_l, CB_L3, c_len_3, fb_sp, damp_sp, cb_st_l3); cb_st_l3 = comb_lp;
+  out_c_l += proc_comb(rv_in_l, CB_L4, c_len_4, fb_sp, damp_sp, cb_st_l4); cb_st_l4 = comb_lp;
+
+  out_c_r = proc_comb(rv_in_r, CB_R1, c_len_1 + (sp_stereo ? 23 : 0), fb_sp, damp_sp, cb_st_r1); cb_st_r1 = comb_lp;
+  out_c_r += proc_comb(rv_in_r, CB_R2, c_len_2 + (sp_stereo ? 29 : 0), fb_sp, damp_sp, cb_st_r2); cb_st_r2 = comb_lp;
+  out_c_r += proc_comb(rv_in_r, CB_R3, c_len_3 + (sp_stereo ? 31 : 0), fb_sp, damp_sp, cb_st_r3); cb_st_r3 = comb_lp;
+  out_c_r += proc_comb(rv_in_r, CB_R4, c_len_4 + (sp_stereo ? 37 : 0), fb_sp, damp_sp, cb_st_r4); cb_st_r4 = comb_lp;
+
+  // 2 Series All-Pass Filters per channel
+  rv_l = proc_ap(proc_ap(out_c_l, AP_L1, ap_len_1), AP_L2, ap_len_2);
+  rv_r = proc_ap(proc_ap(out_c_r, AP_R1, ap_len_1 + 19), AP_R2, ap_len_2 + 23);
+
+  sig_l = sig_l * (1.0 - eff_sp * 0.45) + rv_l * eff_sp;
+  sig_r = sig_r * (1.0 - eff_sp * 0.45) + rv_r * eff_sp;
+);
+
+// =========================================================================
+// MODULE 6: MAGNETIC (TAPE WEAR, CAPSTAN AM FLUTTER & DROPOUTS)
+// =========================================================================
+(mg_on && mg_amt > 0.1 && mag > 0.001) ? (
+  eff_mg = (mg_amt * 0.01) * mag;
+  mg_flut_w = mg_bal * 0.01;
+  mg_wear_w = 1.0 - mg_flut_w;
+
+  // Capstan AM Flutter (~14 Hz)
+  mg_ph += (2.0 * $pi * 14.5) / SAFE_SRATE;
+  mg_ph > 2.0 * $pi ? mg_ph -= 2.0 * $pi;
+
+  // Random Tape Dropouts
+  drop_prob = (mg_drop * 0.01) * eff_mg * 0.00035;
+  rand(1.0) < drop_prob ? (
+    drop_target_l = 1.0 - eff_mg * (0.45 + rand(0.45));
+    mg_stereo ? (
+      drop_target_r = 1.0 - eff_mg * (0.45 + rand(0.45));
+    ) : (
+      drop_target_r = drop_target_l;
+    );
+  ) : (
+    drop_target_l = min(1.0, drop_target_l + 0.0004);
+    drop_target_r = min(1.0, drop_target_r + 0.0004);
+  );
+
+  drop_gain_l = drop_gain_l * 0.995 + drop_target_l * 0.005;
+  drop_gain_r = drop_gain_r * 0.995 + drop_target_r * 0.005;
+
+  wear_mod_l = 1.0 - eff_mg * (mg_wear_w * abs(flux_rw1) * 0.45 + mg_flut_w * (0.5 + 0.5 * sin(mg_ph)) * 0.35);
+  mg_stereo ? (
+    wear_mod_r = 1.0 - eff_mg * (mg_wear_w * abs(flux_rw2) * 0.45 + mg_flut_w * (0.5 + 0.5 * cos(mg_ph)) * 0.35);
+  ) : (
+    wear_mod_r = wear_mod_l;
+  );
+
+  sig_l *= wear_mod_l * drop_gain_l;
+  sig_r *= wear_mod_r * drop_gain_r;
+);
+
+// =========================================================================
+// MASTER SECTION: CUT FILTERS, TILT/MID TONE, POST-NOISE, WIDTH & OUTPUT
+// =========================================================================
+eq_on ? (
+  m_locut_hz > 22.0 ? (
+    sig_l = process_svf(sig_l, C_MASTER_HP, ST_L + 8);
+    sig_r = process_svf(sig_r, C_MASTER_HP, ST_R + 8);
+    m_slope_hard ? (
+      sig_l = process_svf(sig_l, C_MASTER_HP, ST_L + 10);
+      sig_r = process_svf(sig_r, C_MASTER_HP, ST_R + 10);
+    );
+  );
+  m_hicut_hz < 19800.0 ? (
+    sig_l = process_svf(sig_l, C_MASTER_LP, ST_L + 12);
+    sig_r = process_svf(sig_r, C_MASTER_LP, ST_R + 12);
+    m_slope_hard ? (
+      sig_l = process_svf(sig_l, C_MASTER_LP, ST_L + 14);
+      sig_r = process_svf(sig_r, C_MASTER_LP, ST_R + 14);
+    );
+  );
+  abs(m_tone_val) > 1.0 ? (
+    sig_l = process_svf(sig_l, C_TONE_1, ST_L + 16);
+    sig_r = process_svf(sig_r, C_TONE_1, ST_R + 16);
+    sig_l = process_svf(sig_l, C_TONE_2, ST_L + 18);
+    sig_r = process_svf(sig_r, C_TONE_2, ST_R + 18);
+  );
+);
+
+// Inject Noise Post-Chain if Routing == Post (1)
+(n_on && n_post) ? (
+  sig_l += noise_l;
+  sig_r += noise_r;
+);
+
+// Stereo Width & Master Output Gain
+eff_w_k = 1.0 + ((m_width_pct * 0.01) - 1.0) * mag;
+mid_m  = (sig_l + sig_r) * 0.5;
+side_m = (sig_l - sig_r) * 0.5 * eff_w_k;
+out_l  = (mid_m + side_m) * out_lin;
+out_r  = (mid_m - side_m) * out_lin;
+
+// Safety NaN/Clip Ceiling
+(out_l != out_l || abs(out_l) > 4.0) ? out_l = max(-4.0, min(4.0, out_l));
+(out_r != out_r || abs(out_r) > 4.0) ? out_r = max(-4.0, min(4.0, out_r));
+
+spl0 = out_l;
+spl1 = out_r;
+
+env_out_pk = max(max(abs(out_l), abs(out_r)), env_out_pk * meter_decay);
+
+@gfx 980 680
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(840, gfx_w);
+H = max(580, gfx_h);
+
+S  = min(W / 980.0, H / 680.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(17, floor(21 * TS));
+f_mod   = max(12, floor(13 * TS));
+f_lbl   = max(10, floor(11 * TS));
+f_val   = max(11, floor(12 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_mod,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_lbl,   'b');
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Rotary Knob (Used for the 6 Big Knobs, Mini Sub-Knobs, and Master Knobs)
+function draw_vf_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc, is_active)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 6)*(r + 6));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 500.0 : 135.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  gfx_set(0.04, 0.04, 0.08, 0.85);
+  gfx_circle(cx, cy + 2, r + 1, 1, 1);
+
+  gfx_set(0.11, 0.12, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.23, 0.25, 0.34, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  steps = 26;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg && is_active ? (
+      gfx_set(rc, gc, bc, 0.98);
+    ) : (
+      gfx_set(0.19, 0.20, 0.28, 0.80);
+    );
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    st += 1;
+  );
+
+  gfx_set(is_active ? 0.95 : 0.45, is_active ? 0.97 : 0.48, is_active ? 1.0 : 0.58, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.25);
+  py0 = cy - cos(ang_val) * (r * 0.25);
+  px1 = cx + sin(ang_val) * (r - 5);
+  py1 = cy - cos(ang_val) * (r - 5);
+  gfx_line(px0, py0, px1, py1, 1);
+
+  gfx_setfont(4);
+  gfx_measurestr(label, lw, lh);
+  gfx_set(0.72, 0.76, 0.88, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(3 * S);
+  gfx_drawstr(label);
+
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(8 * S), floor(50 * S));
+  pill_h = vh + floor(3 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(4 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.19, hover ? gc : 0.21, hover ? bc : 0.30);
+  gfx_set(is_active ? 0.94 : 0.55, is_active ? 0.96 : 0.58, is_active ? 1.0 : 0.68, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR WITH GLOBAL "MAGNITUDE" SLIDER
+// =========================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.22, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// Brand Title: VINTAGEFLUX in Catppuccin Peach (#FAB387)
+gfx_setfont(1);
+gfx_set(0.98, 0.70, 0.53, 1.0);
+gfx_x = floor(18 * S);
+gfx_measurestr("VINTAGE", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("VINTAGE");
+gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_drawstr("FLUX");
+
+// "?" Info Badge
+gfx_setfont(4);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(8 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 10, qh + 4);
+gfx_set(0.98, 0.70, 0.53, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 14 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// Global MAGNITUDE Horizontal Slider in Top-Right Header (0..100%)
+mag_bar_w = floor(240 * S);
+mag_bar_h = floor(22 * S);
+mag_bar_x = W - mag_bar_w - floor(125 * S);
+mag_bar_y = (hdr_h - mag_bar_h) * 0.5;
+
+gfx_setfont(2);
+gfx_set(0.98, 0.70, 0.53, 1.0);
+gfx_measurestr("MAGNITUDE", mw_l, mh_l);
+gfx_x = mag_bar_x - mw_l - floor(10 * S);
+gfx_y = (hdr_h - mh_l) * 0.5;
+gfx_drawstr("MAGNITUDE");
+
+draw_panel_box(mag_bar_x, mag_bar_y, mag_bar_w, mag_bar_h, 0.05, 0.05, 0.08, 0.26, 0.28, 0.38);
+gfx_set(0.98, 0.70, 0.53, 0.90);
+gfx_rect(mag_bar_x + 2, mag_bar_y + 2, (mag_bar_w - 4) * (mag_pct * 0.01), mag_bar_h - 4);
+
+sprintf(#mg_s, "%.0f %%", mag_pct);
+gfx_setfont(4); gfx_set(1.0, 1.0, 1.0, 1.0);
+gfx_measurestr(#mg_s, tw, th);
+gfx_x = mag_bar_x + (mag_bar_w - tw) * 0.5;
+gfx_y = mag_bar_y + (mag_bar_h - th) * 0.5;
+gfx_drawstr(#mg_s);
+
+mag_hit = (mouse_x >= mag_bar_x - 6 && mouse_x <= mag_bar_x + mag_bar_w + 6 &&
+           mouse_y >= mag_bar_y - 4 && mouse_y <= mag_bar_y + mag_bar_h + 4);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && mag_hit && (drag_id == 0) ? (
+  drag_id = 999;
+);
+drag_id == 999 ? (
+  (mouse_cap & 1) ? (
+    mag_pct = max(0.0, min(100.0, ((mouse_x - mag_bar_x) / mag_bar_w) * 100.0));
+    update_parameters();
+    slider_automate(slider1);
+  ) : drag_id = 0;
+);
+
+// Text Zoom Toggle in Far Top-Right
+zm_w = floor(90 * S); zm_h = floor(26 * S);
+zm_x = W - zm_w - floor(16 * S); zm_y = (hdr_h - zm_h) * 0.5;
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h) ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 : ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider53);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+gfx_setfont(4); gfx_set(0.84, 0.88, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_s, "TEXT: 100%") : ui_zoom < 1.3 ? strcpy(#z_s, "TEXT: 120%") : strcpy(#z_s, "TEXT: 140%");
+gfx_measurestr(#z_s, tw, th);
+gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = zm_y + (zm_h - th)*0.5; gfx_drawstr(#z_s);
+
+// =========================================================================
+// 2. SIX FX MODULE COLUMNS (NOISE | WOBBLE | DISTORT | DIGITAL | SPACE | MAGNETIC)
+// =========================================================================
+pad     = floor(10 * S);
+full_w  = W - (pad * 2);
+avail_h = H - hdr_h - (pad * 3);
+
+mod_y = hdr_h + pad;
+mod_h = floor(avail_h * 0.72);
+mst_y = mod_y + mod_h + pad;
+mst_h = avail_h - mod_h;
+
+col_gap = floor(7 * S);
+col_w   = floor((full_w - col_gap * 5) / 6.0);
+
+r_sub = min(floor(18 * S), floor(mod_h * 0.060));
+r_big = min(floor(32 * S), floor(mod_h * 0.105));
+
+sub_row1_cy = mod_y + floor(mod_h * 0.24);
+sub_row2_cy = mod_y + floor(mod_h * 0.46);
+big_knob_cy = mod_y + floor(mod_h * 0.78);
+
+// Helper to draw each FX Module Column Frame, Enable Button & Bypassed Hatch Overlay
+function draw_module_frame(idx, title_s, is_en, rc, gc, bc)
+  local(cx_0, tw, th, en_w, en_h, en_x, en_y, hit_en, h_step, hy)
+(
+  cx_0 = pad + idx * (col_w + col_gap);
+  draw_panel_box(cx_0, mod_y, col_w, mod_h, 0.095, 0.098, 0.145, is_en ? rc*0.6 : 0.18, is_en ? gc*0.6 : 0.20, is_en ? bc*0.6 : 0.28);
+
+  // Top Accent Bar
+  gfx_set(rc, gc, bc, is_en ? 0.95 : 0.30);
+  gfx_rect(cx_0 + 1, mod_y + 1, col_w - 2, floor(4 * S));
+
+  // Enable Toggle Header Button
+  en_w = col_w - floor(16 * S);
+  en_h = floor(24 * S);
+  en_x = cx_0 + floor(8 * S);
+  en_y = mod_y + floor(10 * S);
+
+  hit_en = (mouse_x >= en_x && mouse_x <= en_x + en_w && mouse_y >= en_y && mouse_y <= en_y + en_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit_en ? (
+    mod_toggled = 1;
+  ) : (
+    mod_toggled = 0;
+  );
+
+  is_en ? (
+    draw_panel_box(en_x, en_y, en_w, en_h, rc * 0.28, gc * 0.28, bc * 0.28, rc, gc, bc);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(en_x, en_y, en_w, en_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+    gfx_set(0.55, 0.58, 0.68, 1.0);
+  );
+
+  gfx_setfont(2);
+  gfx_measurestr(title_s, tw, th);
+  gfx_x = en_x + (en_w - tw) * 0.5;
+  gfx_y = en_y + (en_h - th) * 0.5;
+  gfx_drawstr(title_s);
+
+  // Divider above Big Knob Section
+  gfx_set(0.18, 0.20, 0.28, 1.0);
+  gfx_line(cx_0 + 6, mod_y + floor(mod_h * 0.61), cx_0 + col_w - 6, mod_y + floor(mod_h * 0.61));
+
+  // Diagonal Hatch Overlay when Module is Disabled (RC-20 Style)
+  !is_en ? (
+    gfx_set(0.25, 0.27, 0.38, 0.22);
+    hy = mod_y + 40;
+    loop(12,
+      hy < mod_y + mod_h - 10 ? (
+        gfx_line(cx_0 + 4, hy, cx_0 + col_w - 4, max(mod_y + 40, hy - 35));
+      );
+      hy += floor(32 * S);
+    );
+  );
+
+  cx_0;
+);
+
+// -------------------------------------------------------------------------
+// MODULE 1: NOISE — Rosewater (#F5E0DC: 0.96, 0.88, 0.86)
+// -------------------------------------------------------------------------
+m1_x = draw_module_frame(0, "1. NOISE", n_on, 0.96, 0.88, 0.86);
+m_toggled_1 = mod_toggled;
+
+// Type & Post/Pre Buttons in Sub-Row 1
+btn_w1 = floor((col_w - floor(20 * S)) * 0.58);
+btn_w2 = (col_w - floor(20 * S)) - btn_w1 - 4;
+by_1   = mod_y + floor(42 * S);
+bh_1   = floor(24 * S);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  (mouse_x >= m1_x + 8 && mouse_x <= m1_x + 8 + btn_w1 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+    n_type = (n_type + 1) % 4; slider_automate(slider4);
+  );
+  (mouse_x >= m1_x + 12 + btn_w1 && mouse_x <= m1_x + 12 + btn_w1 + btn_w2 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+    n_post = !n_post; slider_automate(slider8);
+  );
+);
+draw_panel_box(m1_x + 8, by_1, btn_w1, bh_1, 0.14, 0.15, 0.22, 0.35, 0.38, 0.48);
+n_type == 0 ? strcpy(#nt_s, "VINYL") : n_type == 1 ? strcpy(#nt_s, "CASSETTE") : n_type == 2 ? strcpy(#nt_s, "VHS") : strcpy(#nt_s, "WHITE");
+gfx_setfont(4); gfx_set(0.95, 0.92, 0.92, 1.0);
+gfx_measurestr(#nt_s, tw, th); gfx_x = m1_x + 8 + (btn_w1 - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#nt_s);
+
+draw_panel_box(m1_x + 12 + btn_w1, by_1, btn_w2, bh_1, n_post ? 0.45 : 0.14, n_post ? 0.38 : 0.15, n_post ? 0.38 : 0.22, 0.45, 0.42, 0.48);
+n_post ? strcpy(#np_s, "POST") : strcpy(#np_s, "PRE");
+gfx_measurestr(#np_s, tw, th); gfx_x = m1_x + 12 + btn_w1 + (btn_w2 - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#np_s);
+
+// Sub-Knobs: Tone, Follow, Duck, Flux
+sprintf(#v_s, "%+.0f", n_tone);
+new_v = draw_vf_knob(101, m1_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, n_tone, -100, 100, 0, "TONE", #v_s, 1, 0.96, 0.88, 0.86, n_on);
+abs(new_v - n_tone) > 0.1 ? ( n_tone = new_v; slider_automate(slider5); );
+
+sprintf(#v_s, "%.0f%%", n_follow);
+new_v = draw_vf_knob(102, m1_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, n_follow, 0, 100, 40, "FOLLOW", #v_s, 0, 0.96, 0.88, 0.86, n_on);
+abs(new_v - n_follow) > 0.1 ? ( n_follow = new_v; slider_automate(slider6); );
+
+sprintf(#v_s, "%.0f%%", n_duck);
+new_v = draw_vf_knob(103, m1_x + col_w*0.27, sub_row2_cy + floor(14*S), r_sub, n_duck, 0, 100, 0, "DUCK", #v_s, 0, 0.96, 0.88, 0.86, n_on);
+abs(new_v - n_duck) > 0.1 ? ( n_duck = new_v; slider_automate(slider7); );
+
+sprintf(#v_s, "%.0f%%", n_flux);
+new_v = draw_vf_knob(104, m1_x + col_w*0.73, sub_row2_cy + floor(14*S), r_sub, n_flux, 0, 100, 25, "FLUX", #v_s, 0, 0.96, 0.88, 0.86, n_on);
+abs(new_v - n_flux) > 0.1 ? ( n_flux = new_v; slider_automate(slider9); );
+
+// Big Knob: Noise Level
+sprintf(#v_s, "%.0f %%", n_amt);
+new_v = draw_vf_knob(1, m1_x + col_w*0.50, big_knob_cy, r_big, n_amt, 0, 100, 22, "NOISE LVL", #v_s, 0, 0.96, 0.88, 0.86, n_on);
+abs(new_v - n_amt) > 0.1 ? ( n_amt = new_v; n_on = 1; slider_automate(slider3); slider_automate(slider2); );
+m_toggled_1 ? ( n_on = !n_on; slider_automate(slider2); );
+
+// -------------------------------------------------------------------------
+// MODULE 2: WOBBLE — Sapphire (#74C7EC: 0.45, 0.78, 0.98)
+// -------------------------------------------------------------------------
+m2_x = draw_module_frame(1, "2. WOBBLE", w_on, 0.45, 0.78, 0.98);
+m_toggled_2 = mod_toggled;
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= m2_x + 8 && mouse_x <= m2_x + col_w - 8 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+  w_stereo = !w_stereo; slider_automate(slider14);
+);
+draw_panel_box(m2_x + 8, by_1, col_w - 16, bh_1, w_stereo ? 0.16 : 0.14, w_stereo ? 0.36 : 0.15, w_stereo ? 0.58 : 0.22, 0.45, 0.78, 0.98);
+w_stereo ? strcpy(#ws_s, "WIDTH: STEREO") : strcpy(#ws_s, "WIDTH: MONO");
+gfx_setfont(4); gfx_set(0.92, 0.96, 1.0, 1.0);
+gfx_measurestr(#ws_s, tw, th); gfx_x = m2_x + (col_w - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#ws_s);
+
+sprintf(#v_s, "%.0f/%.0f", 100 - w_bal, w_bal);
+new_v = draw_vf_knob(201, m2_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, w_bal, 0, 100, 35, "WOW/FLUT", #v_s, 0, 0.45, 0.78, 0.98, w_on);
+abs(new_v - w_bal) > 0.1 ? ( w_bal = new_v; slider_automate(slider12); );
+
+sprintf(#v_s, "%.0f%%", w_rate);
+new_v = draw_vf_knob(202, m2_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, w_rate, 0, 100, 50, "RATE", #v_s, 0, 0.45, 0.78, 0.98, w_on);
+abs(new_v - w_rate) > 0.1 ? ( w_rate = new_v; slider_automate(slider13); );
+
+sprintf(#v_s, "%.0f%%", w_mix);
+new_v = draw_vf_knob(203, m2_x + col_w*0.27, sub_row2_cy + floor(14*S), r_sub, w_mix, 0, 100, 100, "MIX", #v_s, 0, 0.45, 0.78, 0.98, w_on);
+abs(new_v - w_mix) > 0.1 ? ( w_mix = new_v; slider_automate(slider15); );
+
+sprintf(#v_s, "%.0f%%", w_flux);
+new_v = draw_vf_knob(204, m2_x + col_w*0.73, sub_row2_cy + floor(14*S), r_sub, w_flux, 0, 100, 30, "FLUX", #v_s, 0, 0.45, 0.78, 0.98, w_on);
+abs(new_v - w_flux) > 0.1 ? ( w_flux = new_v; slider_automate(slider16); );
+
+sprintf(#v_s, "%.0f %%", w_amt);
+new_v = draw_vf_knob(2, m2_x + col_w*0.50, big_knob_cy, r_big, w_amt, 0, 100, 28, "WOBBLE", #v_s, 0, 0.45, 0.78, 0.98, w_on);
+abs(new_v - w_amt) > 0.1 ? ( w_amt = new_v; w_on = 1; slider_automate(slider11); slider_automate(slider10); );
+m_toggled_2 ? ( w_on = !w_on; slider_automate(slider10); );
+
+// -------------------------------------------------------------------------
+// MODULE 3: DISTORT — Peach (#FAB387: 0.98, 0.70, 0.53)
+// -------------------------------------------------------------------------
+m3_x = draw_module_frame(2, "3. DISTORT", d_on, 0.98, 0.70, 0.53);
+m_toggled_3 = mod_toggled;
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= m3_x + 8 && mouse_x <= m3_x + col_w - 8 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+  d_type = (d_type + 1) % 4; slider_automate(slider19);
+);
+draw_panel_box(m3_x + 8, by_1, col_w - 16, bh_1, 0.35, 0.22, 0.16, 0.98, 0.70, 0.53);
+d_type == 0 ? strcpy(#dt_s, "TYPE: TUBE") : d_type == 1 ? strcpy(#dt_s, "TYPE: TAPE") : d_type == 2 ? strcpy(#dt_s, "TYPE: CRUNCH") : strcpy(#dt_s, "TYPE: FOLD");
+gfx_setfont(4); gfx_set(0.98, 0.94, 0.90, 1.0);
+gfx_measurestr(#dt_s, tw, th); gfx_x = m3_x + (col_w - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#dt_s);
+
+sprintf(#v_s, "%dHz", d_f_lo);
+new_v = draw_vf_knob(301, m3_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, d_f_lo, 20, 4000, 120, "FOCUS LO", #v_s, 0, 0.98, 0.70, 0.53, d_on);
+abs(new_v - d_f_lo) > 1.0 ? ( d_f_lo = new_v; update_parameters(); slider_automate(slider20); );
+
+sprintf(#v_s, "%.1fk", d_f_hi * 0.001);
+new_v = draw_vf_knob(302, m3_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, d_f_hi, 500, 20000, 8000, "FOCUS HI", #v_s, 0, 0.98, 0.70, 0.53, d_on);
+abs(new_v - d_f_hi) > 5.0 ? ( d_f_hi = new_v; update_parameters(); slider_automate(slider21); );
+
+sprintf(#v_s, "%.0f%%", d_mix);
+new_v = draw_vf_knob(303, m3_x + col_w*0.27, sub_row2_cy + floor(14*S), r_sub, d_mix, 0, 100, 100, "MIX", #v_s, 0, 0.98, 0.70, 0.53, d_on);
+abs(new_v - d_mix) > 0.1 ? ( d_mix = new_v; slider_automate(slider22); );
+
+sprintf(#v_s, "%.0f%%", d_flux);
+new_v = draw_vf_knob(304, m3_x + col_w*0.73, sub_row2_cy + floor(14*S), r_sub, d_flux, 0, 100, 20, "FLUX", #v_s, 0, 0.98, 0.70, 0.53, d_on);
+abs(new_v - d_flux) > 0.1 ? ( d_flux = new_v; slider_automate(slider23); );
+
+sprintf(#v_s, "%.0f %%", d_amt);
+new_v = draw_vf_knob(3, m3_x + col_w*0.50, big_knob_cy, r_big, d_amt, 0, 100, 30, "DISTORT", #v_s, 0, 0.98, 0.70, 0.53, d_on);
+abs(new_v - d_amt) > 0.1 ? ( d_amt = new_v; d_on = 1; slider_automate(slider18); slider_automate(slider17); );
+m_toggled_3 ? ( d_on = !d_on; slider_automate(slider17); );
+
+// -------------------------------------------------------------------------
+// MODULE 4: DIGITAL — Teal (#94E2D5: 0.58, 0.89, 0.84)
+// -------------------------------------------------------------------------
+m4_x = draw_module_frame(3, "4. DIGITAL", dg_on, 0.58, 0.89, 0.84);
+m_toggled_4 = mod_toggled;
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= m4_x + 8 && mouse_x <= m4_x + col_w - 8 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+  dg_cut = !dg_cut; slider_automate(slider28);
+);
+draw_panel_box(m4_x + 8, by_1, col_w - 16, bh_1, dg_cut ? 0.16 : 0.14, dg_cut ? 0.42 : 0.15, dg_cut ? 0.40 : 0.22, 0.58, 0.89, 0.84);
+dg_cut ? strcpy(#dgc_s, "MODE: CUT") : strcpy(#dgc_s, "MODE: FULL");
+gfx_setfont(4); gfx_set(0.92, 0.98, 0.96, 1.0);
+gfx_measurestr(#dgc_s, tw, th); gfx_x = m4_x + (col_w - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#dgc_s);
+
+sprintf(#v_s, "%.0f/%.0f", 100 - dg_bal, dg_bal);
+new_v = draw_vf_knob(401, m4_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, dg_bal, 0, 100, 50, "RATE/BITS", #v_s, 0, 0.58, 0.89, 0.84, dg_on);
+abs(new_v - dg_bal) > 0.1 ? ( dg_bal = new_v; slider_automate(slider26); );
+
+sprintf(#v_s, "%.0f%%", dg_smooth);
+new_v = draw_vf_knob(402, m4_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, dg_smooth, 0, 100, 40, "SMOOTH", #v_s, 0, 0.58, 0.89, 0.84, dg_on);
+abs(new_v - dg_smooth) > 0.1 ? ( dg_smooth = new_v; update_parameters(); slider_automate(slider27); );
+
+sprintf(#v_s, "%.0f%%", dg_mix);
+new_v = draw_vf_knob(403, m4_x + col_w*0.27, sub_row2_cy + floor(14*S), r_sub, dg_mix, 0, 100, 100, "MIX", #v_s, 0, 0.58, 0.89, 0.84, dg_on);
+abs(new_v - dg_mix) > 0.1 ? ( dg_mix = new_v; slider_automate(slider29); );
+
+sprintf(#v_s, "%.0f%%", dg_flux);
+new_v = draw_vf_knob(404, m4_x + col_w*0.73, sub_row2_cy + floor(14*S), r_sub, dg_flux, 0, 100, 20, "FLUX", #v_s, 0, 0.58, 0.89, 0.84, dg_on);
+abs(new_v - dg_flux) > 0.1 ? ( dg_flux = new_v; slider_automate(slider30); );
+
+sprintf(#v_s, "%.0f %%", dg_amt);
+new_v = draw_vf_knob(4, m4_x + col_w*0.50, big_knob_cy, r_big, dg_amt, 0, 100, 35, "DIGITAL", #v_s, 0, 0.58, 0.89, 0.84, dg_on);
+abs(new_v - dg_amt) > 0.1 ? ( dg_amt = new_v; dg_on = 1; slider_automate(slider25); slider_automate(slider24); );
+m_toggled_4 ? ( dg_on = !dg_on; slider_automate(slider24); );
+
+// -------------------------------------------------------------------------
+// MODULE 5: SPACE — Mauve (#CBA6F7: 0.80, 0.65, 0.97)
+// -------------------------------------------------------------------------
+m5_x = draw_module_frame(4, "5. SPACE", sp_on, 0.80, 0.65, 0.97);
+m_toggled_5 = mod_toggled;
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= m5_x + 8 && mouse_x <= m5_x + col_w - 8 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+  sp_stereo = !sp_stereo; slider_automate(slider36);
+);
+draw_panel_box(m5_x + 8, by_1, col_w - 16, bh_1, sp_stereo ? 0.32 : 0.14, sp_stereo ? 0.22 : 0.15, sp_stereo ? 0.48 : 0.22, 0.80, 0.65, 0.97);
+sp_stereo ? strcpy(#sps_s, "SPACE: STEREO") : strcpy(#sps_s, "SPACE: MONO");
+gfx_setfont(4); gfx_set(0.95, 0.92, 1.0, 1.0);
+gfx_measurestr(#sps_s, tw, th); gfx_x = m5_x + (col_w - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#sps_s);
+
+sprintf(#v_s, "%.0f%%", sp_decay);
+new_v = draw_vf_knob(501, m5_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, sp_decay, 0, 100, 55, "DECAY", #v_s, 0, 0.80, 0.65, 0.97, sp_on);
+abs(new_v - sp_decay) > 0.1 ? ( sp_decay = new_v; slider_automate(slider33); );
+
+sprintf(#v_s, "%.0fms", sp_predel * 0.85);
+new_v = draw_vf_knob(502, m5_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, sp_predel, 0, 100, 20, "PREDELAY", #v_s, 0, 0.80, 0.65, 0.97, sp_on);
+abs(new_v - sp_predel) > 0.1 ? ( sp_predel = new_v; slider_automate(slider34); );
+
+sprintf(#v_s, "%.0f%%", sp_damp);
+new_v = draw_vf_knob(503, m5_x + col_w*0.27, sub_row2_cy + floor(14*S), r_sub, sp_damp, 0, 100, 50, "DAMPING", #v_s, 0, 0.80, 0.65, 0.97, sp_on);
+abs(new_v - sp_damp) > 0.1 ? ( sp_damp = new_v; slider_automate(slider35); );
+
+sprintf(#v_s, "%.0f%%", sp_flux);
+new_v = draw_vf_knob(504, m5_x + col_w*0.73, sub_row2_cy + floor(14*S), r_sub, sp_flux, 0, 100, 25, "FLUX", #v_s, 0, 0.80, 0.65, 0.97, sp_on);
+abs(new_v - sp_flux) > 0.1 ? ( sp_flux = new_v; slider_automate(slider37); );
+
+sprintf(#v_s, "%.0f %%", sp_amt);
+new_v = draw_vf_knob(5, m5_x + col_w*0.50, big_knob_cy, r_big, sp_amt, 0, 100, 24, "SPACE", #v_s, 0, 0.80, 0.65, 0.97, sp_on);
+abs(new_v - sp_amt) > 0.1 ? ( sp_amt = new_v; sp_on = 1; slider_automate(slider32); slider_automate(slider31); );
+m_toggled_5 ? ( sp_on = !sp_on; slider_automate(slider31); );
+
+// -------------------------------------------------------------------------
+// MODULE 6: MAGNETIC — Yellow (#F9E2AF: 0.98, 0.89, 0.69)
+// -------------------------------------------------------------------------
+m6_x = draw_module_frame(5, "6. MAGNETIC", mg_on, 0.98, 0.89, 0.69);
+m_toggled_6 = mod_toggled;
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= m6_x + 8 && mouse_x <= m6_x + col_w - 8 && mouse_y >= by_1 && mouse_y <= by_1 + bh_1) ? (
+  mg_stereo = !mg_stereo; slider_automate(slider42);
+);
+draw_panel_box(m6_x + 8, by_1, col_w - 16, bh_1, mg_stereo ? 0.38 : 0.14, mg_stereo ? 0.34 : 0.15, mg_stereo ? 0.18 : 0.22, 0.98, 0.89, 0.69);
+mg_stereo ? strcpy(#mgs_s, "WEAR: STEREO") : strcpy(#mgs_s, "WEAR: MONO");
+gfx_setfont(4); gfx_set(0.98, 0.96, 0.90, 1.0);
+gfx_measurestr(#mgs_s, tw, th); gfx_x = m6_x + (col_w - tw)*0.5; gfx_y = by_1 + (bh_1 - th)*0.5; gfx_drawstr(#mgs_s);
+
+sprintf(#v_s, "%.0f/%.0f", 100 - mg_bal, mg_bal);
+new_v = draw_vf_knob(601, m6_x + col_w*0.27, sub_row1_cy + floor(18*S), r_sub, mg_bal, 0, 100, 35, "WEAR/FLUT", #v_s, 0, 0.98, 0.89, 0.69, mg_on);
+abs(new_v - mg_bal) > 0.1 ? ( mg_bal = new_v; slider_automate(slider40); );
+
+sprintf(#v_s, "%.0f%%", mg_drop);
+new_v = draw_vf_knob(602, m6_x + col_w*0.73, sub_row1_cy + floor(18*S), r_sub, mg_drop, 0, 100, 20, "DROPOUTS", #v_s, 0, 0.98, 0.89, 0.69, mg_on);
+abs(new_v - mg_drop) > 0.1 ? ( mg_drop = new_v; slider_automate(slider41); );
+
+sprintf(#v_s, "%.0f%%", mg_flux);
+new_v = draw_vf_knob(603, m6_x + col_w*0.50, sub_row2_cy + floor(14*S), r_sub, mg_flux, 0, 100, 35, "FLUX", #v_s, 0, 0.98, 0.89, 0.69, mg_on);
+abs(new_v - mg_flux) > 0.1 ? ( mg_flux = new_v; slider_automate(slider43); );
+
+sprintf(#v_s, "%.0f %%", mg_amt);
+new_v = draw_vf_knob(6, m6_x + col_w*0.50, big_knob_cy, r_big, mg_amt, 0, 100, 25, "MAGNETIC", #v_s, 0, 0.98, 0.89, 0.69, mg_on);
+abs(new_v - mg_amt) > 0.1 ? ( mg_amt = new_v; mg_on = 1; slider_automate(slider39); slider_automate(slider38); );
+m_toggled_6 ? ( mg_on = !mg_on; slider_automate(slider38); );
+
+// =========================================================================
+// 3. BOTTOM MASTER SECTION (INPUT | EQ CUT & TONE | OUTPUT & WIDTH)
+// =========================================================================
+draw_panel_box(pad, mst_y, full_w, mst_h, 0.095, 0.098, 0.145, 0.22, 0.24, 0.34);
+
+r_mst  = min(floor(23 * S), floor(mst_h * 0.21));
+mst_cy = mst_y + floor(mst_h * 0.42);
+
+// 1. INPUT GAIN
+sprintf(#v_s, "%+.1f dB", in_gain_db);
+new_v = draw_vf_knob(701, pad + full_w * 0.08, mst_cy, r_mst, in_gain_db, -18, 18, 0, "IN GAIN", #v_s, 1, 0.54, 0.71, 0.98, 1);
+abs(new_v - in_gain_db) > 0.05 ? ( in_gain_db = new_v; update_parameters(); slider_automate(slider44); );
+
+// Vertical Divider
+gfx_set(0.18, 0.20, 0.28, 1.0);
+gfx_line(pad + full_w * 0.16, mst_y + 10, pad + full_w * 0.16, mst_y + mst_h - 10);
+
+// 2. MASTER EQ SECTION (Enable, Low-Cut, High-Cut, Soft/Hard Slope, Tone, Tilt/Mid Mode)
+eq_btn_w = floor(74 * S); eq_btn_h = floor(24 * S);
+eq_btn_x = pad + floor(full_w * 0.18);
+eq_btn_y = mst_y + floor(12 * S);
+
+slp_btn_y = eq_btn_y + eq_btn_h + floor(8 * S);
+tm_btn_y  = slp_btn_y + eq_btn_h + floor(8 * S);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  (mouse_x >= eq_btn_x && mouse_x <= eq_btn_x + eq_btn_w && mouse_y >= eq_btn_y && mouse_y <= eq_btn_y + eq_btn_h) ? (
+    eq_on = !eq_on; slider_automate(slider45);
+  );
+  (mouse_x >= eq_btn_x && mouse_x <= eq_btn_x + eq_btn_w && mouse_y >= slp_btn_y && mouse_y <= slp_btn_y + eq_btn_h) ? (
+    m_slope_hard = !m_slope_hard; update_parameters(); slider_automate(slider48);
+  );
+  (mouse_x >= eq_btn_x && mouse_x <= eq_btn_x + eq_btn_w && mouse_y >= tm_btn_y && mouse_y <= tm_btn_y + eq_btn_h) ? (
+    m_tone_mode = !m_tone_mode; update_parameters(); slider_automate(slider50);
+  );
+);
+
+draw_panel_box(eq_btn_x, eq_btn_y, eq_btn_w, eq_btn_h, eq_on ? 0.20 : 0.14, eq_on ? 0.48 : 0.15, eq_on ? 0.82 : 0.22, 0.54, 0.78, 1.0);
+gfx_setfont(4); gfx_set(0.95, 0.97, 1.0, 1.0);
+eq_on ? strcpy(#eqb_s, "EQ: ON") : strcpy(#eqb_s, "EQ: OFF");
+gfx_measurestr(#eqb_s, tw, th); gfx_x = eq_btn_x + (eq_btn_w - tw)*0.5; gfx_y = eq_btn_y + (eq_btn_h - th)*0.5; gfx_drawstr(#eqb_s);
+
+draw_panel_box(eq_btn_x, slp_btn_y, eq_btn_w, eq_btn_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+m_slope_hard ? strcpy(#sl_s, "CUT: HARD") : strcpy(#sl_s, "CUT: SOFT");
+gfx_measurestr(#sl_s, tw, th); gfx_x = eq_btn_x + (eq_btn_w - tw)*0.5; gfx_y = slp_btn_y + (eq_btn_h - th)*0.5; gfx_drawstr(#sl_s);
+
+draw_panel_box(eq_btn_x, tm_btn_y, eq_btn_w, eq_btn_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+m_tone_mode == 0 ? strcpy(#tm_s, "TONE: TILT") : strcpy(#tm_s, "TONE: MID");
+gfx_measurestr(#tm_s, tw, th); gfx_x = eq_btn_x + (eq_btn_w - tw)*0.5; gfx_y = tm_btn_y + (eq_btn_h - th)*0.5; gfx_drawstr(#tm_s);
+
+// Low-Cut, High-Cut, and Tone Knobs
+sprintf(#v_s, "%d Hz", m_locut_hz);
+new_v = draw_vf_knob(702, pad + full_w * 0.34, mst_cy, r_mst, m_locut_hz, 20, 1000, 20, "LOW CUT", #v_s, 0, 0.54, 0.71, 0.98, eq_on);
+abs(new_v - m_locut_hz) > 1.0 ? ( m_locut_hz = new_v; update_parameters(); slider_automate(slider46); );
+
+sprintf(#v_s, "%.1f kHz", m_hicut_hz * 0.001);
+new_v = draw_vf_knob(703, pad + full_w * 0.48, mst_cy, r_mst, m_hicut_hz, 1000, 20000, 20000, "HIGH CUT", #v_s, 0, 0.54, 0.71, 0.98, eq_on);
+abs(new_v - m_hicut_hz) > 5.0 ? ( m_hicut_hz = new_v; update_parameters(); slider_automate(slider47); );
+
+sprintf(#v_s, "%+.0f", m_tone_val);
+new_v = draw_vf_knob(704, pad + full_w * 0.62, mst_cy, r_mst, m_tone_val, -100, 100, 0, "TONE", #v_s, 1, 0.54, 0.71, 0.98, eq_on);
+abs(new_v - m_tone_val) > 0.1 ? ( m_tone_val = new_v; update_parameters(); slider_automate(slider49); );
+
+// Vertical Divider
+gfx_set(0.18, 0.20, 0.28, 1.0);
+gfx_line(pad + full_w * 0.71, mst_y + 10, pad + full_w * 0.71, mst_y + mst_h - 10);
+
+// 3. OUTPUT WIDTH & GAIN
+sprintf(#v_s, "%d %%", m_width_pct);
+new_v = draw_vf_knob(705, pad + full_w * 0.80, mst_cy, r_mst, m_width_pct, 0, 200, 100, "WIDTH", #v_s, 1, 0.54, 0.71, 0.98, 1);
+abs(new_v - m_width_pct) > 0.5 ? ( m_width_pct = new_v; slider_automate(slider51); );
+
+sprintf(#v_s, "%+.1f dB", out_gain_db);
+new_v = draw_vf_knob(706, pad + full_w * 0.92, mst_cy, r_mst, out_gain_db, -18, 18, 0, "OUT GAIN", #v_s, 1, 0.54, 0.71, 0.98, 1);
+abs(new_v - out_gain_db) > 0.05 ? ( out_gain_db = new_v; update_parameters(); slider_automate(slider52); );
+
+// =========================================================================
+// 4. INFO OVERLAY MODAL (Click VINTAGEFLUX Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.72);
+  mh = floor(290 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.98, 0.70, 0.53);
+
+  gfx_setfont(1);
+  gfx_set(0.98, 0.70, 0.53, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("VintageFlux v1.0 (6-Module Lo-Fi & Retro Multi-FX)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.94, 0.98, 1.0);
+  lh_step = floor(26 * S);
+  ty = my + 60;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• MAGNITUDE slider scales all 6 modules & master tone simultaneously");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• 6 Modules: Noise, Wobble, Distort, Digital, Space, and Magnetic");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Click any module header (1-6) to toggle bypass; moving its Big Knob auto-enables");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• FLUX knobs add organic, non-repeating random drift to each module");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Master Section includes Soft/Hard Low & High Cuts + Tilt/Mid Tone EQ");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment, double-click to reset)");
+
+  gfx_set(0.72, 0.66, 0.60, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 32;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

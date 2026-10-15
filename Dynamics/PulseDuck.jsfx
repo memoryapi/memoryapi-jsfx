@@ -1,0 +1,1262 @@
+desc:PulseDuck (Multiband Sidechain & Envelope Shaper)
+// @description PulseDuck (Multiband Sidechain & Envelope Shaper)
+// @author MemoryAPI
+// @version 1.0.0
+// @changelog Initial release in repository
+// @about
+//   # PulseDuck
+//   Multiband sidechain volume shaper and rhythmic ducking engine with custom breakpoint curve editing, real-time kick overlay scope, and automatic sidechain tracing.
+//
+//   ### Features
+//   - 16 Instant Curve Presets plus custom multi-node breakpoint envelope editor with tension control
+//   - 4 Flexible Trigger Modes: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input
+//   - Multiband Crossover: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo
+//   - Real-time Dual Oscilloscope displaying ducked audio (white) alongside incoming sidechain trigger (yellow)
+//   - One-click TRACE SC: Automatically captures and fits the ducking envelope around your kick drum transient
+//   - Variable Curve Slope and Timing Shift (<< < > >>) to dial in the groove and lock the pocket
+//   - Audio trigger filter, threshold, hold-off, and MIDI velocity sensitivity
+//   - Scalable HiDPI text zoom (100% - 140%)
+// @provides
+//   [effect] PulseDuck.jsfx
+
+options:maxmem=2097152
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:mix_pct=100<0,100,0.1>-Master Mix (%)
+slider2:curve_idx=0<0,15,1>-Curve Preset (1-16)
+slider3:slope_pct=50<10,90,0.1>-Curve Slope / Skew (%)
+slider4:shift_pct=0<-50,50,0.1>-Curve Phase Shift (%)
+slider5:trig_mode=0<0,3,1{Sync (Repeat),MIDI Trigger,Sidechain Audio,Input Audio}>-Trigger Mode
+slider6:loop_on=1<0,1,1{One-Shot,Loop}>-Trigger Loop Mode
+slider7:speed_idx=3<0,8,1{1/16,1/8T,1/8,1/4,1/2,1 Bar,2 Bars,4 Bars,Free Hz}>-Envelope Speed
+slider8:free_hz=2.0<0.2,16.0,0.05>-Free Rate (Hz)
+slider9:smooth_ms=4.5<0,50,0.1>-Smoothing (ms)
+slider10:offset_ms=0<-100,100,0.5>-Timing Offset (ms)
+
+// Multiband Controls
+slider11:mb_mode=1<0,2,1{Full (1-Band),2-Band (Lo/Hi),3-Band (Lo/Mid/Hi)}>-Multiband Mode
+slider12:xover_lo_hz=140<20,1000,1>-Low Crossover (Hz)
+slider13:xover_hi_hz=2500<400,16000,10>-High Crossover (Hz)
+slider14:xover_steep=1<0,1,1{12 dB/oct,24 dB/oct}>-Crossover Slope
+slider15:duck_lo_pct=100<0,100,0.1>-Low Band Duck (%)
+slider16:duck_mid_pct=65<0,100,0.1>-Mid Band Duck (%)
+slider17:duck_hi_pct=0<0,100,0.1>-High Band Duck (%)
+slider18:solo_band=0<0,3,1{Off,Solo Low,Solo Mid,Solo High}>-Band Solo
+
+// Audio / MIDI Trigger Controls
+slider19:trig_thresh_db=-18<-48,0,0.5>-Trigger Threshold (dB)
+slider20:trig_hold_ms=60<10,500,1>-Trigger Hold-Off (ms)
+slider21:trig_flt_hz=90<20,2000,1>-Trigger Filter Center (Hz)
+slider22:trig_flt_on=1<0,1,1{Off,On}>-Trigger Filter Enable
+slider23:vel_scale_pct=0<0,100,1>-MIDI Velocity Scale (%)
+slider24:active_on=1<0,1,1{Bypass,Active}>-Master Active
+slider25:ui_zoom=1.15<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Main Left
+in_pin:Main Right
+in_pin:Sidechain Left
+in_pin:Sidechain Right
+out_pin:Output Left
+out_pin:Output Right
+
+@init
+ext_noinit = 1.0;
+ext_gr_meter = 0.0;
+
+function DB_TO_K(x) ( 10 ^ (x / 20.0) );
+function K_TO_DB(lin) ( 8.685889638 * log(max(0.0000001, lin)) );
+
+// Memory Map
+// 1. Oscilloscope Circular Buffers (256 bins aligned to envelope cycle)
+SCOPE_BINS   = 256;
+SCOPE_OUT    = 1000; // Ducked Output Waveform
+SCOPE_SC     = 1300; // Sidechain Kick Waveform
+SCOPE_ENV    = 1600; // Applied Envelope Trace
+TRACE_REC    = 2000; // 256 floats for "Trace Sidechain" recording
+
+// 2. Editable Custom Breakpoint Nodes (up to 16 nodes: X, Y, Tension)
+MAX_NODES = 16;
+NODE_X    = 2500;
+NODE_Y    = 2520;
+NODE_T    = 2540; // Segment tension (-1..+1)
+
+// 3. Lookahead Audio Delay Buffer (up to 16384 stereo frames)
+LA_FRAMES = 16384;
+LA_MASK   = LA_FRAMES - 1;
+LA_BASE   = 65536;
+
+// Beat Multipliers for Speed Selector
+speed_beats_tbl = 100;
+speed_beats_tbl[0] = 0.25;      // 1/16
+speed_beats_tbl[1] = 0.3333333; // 1/8T
+speed_beats_tbl[2] = 0.5;       // 1/8
+speed_beats_tbl[3] = 1.0;       // 1/4 (1 Beat - Default)
+speed_beats_tbl[4] = 2.0;       // 1/2
+speed_beats_tbl[5] = 4.0;       // 1 Bar
+speed_beats_tbl[6] = 8.0;       // 2 Bars
+speed_beats_tbl[7] = 16.0;      // 4 Bars
+
+// Load one of 16 Hand-Crafted Curves into the Editable Node Array
+function load_preset_curve(idx)
+(
+  custom_traced = 0;
+  idx == 0 ? (
+    // 1. Classic House Pump
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=1.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.04; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.22; NODE_Y[2]=0.00; NODE_T[2]=-0.35;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 1 ? (
+    // 2. Tight Punch
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=1.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.03; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.12; NODE_Y[2]=0.00; NODE_T[2]=0.45;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 2 ? (
+    // 3. Deep Pocket
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=1.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.04; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.42; NODE_Y[2]=0.00; NODE_T[2]=-0.25;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 3 ? (
+    // 4. Fast Snap
+    num_nodes = 3;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.55;
+    NODE_X[1]=0.55; NODE_Y[1]=1.00; NODE_T[1]=0.0;
+    NODE_X[2]=1.00; NODE_Y[2]=1.00; NODE_T[2]=0.0;
+  ) : idx == 4 ? (
+    // 5. Smooth Swell
+    num_nodes = 3;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=-0.45;
+    NODE_X[1]=0.85; NODE_Y[1]=1.00; NODE_T[1]=0.0;
+    NODE_X[2]=1.00; NODE_Y[2]=1.00; NODE_T[2]=0.0;
+  ) : idx == 5 ? (
+    // 6. Hard Offbeat
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.48; NODE_Y[1]=0.00; NODE_T[1]=0.20;
+    NODE_X[2]=0.54; NODE_Y[2]=1.00; NODE_T[2]=0.0;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 6 ? (
+    // 7. Sub Bass Smooth (Gentle Pre-Dip)
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=0.35; NODE_T[0]=0.0;
+    NODE_X[1]=0.08; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.35; NODE_Y[2]=0.00; NODE_T[2]=0.0;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 7 ? (
+    // 8. Sub Bass Heavy
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=0.20; NODE_T[0]=0.0;
+    NODE_X[1]=0.06; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.52; NODE_Y[2]=0.00; NODE_T[2]=-0.30;
+    NODE_X[3]=1.00; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+  ) : idx == 8 ? (
+    // 9. Kick Tail Trim (Short)
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=1.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.28; NODE_Y[1]=1.00; NODE_T[1]=-0.40;
+    NODE_X[2]=0.55; NODE_Y[2]=0.00; NODE_T[2]=0.0;
+    NODE_X[3]=1.00; NODE_Y[3]=0.00; NODE_T[3]=0.0;
+  ) : idx == 9 ? (
+    // 10. Kick Tail Trim (Med)
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=1.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.45; NODE_Y[1]=1.00; NODE_T[1]=-0.35;
+    NODE_X[2]=0.78; NODE_Y[2]=0.00; NODE_T[2]=0.0;
+    NODE_X[3]=1.00; NODE_Y[3]=0.00; NODE_T[3]=0.0;
+  ) : idx == 10 ? (
+    // 11. Reverse Suction
+    num_nodes = 3;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=-0.65;
+    NODE_X[1]=0.92; NODE_Y[1]=1.00; NODE_T[1]=0.0;
+    NODE_X[2]=1.00; NODE_Y[2]=0.00; NODE_T[2]=0.0;
+  ) : idx == 11 ? (
+    // 12. Reverse Swell
+    num_nodes = 4;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.25; NODE_Y[1]=0.00; NODE_T[1]=-0.45;
+    NODE_X[2]=0.94; NODE_Y[2]=1.00; NODE_T[2]=0.0;
+    NODE_X[3]=1.00; NODE_Y[3]=0.00; NODE_T[3]=0.0;
+  ) : idx == 12 ? (
+    // 13. Double Pump
+    num_nodes = 5;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.25;
+    NODE_X[1]=0.48; NODE_Y[1]=1.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.52; NODE_Y[2]=0.15; NODE_T[2]=0.25;
+    NODE_X[3]=0.96; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+    NODE_X[4]=1.00; NODE_Y[4]=1.00; NODE_T[4]=0.0;
+  ) : idx == 13 ? (
+    // 14. Trance Double Gate
+    num_nodes = 7;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.22; NODE_Y[1]=0.00; NODE_T[1]=0.0;
+    NODE_X[2]=0.25; NODE_Y[2]=1.00; NODE_T[2]=0.0;
+    NODE_X[3]=0.50; NODE_Y[3]=1.00; NODE_T[3]=0.0;
+    NODE_X[4]=0.53; NODE_Y[4]=0.20; NODE_T[4]=0.0;
+    NODE_X[5]=0.75; NODE_Y[5]=1.00; NODE_T[5]=0.0;
+    NODE_X[6]=1.00; NODE_Y[6]=1.00; NODE_T[6]=0.0;
+  ) : idx == 14 ? (
+    // 15. Tremolo Sine
+    num_nodes = 3;
+    NODE_X[0]=0.00; NODE_Y[0]=0.10; NODE_T[0]=0.0;
+    NODE_X[1]=0.50; NODE_Y[1]=1.00; NODE_T[1]=0.0;
+    NODE_X[2]=1.00; NODE_Y[2]=0.10; NODE_T[2]=0.0;
+  ) : (
+    // 16. Stutter Stepper
+    num_nodes = 6;
+    NODE_X[0]=0.00; NODE_Y[0]=0.00; NODE_T[0]=0.0;
+    NODE_X[1]=0.30; NODE_Y[1]=0.45; NODE_T[1]=0.0;
+    NODE_X[2]=0.33; NODE_Y[2]=0.00; NODE_T[2]=0.0;
+    NODE_X[3]=0.64; NODE_Y[3]=0.80; NODE_T[3]=0.0;
+    NODE_X[4]=0.67; NODE_Y[4]=0.25; NODE_T[4]=0.0;
+    NODE_X[5]=1.00; NODE_Y[5]=1.00; NODE_T[5]=0.0;
+  );
+  loaded_curve_idx = idx;
+);
+
+// Evaluate Envelope at normalized phase [0..1] applying Phase Shift & Slope Skew
+function eval_envelope(raw_phase)
+  local(ph, sk, k_exp, i, x0, x1, y0, y1, t_val, seg_t, shaped_t, bin_f, b0, frac)
+(
+  // 1. Apply Phase Shift (-50% to +50%)
+  ph = raw_phase - (shift_pct * 0.01);
+  ph = ph - floor(ph);
+
+  // 2. Apply Slope Skew (50% = linear 1.0; <50% = tighter/shorter duck; >50% = longer duck)
+  sk = max(0.10, min(0.90, slope_pct * 0.01));
+  k_exp = log(0.5) / log(sk);
+  ph = pow(max(0.0, min(1.0, ph)), k_exp);
+
+  custom_traced ? (
+    // Read from Traced Sidechain Buffer
+    bin_f = ph * (SCOPE_BINS - 1);
+    b0    = floor(bin_f);
+    frac  = bin_f - b0;
+    TRACE_REC[b0] * (1.0 - frac) + TRACE_REC[min(SCOPE_BINS - 1, b0 + 1)] * frac;
+  ) : (
+    // Evaluate Piecewise Breakpoint Nodes
+    i = 0;
+    while (i < num_nodes - 1 && ph > NODE_X[i + 1]) (
+      i += 1;
+    );
+    x0 = NODE_X[i];     y0 = NODE_Y[i];     t_val = NODE_T[i];
+    x1 = NODE_X[i + 1]; y1 = NODE_Y[i + 1];
+    seg_t = (x1 > x0 + 0.0001) ? ((ph - x0) / (x1 - x0)) : 0.0;
+    seg_t = max(0.0, min(1.0, seg_t));
+
+    // Apply Smooth S-curve + Tension Bend
+    shaped_t = seg_t * seg_t * (3.0 - 2.0 * seg_t);
+    abs(t_val) > 0.01 ? (
+      shaped_t = pow(seg_t, pow(3.0, -t_val));
+    );
+    y0 + (y1 - y0) * shaped_t;
+  );
+);
+
+// Cytomic SVF Filter Design Helper
+// type: 3=HPF, 4=LPF, 5=BPF
+C_XOVER_LO_HP = 300; C_XOVER_LO_LP = 310;
+C_XOVER_HI_HP = 320; C_XOVER_HI_LP = 330;
+C_TRIG_BPF    = 340;
+
+ST_L = 400; ST_R = 450;
+
+function svf_design(ptr, type, fc, Q, srate_val)
+  local(fc_s, g, k, a1, a2, a3, m0, m1, m2)
+(
+  fc_s = max(18.0, min(srate_val * 0.45, fc));
+  g = tan($pi * fc_s / srate_val);
+  k = 1.0 / max(0.25, Q);
+  a1 = 1.0 / (1.0 + g * (g + k));
+  a2 = g * a1;
+  a3 = g * a2;
+  type == 3 ? ( m0 = 1.0; m1 = -k; m2 = -1.0; ) :
+  type == 4 ? ( m0 = 0.0; m1 = 0.0; m2 = 1.0; ) :
+              ( m0 = 0.0; m1 = k;   m2 = 0.0; );
+  ptr[0]=a1; ptr[1]=a2; ptr[2]=a3; ptr[3]=m0; ptr[4]=m1; ptr[5]=m2;
+);
+
+function process_svf(x, coeff_ptr, state_ptr)
+  local(ic1, ic2, v1, v2, v3)
+(
+  ic1 = state_ptr[0]; ic2 = state_ptr[1];
+  v3  = x - ic2;
+  v1  = coeff_ptr[0] * ic1 + coeff_ptr[1] * v3;
+  v2  = ic2 + coeff_ptr[1] * ic1 + coeff_ptr[2] * v3;
+  state_ptr[0] = 2.0 * v1 - ic1;
+  state_ptr[1] = 2.0 * v2 - ic2;
+  coeff_ptr[3] * x + coeff_ptr[4] * v1 + coeff_ptr[5] * v2;
+);
+
+function update_parameters()
+  local(SAFE_SRATE, SAFE_TEMPO, beats, sm_sec)
+(
+  SAFE_SRATE = max(8000.0, srate);
+  SAFE_TEMPO = max(30.0, tempo > 0 ? tempo : 120.0);
+
+  loaded_curve_idx != curve_idx ? load_preset_curve(curve_idx);
+
+  xover_lo_hz > xover_hi_hz - 80.0 ? xover_lo_hz = max(20.0, xover_hi_hz - 80.0);
+
+  // Design Multiband Crossovers
+  svf_design(C_XOVER_LO_LP, 4, xover_lo_hz, 0.7071, SAFE_SRATE);
+  svf_design(C_XOVER_LO_HP, 3, xover_lo_hz, 0.7071, SAFE_SRATE);
+  svf_design(C_XOVER_HI_LP, 4, xover_hi_hz, 0.7071, SAFE_SRATE);
+  svf_design(C_XOVER_HI_HP, 3, xover_hi_hz, 0.7071, SAFE_SRATE);
+
+  // Trigger Detector Bandpass Filter
+  svf_design(C_TRIG_BPF, 5, trig_flt_hz, 1.2, SAFE_SRATE);
+
+  // Calculate Cycle Length in Samples
+  speed_idx == 8 ? (
+    cycle_samples = max(64.0, SAFE_SRATE / max(0.2, free_hz));
+  ) : (
+    beats = speed_beats_tbl[speed_idx];
+    cycle_samples = max(64.0, beats * (60.0 / SAFE_TEMPO) * SAFE_SRATE);
+  );
+  phase_inc = 1.0 / cycle_samples;
+
+  // Anti-click Envelope Slew Filter
+  sm_sec = max(0.0004, smooth_ms * 0.001);
+  env_smooth_coeff = exp(-1.0 / (sm_sec * SAFE_SRATE));
+
+  // Trigger Threshold & Hold-Off
+  thresh_lin = DB_TO_K(trig_thresh_db);
+  hyst_lin   = thresh_lin * 0.65; // -3.7 dB hysteresis
+  hold_samps = floor((trig_hold_ms * 0.001) * SAFE_SRATE);
+
+  // Lookahead Delay when Offset > 0 in Triggered Modes
+  (trig_mode >= 1 && offset_ms > 0.0) ? (
+    la_samps = min(LA_FRAMES - 8, floor((offset_ms * 0.001) * SAFE_SRATE));
+    pdc_delay = la_samps;
+    pdc_bot_ch = 0; pdc_top_ch = 2;
+  ) : (
+    la_samps = 0;
+    pdc_delay = 0;
+  );
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.15;
+  active_on = 1;
+  loaded_curve_idx = -1;
+  load_preset_curve(0);
+  env_phase = 0.0;
+  trig_vel_gain = 1.0;
+  sm_env = 1.0;
+  update_parameters();
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+SAFE_SRATE = max(8000.0, srate);
+SAFE_TEMPO = max(30.0, tempo > 0 ? tempo : 120.0);
+
+// Process incoming MIDI Note-On triggers for MIDI Mode (trig_mode == 1)
+while (midirecv(m_off, m_msg1, m_msg2, m_msg3)) (
+  m_status = m_msg1 & 0xF0;
+  m_vel    = m_msg3;
+  (m_status == 0x90 && m_vel > 0) ? (
+    trig_mode == 1 ? (
+      env_phase = 0.0;
+      env_running = 1;
+      trig_flash = 1.0;
+      v_norm = m_vel / 127.0;
+      trig_vel_gain = (1.0 - vel_scale_pct * 0.01) + (vel_scale_pct * 0.01) * v_norm;
+    );
+  );
+  midisend(m_off, m_msg1, m_msg2, m_msg3);
+);
+
+// Sync Phase to Host Beat Position in Repeat Mode when DAW is playing
+(trig_mode == 0 && speed_idx < 8 && (play_state & 1)) ? (
+  beats_len = speed_beats_tbl[speed_idx];
+  off_beats = (offset_ms * 0.001) * (SAFE_TEMPO / 60.0);
+  sync_ph = ((beat_position + off_beats) / beats_len);
+  env_phase = sync_ph - floor(sync_ph);
+  env_running = 1;
+);
+
+@sample
+in_l = spl0;
+in_r = spl1;
+sc_l = spl2;
+sc_r = spl3;
+
+sc_mono = (sc_l + sc_r) * 0.5;
+in_mono = (in_l + in_r) * 0.5;
+
+// Write main audio to Lookahead Delay Line
+la_w_pos = (la_w_pos + 1) & LA_MASK;
+LA_BASE[la_w_pos * 2]     = in_l;
+LA_BASE[la_w_pos * 2 + 1] = in_r;
+
+la_samps > 0 ? (
+  la_r_pos = (la_w_pos - la_samps) & LA_MASK;
+  proc_in_l = LA_BASE[la_r_pos * 2];
+  proc_in_r = LA_BASE[la_r_pos * 2 + 1];
+) : (
+  proc_in_l = in_l;
+  proc_in_r = in_r;
+);
+
+// -------------------------------------------------------------------------
+// 1. AUDIO TRANSIENT DETECTOR (SIDECHAIN CH 3/4 OR SELF-INPUT CH 1/2)
+// -------------------------------------------------------------------------
+det_src = (trig_mode == 2) ? sc_mono : in_mono;
+trig_flt_on ? (
+  det_src = process_svf(det_src, C_TRIG_BPF, ST_L + 20);
+);
+det_abs = abs(det_src);
+det_env = det_abs > det_env ? (det_env * 0.90 + det_abs * 0.10) : (det_env * 0.9985 + det_abs * 0.0015);
+
+hold_counter > 0 ? hold_counter -= 1;
+
+(trig_mode >= 2) ? (
+  (!trig_armed && det_env < hyst_lin) ? trig_armed = 1;
+  (trig_armed && hold_counter == 0 && det_env >= thresh_lin) ? (
+    env_phase = 0.0;
+    env_running = 1;
+    trig_armed = 0;
+    hold_counter = hold_samps;
+    trig_flash = 1.0;
+    trig_vel_gain = 1.0;
+    // Start Trace Sidechain capture if armed by user
+    trace_state == 1 ? (
+      trace_state = 2;
+      i_tr = 0; loop(SCOPE_BINS, TRACE_REC[i_tr] = 1.0; i_tr += 1;);
+    );
+  );
+);
+
+// -------------------------------------------------------------------------
+// 2. ADVANCE ENVELOPE PHASE & EVALUATE DUCKING CURVE
+// -------------------------------------------------------------------------
+trig_mode == 0 ? (
+  env_running = 1;
+  env_phase += phase_inc;
+  env_phase >= 1.0 ? (
+    env_phase -= 1.0;
+    trace_state == 1 ? trace_state = 2 :
+    trace_state == 2 ? ( trace_state = 0; custom_traced = 1; );
+  );
+) : (
+  env_running ? (
+    env_phase += phase_inc;
+    env_phase >= 1.0 ? (
+      trace_state == 2 ? ( trace_state = 0; custom_traced = 1; );
+      loop_on ? (
+        env_phase -= 1.0;
+      ) : (
+        env_phase = 1.0;
+        env_running = 0;
+      );
+    );
+  );
+);
+
+// Record inverted kick amplitude if Trace Sidechain is active (state == 2)
+trace_state == 2 ? (
+  tr_bin = min(SCOPE_BINS - 1, floor(env_phase * SCOPE_BINS));
+  sc_amp = min(1.0, abs(sc_mono) * 2.2);
+  TRACE_REC[tr_bin] = min(TRACE_REC[tr_bin], max(0.0, 1.0 - sc_amp));
+);
+
+raw_env_val = env_running ? eval_envelope(env_phase) : 1.0;
+sm_env = env_smooth_coeff * sm_env + (1.0 - env_smooth_coeff) * raw_env_val;
+
+// Compute Effective Ducking Multiplier (1.0 = no ducking, 0.0 = full silence)
+master_depth = (mix_pct * 0.01) * trig_vel_gain;
+duck_reduction = (1.0 - sm_env) * master_depth;
+
+// -------------------------------------------------------------------------
+// 3. MULTIBAND CROSSOVER & PER-BAND VOLUME SHAPING
+// -------------------------------------------------------------------------
+mb_mode == 0 ? (
+  // 1-Band Full Range
+  g_lo  = 1.0 - duck_reduction;
+  out_l = proc_in_l * g_lo;
+  out_r = proc_in_r * g_lo;
+) : mb_mode == 1 ? (
+  // 2-Band Split (Low / High around xover_lo_hz)
+  lo_l = process_svf(proc_in_l, C_XOVER_LO_LP, ST_L + 0);
+  lo_r = process_svf(proc_in_r, C_XOVER_LO_LP, ST_R + 0);
+  hi_l = process_svf(proc_in_l, C_XOVER_LO_HP, ST_L + 2);
+  hi_r = process_svf(proc_in_r, C_XOVER_LO_HP, ST_R + 2);
+  xover_steep ? (
+    lo_l = process_svf(lo_l, C_XOVER_LO_LP, ST_L + 4);
+    lo_r = process_svf(lo_r, C_XOVER_LO_LP, ST_R + 4);
+    hi_l = process_svf(hi_l, C_XOVER_LO_HP, ST_L + 6);
+    hi_r = process_svf(hi_r, C_XOVER_LO_HP, ST_R + 6);
+  );
+
+  g_lo = 1.0 - duck_reduction * (duck_lo_pct * 0.01);
+  g_hi = 1.0 - duck_reduction * (duck_hi_pct * 0.01);
+
+  solo_band == 1 ? ( out_l = lo_l * g_lo; out_r = lo_r * g_lo; ) :
+  solo_band == 3 ? ( out_l = hi_l * g_hi; out_r = hi_r * g_hi; ) :
+                   ( out_l = lo_l * g_lo + hi_l * g_hi; out_r = lo_r * g_lo + hi_r * g_hi; );
+) : (
+  // 3-Band Split (Low / Mid / High)
+  lo_l = process_svf(proc_in_l, C_XOVER_LO_LP, ST_L + 0);
+  lo_r = process_svf(proc_in_r, C_XOVER_LO_LP, ST_R + 0);
+  mh_l = process_svf(proc_in_l, C_XOVER_LO_HP, ST_L + 2);
+  mh_r = process_svf(proc_in_r, C_XOVER_LO_HP, ST_R + 2);
+  xover_steep ? (
+    lo_l = process_svf(lo_l, C_XOVER_LO_LP, ST_L + 4);
+    lo_r = process_svf(lo_r, C_XOVER_LO_LP, ST_R + 4);
+    mh_l = process_svf(mh_l, C_XOVER_LO_HP, ST_L + 6);
+    mh_r = process_svf(mh_r, C_XOVER_LO_HP, ST_R + 6);
+  );
+
+  mid_l = process_svf(mh_l, C_XOVER_HI_LP, ST_L + 8);
+  mid_r = process_svf(mh_r, C_XOVER_HI_LP, ST_R + 8);
+  hi_l  = process_svf(mh_l, C_XOVER_HI_HP, ST_L + 10);
+  hi_r  = process_svf(mh_r, C_XOVER_HI_HP, ST_R + 10);
+  xover_steep ? (
+    mid_l = process_svf(mid_l, C_XOVER_HI_LP, ST_L + 12);
+    mid_r = process_svf(mid_r, C_XOVER_HI_LP, ST_R + 12);
+    hi_l  = process_svf(hi_l,  C_XOVER_HI_HP, ST_L + 14);
+    hi_r  = process_svf(hi_r,  C_XOVER_HI_HP, ST_R + 14);
+  );
+
+  g_lo  = 1.0 - duck_reduction * (duck_lo_pct  * 0.01);
+  g_mid = 1.0 - duck_reduction * (duck_mid_pct * 0.01);
+  g_hi  = 1.0 - duck_reduction * (duck_hi_pct  * 0.01);
+
+  solo_band == 1 ? ( out_l = lo_l * g_lo;   out_r = lo_r * g_lo; ) :
+  solo_band == 2 ? ( out_l = mid_l * g_mid; out_r = mid_r * g_mid; ) :
+  solo_band == 3 ? ( out_l = hi_l * g_hi;   out_r = hi_r * g_hi; ) :
+                   ( out_l = lo_l * g_lo + mid_l * g_mid + hi_l * g_hi;
+                     out_r = lo_r * g_lo + mid_r * g_mid + hi_r * g_hi; );
+);
+
+!active_on ? (
+  out_l = in_l;
+  out_r = in_r;
+);
+
+spl0 = out_l;
+spl1 = out_r;
+
+// Record Real-Time Oscilloscope Bins (White = Ducked Output, Yellow = Sidechain Kick)
+s_bin = min(SCOPE_BINS - 1, max(0, floor(env_phase * SCOPE_BINS)));
+pk_out = max(abs(out_l), abs(out_r));
+pk_sc  = max(abs(sc_l),  abs(sc_r));
+SCOPE_OUT[s_bin] = SCOPE_OUT[s_bin] * 0.82 + pk_out * 0.18;
+SCOPE_SC[s_bin]  = SCOPE_SC[s_bin]  * 0.82 + pk_sc  * 0.18;
+SCOPE_ENV[s_bin] = 1.0 - duck_reduction;
+
+ext_gr_meter = K_TO_DB(max(0.01, 1.0 - duck_reduction));
+trig_flash *= 0.9994;
+
+@gfx 880 680
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(760, gfx_w);
+H = max(580, gfx_h);
+
+S  = min(W / 880.0, H / 680.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(18, floor(22 * TS));
+f_sec   = max(12, floor(13 * TS));
+f_val   = max(11, floor(12 * TS));
+f_btn   = max(11, floor(12 * TS));
+f_sub   = max(10, floor(11 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_sub,   0);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+function draw_pd_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 7)*(r + 7));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 500.0 : 140.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  gfx_set(0.04, 0.04, 0.08, 0.85);
+  gfx_circle(cx, cy + 2, r + 1, 1, 1);
+  hover ? (
+    gfx_set(rc, gc, bc, 0.16);
+    gfx_circle(cx, cy, r + 4, 1, 1);
+  );
+
+  gfx_set(0.11, 0.12, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.24, 0.26, 0.35, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  steps = 28;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? (
+      gfx_set(rc, gc, bc, 0.98);
+    ) : (
+      gfx_set(0.19, 0.20, 0.28, 0.85);
+    );
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    st += 1;
+  );
+
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.24);
+  py0 = cy - cos(ang_val) * (r * 0.24);
+  px1 = cx + sin(ang_val) * (r - 5);
+  py1 = cy - cos(ang_val) * (r - 5);
+  gfx_line(px0, py0, px1, py1, 1);
+
+  gfx_setfont(5);
+  gfx_measurestr(label, lw, lh);
+  gfx_set(0.74, 0.78, 0.88, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(4 * S);
+  gfx_drawstr(label);
+
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(10 * S), floor(56 * S));
+  pill_h = vh + floor(4 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(5 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.20, hover ? gc : 0.22, hover ? bc : 0.32);
+  gfx_set(0.94, 0.96, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR (TRIGGER MODES, SPEED SELECTOR, TRACE SC, DPI, ACTIVE)
+// =========================================================================
+hdr_h = floor(50 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.22, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// Brand Title: PULSEDUCK in Catppuccin Sapphire (#74C7EC)
+gfx_setfont(1);
+gfx_set(0.45, 0.78, 0.98, 1.0);
+gfx_x = floor(18 * S);
+gfx_measurestr("PULSE", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("PULSE");
+gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_drawstr("DUCK");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(8 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 10, qh + 4);
+gfx_set(0.45, 0.78, 0.98, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 14 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+hb_h = floor(28 * S);
+hb_y = (hdr_h - hb_h) * 0.5;
+
+// Trigger Mode Selector: [SYNC | MIDI | SIDECHAIN | INPUT]
+tm_w = floor(74 * S);
+tm_gap = floor(4 * S);
+tm_x0 = floor(180 * S);
+
+ti = 0;
+loop(4,
+  tx = tm_x0 + ti * (tm_w + tm_gap);
+  thit = (mouse_x >= tx && mouse_x <= tx + tm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && thit ? (
+    trig_mode = ti;
+    trig_mode == 0 ? env_running = 1;
+    update_parameters();
+    slider_automate(slider5);
+  );
+
+  trig_mode == ti ? (
+    draw_panel_box(tx, hb_y, tm_w, hb_h, 0.16, 0.38, 0.65, 0.45, 0.78, 0.98);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(tx, hb_y, tm_w, hb_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+    gfx_set(0.74, 0.78, 0.88, 1.0);
+  );
+
+  ti == 0 ? strcpy(#tm_s, "SYNC") :
+  ti == 1 ? strcpy(#tm_s, "MIDI") :
+  ti == 2 ? strcpy(#tm_s, "SIDECHAIN") :
+            strcpy(#tm_s, "INPUT");
+
+  gfx_setfont(4);
+  gfx_measurestr(#tm_s, tw, th);
+  gfx_x = tx + (tm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5;
+  gfx_drawstr(#tm_s);
+  ti += 1;
+);
+
+// Trigger Activity Flash Lamp next to Trigger Modes
+lamp_x = tm_x0 + 4 * (tm_w + tm_gap) + floor(10 * S);
+lamp_y = hdr_h * 0.5;
+gfx_set(0.18 + 0.36 * trig_flash, 0.22 + 0.66 * trig_flash, 0.30 + 0.68 * trig_flash, 1.0);
+gfx_circle(lamp_x, lamp_y, floor(5 * S), 1, 1);
+
+// LOOP / ONE-SHOT Button
+lp_w = floor(74 * S);
+lp_x = lamp_x + floor(14 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= lp_x && mouse_x <= lp_x + lp_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  loop_on = !loop_on; slider_automate(slider6);
+);
+draw_panel_box(lp_x, hb_y, lp_w, hb_h, loop_on ? 0.16 : 0.13, loop_on ? 0.38 : 0.14, loop_on ? 0.65 : 0.20, 0.35, 0.42, 0.58);
+gfx_setfont(4); gfx_set(0.92, 0.95, 1.0, 1.0);
+loop_on ? strcpy(#lp_s, "LOOP: ON") : strcpy(#lp_s, "1-SHOT");
+gfx_measurestr(#lp_s, tw, th); gfx_x = lp_x + (lp_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#lp_s);
+
+// TRACE SC Button (Captures Sidechain Kick Envelope into Custom Curve)
+tr_w = floor(86 * S);
+tr_x = lp_x + lp_w + floor(8 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= tr_x && mouse_x <= tr_x + tr_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  trace_state == 0 ? ( trace_state = 1; ) : ( trace_state = 0; );
+);
+trace_state > 0 ? (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.82, 0.42, 0.22, 0.98, 0.89, 0.69);
+  strcpy(#tr_s, "TRACING...");
+) : (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+  strcpy(#tr_s, "TRACE SC");
+);
+gfx_set(0.96, 0.97, 1.0, 1.0);
+gfx_measurestr(#tr_s, tw, th); gfx_x = tr_x + (tr_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#tr_s);
+
+// Text Scale Button
+zm_w = floor(74 * S);
+zm_x = W - floor(174 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 : ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider25);
+);
+draw_panel_box(zm_x, hb_y, zm_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+ui_zoom < 1.1 ? strcpy(#z_s, "100%") : ui_zoom < 1.3 ? strcpy(#z_s, "120%") : strcpy(#z_s, "140%");
+gfx_measurestr(#z_s, tw, th); gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#z_s);
+
+// Master Active Button
+act_w = floor(82 * S);
+act_x = W - act_w - floor(14 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  active_on = !active_on; slider_automate(slider24);
+);
+active_on ? (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.20, 0.52, 0.88, 0.54, 0.80, 1.0);
+  strcpy(#ac_s, "ACTIVE");
+) : (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#ac_s, "BYP");
+);
+gfx_measurestr(#ac_s, tw, th); gfx_x = act_x + (act_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#ac_s);
+
+// =========================================================================
+// 2. MAIN WORKSPACE: [LEFT: MULTIBAND & TRIGGER DECK] | [RIGHT: ENVELOPE & OSCILLOSCOPE]
+// =========================================================================
+pad     = floor(12 * S);
+full_w  = W - (pad * 2);
+avail_h = H - hdr_h - (pad * 4);
+
+main_y = hdr_h + pad;
+main_h = floor(avail_h * 0.54);
+ctrl_y = main_y + main_h + pad;
+ctrl_h = floor(avail_h * 0.22);
+bank_y = ctrl_y + ctrl_h + pad;
+bank_h = avail_h - main_h - ctrl_h;
+
+left_w  = floor(full_w * 0.27);
+right_w = full_w - left_w - pad;
+left_x  = pad;
+right_x = left_x + left_w + pad;
+
+// -------------------------------------------------------------------------
+// LEFT PANEL: MULTIBAND CROSSOVER & AUDIO/MIDI TRIGGER SETTINGS
+// -------------------------------------------------------------------------
+draw_panel_box(left_x, main_y, left_w, main_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+gfx_setfont(2); gfx_set(0.45, 0.78, 0.98, 1.0);
+gfx_x = left_x + floor(12 * S); gfx_y = main_y + floor(8 * S);
+gfx_drawstr("MULTIBAND & TRIGGER");
+
+// Multiband Mode Selector: [1-BAND | 2-BAND | 3-BAND]
+mb_btn_w = floor((left_w - floor(24 * S) - 8) / 3.0);
+mb_btn_h = floor(22 * S);
+mb_btn_y = main_y + floor(28 * S);
+
+mi = 0;
+loop(3,
+  mx_b = left_x + floor(12 * S) + mi * (mb_btn_w + 4);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx_b && mouse_x <= mx_b + mb_btn_w && mouse_y >= mb_btn_y && mouse_y <= mb_btn_y + mb_btn_h) ? (
+    mb_mode = mi; slider_automate(slider11);
+  );
+  mb_mode == mi ? (
+    draw_panel_box(mx_b, mb_btn_y, mb_btn_w, mb_btn_h, 0.16, 0.38, 0.65, 0.45, 0.78, 0.98);
+    gfx_set(1,1,1,1);
+  ) : (
+    draw_panel_box(mx_b, mb_btn_y, mb_btn_w, mb_btn_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.36);
+    gfx_set(0.72, 0.76, 0.86, 1);
+  );
+  mi == 0 ? strcpy(#m_s, "FULL") : mi == 1 ? strcpy(#m_s, "2-BAND") : strcpy(#m_s, "3-BAND");
+  gfx_setfont(5); gfx_measurestr(#m_s, tw, th);
+  gfx_x = mx_b + (mb_btn_w - tw)*0.5; gfx_y = mb_btn_y + (mb_btn_h - th)*0.5; gfx_drawstr(#m_s);
+  mi += 1;
+);
+
+r_sm = min(floor(20 * S), floor(main_h * 0.068));
+mb_row1_cy = main_y + floor(main_h * 0.30);
+mb_row2_cy = main_y + floor(main_h * 0.56);
+trig_row_cy = main_y + floor(main_h * 0.83);
+
+// Row 1 of Left Panel: Per-Band Duck Depth Knobs (LOW %, MID %, HIGH %)
+sprintf(#v_s, "%.0f%%", duck_lo_pct);
+new_v = draw_pd_knob(101, left_x + left_w * 0.20, mb_row1_cy, r_sm, duck_lo_pct, 0, 100, 100, "LOW DUCK", #v_s, 0, 0.45, 0.78, 0.98);
+abs(new_v - duck_lo_pct) > 0.1 ? ( duck_lo_pct = new_v; slider_automate(slider15); );
+
+sprintf(#v_s, "%.0f%%", duck_mid_pct);
+new_v = draw_pd_knob(102, left_x + left_w * 0.50, mb_row1_cy, r_sm, duck_mid_pct, 0, 100, 65, "MID DUCK", #v_s, 0, 0.54, 0.71, 0.98);
+abs(new_v - duck_mid_pct) > 0.1 ? ( duck_mid_pct = new_v; slider_automate(slider16); );
+
+sprintf(#v_s, "%.0f%%", duck_hi_pct);
+new_v = draw_pd_knob(103, left_x + left_w * 0.80, mb_row1_cy, r_sm, duck_hi_pct, 0, 100, 0, "HIGH DUCK", #v_s, 0, 0.65, 0.89, 0.63);
+abs(new_v - duck_hi_pct) > 0.1 ? ( duck_hi_pct = new_v; slider_automate(slider17); );
+
+// Row 2 of Left Panel: Crossover Frequencies (LOW SPLIT, HIGH SPLIT) & Slope / Solo
+sprintf(#v_s, "%d Hz", xover_lo_hz);
+new_v = draw_pd_knob(104, left_x + left_w * 0.28, mb_row2_cy, r_sm, xover_lo_hz, 20, 1000, 140, "LO SPLIT", #v_s, 0, 0.45, 0.78, 0.98);
+abs(new_v - xover_lo_hz) > 1.0 ? ( xover_lo_hz = new_v; update_parameters(); slider_automate(slider12); );
+
+sprintf(#v_s, "%.1fk", xover_hi_hz * 0.001);
+new_v = draw_pd_knob(105, left_x + left_w * 0.72, mb_row2_cy, r_sm, xover_hi_hz, 400, 16000, 2500, "HI SPLIT", #v_s, 0, 0.45, 0.78, 0.98);
+abs(new_v - xover_hi_hz) > 5.0 ? ( xover_hi_hz = new_v; update_parameters(); slider_automate(slider13); );
+
+// Row 3 of Left Panel: Trigger Threshold, Hold-Off & Filter Center
+sprintf(#v_s, "%.1fdB", trig_thresh_db);
+new_v = draw_pd_knob(106, left_x + left_w * 0.20, trig_row_cy, r_sm, trig_thresh_db, -48, 0, -18, "THRESH", #v_s, 0, 0.98, 0.89, 0.69);
+abs(new_v - trig_thresh_db) > 0.1 ? ( trig_thresh_db = new_v; update_parameters(); slider_automate(slider19); );
+
+sprintf(#v_s, "%.0fms", trig_hold_ms);
+new_v = draw_pd_knob(107, left_x + left_w * 0.50, trig_row_cy, r_sm, trig_hold_ms, 10, 500, 60, "HOLD-OFF", #v_s, 0, 0.98, 0.89, 0.69);
+abs(new_v - trig_hold_ms) > 1.0 ? ( trig_hold_ms = new_v; update_parameters(); slider_automate(slider20); );
+
+sprintf(#v_s, "%d Hz", trig_flt_hz);
+new_v = draw_pd_knob(108, left_x + left_w * 0.80, trig_row_cy, r_sm, trig_flt_hz, 20, 2000, 90, "TRIG FLT", #v_s, 0, 0.98, 0.89, 0.69);
+abs(new_v - trig_flt_hz) > 1.0 ? ( trig_flt_hz = new_v; update_parameters(); slider_automate(slider21); );
+
+// -------------------------------------------------------------------------
+// RIGHT PANEL: REAL-TIME OSCILLOSCOPE + INTERACTIVE ENVELOPE EDITOR
+// -------------------------------------------------------------------------
+draw_panel_box(right_x, main_y, right_w, main_h, 0.055, 0.058, 0.092, 0.22, 0.24, 0.34);
+
+// Quarter-cycle vertical grid lines & 25% horizontal volume lines
+gi = 1;
+loop(7,
+  gx = right_x + (gi / 8.0) * right_w;
+  gfx_set(0.13, 0.14, 0.21, 1.0);
+  gfx_line(gx, main_y + 1, gx, main_y + main_h - 1);
+  gi += 1;
+);
+gi = 1;
+loop(3,
+  gy = main_y + (gi * 0.25) * main_h;
+  gfx_set(0.13, 0.14, 0.21, 1.0);
+  gfx_line(right_x + 1, gy, right_x + right_w - 1, gy);
+  gi += 1;
+);
+
+// 1. Render Real-Time Ducked Output Waveform (White) & Sidechain Kick Overlay (Yellow)
+mid_oy = main_y + main_h * 0.5;
+col_w  = (right_w - 4) / SCOPE_BINS;
+bi = 0;
+loop(SCOPE_BINS,
+  bx = right_x + 2 + bi * col_w;
+  h_out = min(main_h * 0.46, SCOPE_OUT[bi] * main_h * 0.44);
+  h_sc  = min(main_h * 0.46, SCOPE_SC[bi]  * main_h * 0.44);
+
+  // Sidechain Kick Overlay in Champagne Yellow (#F9E2AF)
+  h_sc > 0.5 ? (
+    gfx_set(0.98, 0.89, 0.69, 0.28);
+    gfx_rect(bx, mid_oy - h_sc, max(1, col_w), h_sc * 2.0);
+  );
+
+  // Ducked Main Output Waveform in Crisp White
+  h_out > 0.5 ? (
+    gfx_set(0.92, 0.95, 1.0, 0.36);
+    gfx_rect(bx, mid_oy - h_out, max(1, col_w), h_out * 2.0);
+  );
+  bi += 1;
+);
+
+// 2. Render Active Ducking Curve & Sapphire Shaded Area
+pts = 160;
+pi = 0;
+loop(pts + 1,
+  t_n   = pi / pts;
+  e_val = eval_envelope(t_n);
+  eff_y = 1.0 - (1.0 - e_val) * (mix_pct * 0.01);
+
+  px = right_x + 2 + t_n * (right_w - 4);
+  py = (main_y + main_h - 3) - eff_y * (main_h - 6);
+
+  // Sapphire fill under envelope curve
+  gfx_set(0.28, 0.62, 0.95, 0.20);
+  gfx_line(px, py, px, main_y + main_h - 2);
+
+  pi > 0 ? (
+    gfx_set(0.45, 0.78, 0.98, 0.98);
+    gfx_line(prev_px, prev_py, px, py, 1);
+    gfx_line(prev_px, prev_py + 1, px, py + 1, 1);
+  );
+  prev_px = px;
+  prev_py = py;
+  pi += 1;
+);
+
+// 3. Interactive Breakpoint Nodes (Drag to Move, Double-Click to Add/Delete)
+!custom_traced && abs(shift_pct) < 0.5 && abs(slope_pct - 50.0) < 0.5 ? (
+  ni = 0;
+  node_hit_idx = -1;
+  loop(num_nodes,
+    nx = right_x + 4 + NODE_X[ni] * (right_w - 8);
+    ny = (main_y + main_h - 4) - NODE_Y[ni] * (main_h - 8);
+
+    nhit = ((mouse_x - nx)*(mouse_x - nx) + (mouse_y - ny)*(mouse_y - ny)) <= 90;
+    nhit ? node_hit_idx = ni;
+
+    gfx_set(0.45, 0.78, 0.98, 0.35);
+    gfx_circle(nx, ny, floor(8 * S), 1, 1);
+    gfx_set(0.95, 0.97, 1.0, 1.0);
+    gfx_circle(nx, ny, floor(4 * S), 1, 1);
+    ni += 1;
+  );
+
+  // Mouse interaction inside Envelope Editor
+  in_editor = (mouse_x >= right_x && mouse_x <= right_x + right_w &&
+               mouse_y >= main_y  && mouse_y <= main_y + main_h);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && in_editor && (drag_id == 0) ? (
+    (time_precise() - last_click_time < 0.26) && (last_click_id == 500) ? (
+      // Double-click: Delete existing middle node OR insert new node
+      (node_hit_idx > 0 && node_hit_idx < num_nodes - 1 && num_nodes > 2) ? (
+        k = node_hit_idx;
+        while (k < num_nodes - 1) (
+          NODE_X[k] = NODE_X[k+1]; NODE_Y[k] = NODE_Y[k+1]; NODE_T[k] = NODE_T[k+1];
+          k += 1;
+        );
+        num_nodes -= 1;
+      ) : (node_hit_idx == -1 && num_nodes < MAX_NODES) ? (
+        new_nx = max(0.01, min(0.99, (mouse_x - right_x) / right_w));
+        new_ny = max(0.0,  min(1.0,  1.0 - (mouse_y - main_y) / main_h));
+        ins_i = 0;
+        while (ins_i < num_nodes && NODE_X[ins_i] < new_nx) ( ins_i += 1; );
+        k = num_nodes;
+        while (k > ins_i) (
+          NODE_X[k] = NODE_X[k-1]; NODE_Y[k] = NODE_Y[k-1]; NODE_T[k] = NODE_T[k-1];
+          k -= 1;
+        );
+        NODE_X[ins_i] = new_nx; NODE_Y[ins_i] = new_ny; NODE_T[ins_i] = 0.0;
+        num_nodes += 1;
+      );
+      drag_id = 0;
+    ) : (
+      last_click_time = time_precise();
+      last_click_id   = 500;
+      node_hit_idx >= 0 ? (
+        drag_id = 600 + node_hit_idx;
+      );
+    );
+  );
+
+  drag_id >= 600 && drag_id < 620 ? (
+    (mouse_cap & 1) ? (
+      d_idx = drag_id - 600;
+      NODE_Y[d_idx] = max(0.0, min(1.0, 1.0 - (mouse_y - main_y) / main_h));
+      (d_idx > 0 && d_idx < num_nodes - 1) ? (
+        min_x = NODE_X[d_idx - 1] + 0.015;
+        max_x = NODE_X[d_idx + 1] - 0.015;
+        NODE_X[d_idx] = max(min_x, min(max_x, (mouse_x - right_x) / right_w));
+      );
+    ) : drag_id = 0;
+  );
+);
+
+// Live Playhead Cursor inside Oscilloscope
+ph_px = right_x + 2 + env_phase * (right_w - 4);
+gfx_set(0.98, 0.98, 1.0, 0.90);
+gfx_line(ph_px, main_y + 2, ph_px, main_y + main_h - 2);
+
+// =========================================================================
+// 3. MIDDLE CONTROL DECK: [SPEED] [MIX] [SLOPE] [SMOOTH] [OFFSET] [SHIFT << < > >>]
+// =========================================================================
+draw_panel_box(pad, ctrl_y, full_w, ctrl_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+r_mid  = min(floor(26 * S), floor(ctrl_h * 0.22));
+mid_cy = ctrl_y + floor(ctrl_h * 0.38);
+
+// 1. Speed Selector Buttons (1/16, 1/8T, 1/8, 1/4, 1/2, 1 Bar, 2 Bar, 4 Bar, Free Hz)
+sp_box_x = pad + floor(12 * S);
+sp_box_w = floor(full_w * 0.26);
+gfx_setfont(5); gfx_set(0.68, 0.72, 0.84, 1.0);
+gfx_x = sp_box_x; gfx_y = ctrl_y + floor(8 * S);
+gfx_drawstr("ENVELOPE LENGTH / SPEED");
+
+sp_btn_w = floor((sp_box_w - 8) / 3.0);
+sp_btn_h = floor((ctrl_h - floor(34 * S)) / 3.0);
+sp_top_y = ctrl_y + floor(24 * S);
+
+si = 0;
+loop(9,
+  sc_col = si % 3;
+  sc_row = floor(si / 3);
+  sx_b = sp_box_x + sc_col * (sp_btn_w + 4);
+  sy_b = sp_top_y + sc_row * (sp_btn_h + 3);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= sx_b && mouse_x <= sx_b + sp_btn_w && mouse_y >= sy_b && mouse_y <= sy_b + sp_btn_h) ? (
+    speed_idx = si; update_parameters(); slider_automate(slider7);
+  );
+  speed_idx == si ? (
+    draw_panel_box(sx_b, sy_b, sp_btn_w, sp_btn_h, 0.16, 0.38, 0.65, 0.45, 0.78, 0.98);
+    gfx_set(1,1,1,1);
+  ) : (
+    draw_panel_box(sx_b, sy_b, sp_btn_w, sp_btn_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+    gfx_set(0.74, 0.78, 0.88, 1);
+  );
+  si == 0 ? strcpy(#sp_l, "1/16") : si == 1 ? strcpy(#sp_l, "1/8T") : si == 2 ? strcpy(#sp_l, "1/8") :
+  si == 3 ? strcpy(#sp_l, "1/4")  : si == 4 ? strcpy(#sp_l, "1/2")  : si == 5 ? strcpy(#sp_l, "1 Bar") :
+  si == 6 ? strcpy(#sp_l, "2 Bar"): si == 7 ? strcpy(#sp_l, "4 Bar"): strcpy(#sp_l, "Hz");
+  gfx_setfont(5); gfx_measurestr(#sp_l, tw, th);
+  gfx_x = sx_b + (sp_btn_w - tw)*0.5; gfx_y = sy_b + (sp_btn_h - th)*0.5; gfx_drawstr(#sp_l);
+  si += 1;
+);
+
+// 2. Hero MIX Knob
+sprintf(#v_s, "%.0f %%", mix_pct);
+new_v = draw_pd_knob(1, pad + full_w * 0.36, mid_cy, r_mid + 3, mix_pct, 0, 100, 100, "MIX", #v_s, 0, 0.45, 0.78, 0.98);
+abs(new_v - mix_pct) > 0.1 ? ( mix_pct = new_v; slider_automate(slider1); );
+
+// 3. SLOPE (Curve Skew) Knob
+sprintf(#v_s, "%.0f %%", slope_pct);
+new_v = draw_pd_knob(2, pad + full_w * 0.48, mid_cy, r_mid, slope_pct, 10, 90, 50, "SLOPE", #v_s, 1, 0.54, 0.71, 0.98);
+abs(new_v - slope_pct) > 0.1 ? ( slope_pct = new_v; slider_automate(slider3); );
+
+// 4. SMOOTH Knob
+sprintf(#v_s, "%.1f ms", smooth_ms);
+new_v = draw_pd_knob(3, pad + full_w * 0.60, mid_cy, r_mid, smooth_ms, 0, 50, 4.5, "SMOOTH", #v_s, 0, 0.54, 0.71, 0.98);
+abs(new_v - smooth_ms) > 0.05 ? ( smooth_ms = new_v; update_parameters(); slider_automate(slider9); );
+
+// 5. TIMING OFFSET Knob (-100ms to +100ms)
+sprintf(#v_s, "%+.1f ms", offset_ms);
+new_v = draw_pd_knob(4, pad + full_w * 0.72, mid_cy, r_mid, offset_ms, -100, 100, 0, "OFFSET", #v_s, 1, 0.54, 0.71, 0.98);
+abs(new_v - offset_ms) > 0.1 ? ( offset_ms = new_v; update_parameters(); slider_automate(slider10); );
+
+// 6. Kickstart-Style SHIFT Buttons (<<  <  >  >>) & RESET CURVE Button
+sh_x0 = pad + floor(full_w * 0.81);
+sh_w  = floor(((pad + full_w - floor(12 * S)) - sh_x0 - 12) / 4.0);
+sh_h  = floor(28 * S);
+sh_y  = ctrl_y + floor(24 * S);
+
+si = 0;
+loop(4,
+  sx_b = sh_x0 + si * (sh_w + 4);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= sx_b && mouse_x <= sx_b + sh_w && mouse_y >= sh_y && mouse_y <= sh_y + sh_h) ? (
+    si == 0 ? shift_pct -= 6.25 :
+    si == 1 ? shift_pct -= 1.0  :
+    si == 2 ? shift_pct += 1.0  :
+              shift_pct += 6.25;
+    shift_pct > 50.0  ? shift_pct -= 100.0;
+    shift_pct < -50.0 ? shift_pct += 100.0;
+    slider_automate(slider4);
+  );
+  draw_panel_box(sx_b, sh_y, sh_w, sh_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  si == 0 ? strcpy(#sh_l, "<<") : si == 1 ? strcpy(#sh_l, "<") : si == 2 ? strcpy(#sh_l, ">") : strcpy(#sh_l, ">>");
+  gfx_setfont(4); gfx_set(0.88, 0.92, 1.0, 1.0);
+  gfx_measurestr(#sh_l, tw, th);
+  gfx_x = sx_b + (sh_w - tw)*0.5; gfx_y = sh_y + (sh_h - th)*0.5; gfx_drawstr(#sh_l);
+  si += 1;
+);
+
+// RESET CURVE Button below Shift Arrows
+rst_w = (sh_w * 4) + 12;
+rst_y = sh_y + sh_h + floor(10 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= sh_x0 && mouse_x <= sh_x0 + rst_w && mouse_y >= rst_y && mouse_y <= rst_y + sh_h) ? (
+  slope_pct = 50.0;
+  shift_pct = 0.0;
+  load_preset_curve(curve_idx);
+  slider_automate(slider3);
+  slider_automate(slider4);
+);
+draw_panel_box(sh_x0, rst_y, rst_w, sh_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.46);
+gfx_measurestr("RESET CURVE", tw, th);
+gfx_x = sh_x0 + (rst_w - tw)*0.5; gfx_y = rst_y + (sh_h - th)*0.5; gfx_drawstr("RESET CURVE");
+
+// =========================================================================
+// 4. BOTTOM 16-CURVE THUMBNAIL BANK (2 ROWS OF 8 GRAPHIC CURVE BUTTONS)
+// =========================================================================
+draw_panel_box(pad, bank_y, full_w, bank_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+cb_pad = floor(8 * S);
+cb_gap = floor(6 * S);
+cb_w   = floor((full_w - cb_pad * 2 - cb_gap * 7) / 8.0);
+cb_h   = floor((bank_h - cb_pad * 2 - cb_gap) / 2.0);
+
+ci = 0;
+loop(16,
+  c_col = ci % 8;
+  c_row = floor(ci / 8);
+  cx_b  = pad + cb_pad + c_col * (cb_w + cb_gap);
+  cy_b  = bank_y + cb_pad + c_row * (cb_h + cb_gap);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= cx_b && mouse_x <= cx_b + cb_w && mouse_y >= cy_b && mouse_y <= cy_b + cb_h) ? (
+    curve_idx = ci;
+    load_preset_curve(ci);
+    slider_automate(slider2);
+  );
+
+  curve_idx == ci ? (
+    draw_panel_box(cx_b, cy_b, cb_w, cb_h, 0.16, 0.32, 0.56, 0.45, 0.78, 0.98);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(cx_b, cy_b, cb_w, cb_h, 0.12, 0.13, 0.19, 0.23, 0.25, 0.34);
+    gfx_set(0.72, 0.76, 0.86, 1.0);
+  );
+
+  ci == 0  ? strcpy(#c_lbl, "1. Classic")    : ci == 1  ? strcpy(#c_lbl, "2. Tight")     :
+  ci == 2  ? strcpy(#c_lbl, "3. Deep Pocket"): ci == 3  ? strcpy(#c_lbl, "4. Fast Snap") :
+  ci == 4  ? strcpy(#c_lbl, "5. Smooth")     : ci == 5  ? strcpy(#c_lbl, "6. Offbeat")   :
+  ci == 6  ? strcpy(#c_lbl, "7. Sub Smooth") : ci == 7  ? strcpy(#c_lbl, "8. Sub Heavy") :
+  ci == 8  ? strcpy(#c_lbl, "9. Trim Short") : ci == 9  ? strcpy(#c_lbl, "10. Trim Med") :
+  ci == 10 ? strcpy(#c_lbl, "11. Reverse 1") : ci == 11 ? strcpy(#c_lbl, "12. Reverse 2"):
+  ci == 12 ? strcpy(#c_lbl, "13. Dbl Pump")  : ci == 13 ? strcpy(#c_lbl, "14. Trance Gt"):
+  ci == 14 ? strcpy(#c_lbl, "15. Tremolo")   :            strcpy(#c_lbl, "16. Stepper");
+
+  gfx_setfont(5);
+  gfx_measurestr(#c_lbl, tw, th);
+  gfx_x = cx_b + (cb_w - tw)*0.5;
+  gfx_y = cy_b + (cb_h - th)*0.5;
+  gfx_drawstr(#c_lbl);
+  ci += 1;
+);
+
+// =========================================================================
+// 5. INFO OVERLAY MODAL (Click PULSEDUCK Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.74);
+  mh = floor(295 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.45, 0.78, 0.98);
+
+  gfx_setfont(1);
+  gfx_set(0.45, 0.78, 0.98, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("PulseDuck v1.0 (Multiband Sidechain & Envelope Shaper)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.94, 0.98, 1.0);
+  lh_step = floor(26 * S);
+  ty = my + 60;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 16 Instant Curve Presets + Custom Node Editor (double-click graph to add/delete)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• 4 Trigger Modes: SYNC (Repeat), MIDI Note, SIDECHAIN (Ch 3/4), and INPUT");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Real-Time Scope overlays your Ducked Bass (White) & Sidechain Kick (Yellow)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• TRACE SC automatically shapes the ducking curve around your incoming kick drum");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Full / 2-Band / 3-Band Crossover with independent Low, Mid & High Duck %");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Use SLOPE & SHIFT (<< < > >>) to lock the pocket to any kick tail");
+
+  gfx_set(0.58, 0.68, 0.82, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 32;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

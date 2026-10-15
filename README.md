@@ -60,7 +60,20 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Dedicated Upward % & Downward %**: Balance upward vs downward compression intensity from 0% to 200%.
   * **Modern Vector UI**: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).
 
-### 4. Saturation / OInflator
+### 4. Dynamics / PulseDuck
+**Path**: `Dynamics/PulseDuck.jsfx`  
+**Description**: Multiband Sidechain & Envelope Shaper
+
+* **Key Features**:
+  * **16 Instant Curve Presets**: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.
+  * **4 Trigger Modes**: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input.
+  * **Multiband Crossover**: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo.
+  * **Dual Real-Time Scope**: Overlay ducked bass audio (white) directly over incoming sidechain trigger kick (yellow).
+  * **One-Click Trace SC**: Automatically detects and fits the ducking curve around your incoming kick transient.
+  * **Groove Shaping**: Variable curve slope, timing offset, and phase shift controls (<< < > >>) to lock the pocket.
+  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
+
+### 5. Saturation / OInflator
 **Path**: `Saturation/OInflator.jsfx`  
 **Description**: Harmonic Waveshaper & Loudness Enhancer
 
@@ -73,7 +86,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 5. Saturation / Phoenix
+### 6. Saturation / Phoenix
 **Path**: `Saturation/Phoenix.jsfx`  
 **Description**: Analog Tape Saturator
 
@@ -84,7 +97,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Studio Metering & HiDPI Zoom**: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 6. Creative / ChronoWarp
+### 7. Creative / ChronoWarp
 **Path**: `Creative/ChronoWarp.jsfx`  
 **Description**: Creative Half-Time & Varispeed Engine
 
@@ -98,7 +111,24 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Tempo-Synced Fade In/Out**: Cleanly eliminates edge transients or creates musical fade swells.
   * **Interactive Modern UI**: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).
 
-### 7. Delay / EchoForge
+### 8. Creative / VintageFlux
+**Path**: `Creative/VintageFlux.jsfx`  
+**Description**: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation
+
+* **Key Features**:
+  * **6 Dedicated Vintage FX Modules**:
+    * **Noise**: Vinyl, Cassette, VHS, and White noise with envelope following and ducking.
+    * **Wobble**: Pitch wow & flutter with rate and stereo drift.
+    * **Distort**: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover.
+    * **Digital**: Sample rate downsampling and bitcrushing with smoothing and pass/cut modes.
+    * **Space**: Ambient algorithmic reverb with pre-delay, decay, and damping controls.
+    * **Magnetic**: Vintage tape wear, dropouts, and flutter imperfections.
+  * **Global Magnitude Slider**: Scales all module intensities and master character simultaneously.
+  * **Dedicated Flux Controls**: Organic, non-repeating random analog drift on every module.
+  * **Master Tone & Filters**: 12/24 dB Low/High cuts, Tilt/Smile tone EQ, M/S width, and output trim.
+  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
+
+### 9. Delay / EchoForge
 **Path**: `Delay/EchoForge.jsfx`  
 **Description**: Analog Tape, Lo-Fi & Diffused Delay Workstation
 
@@ -114,7 +144,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Tone Tilt, Spread & Mix**: Output tone shaping, stereo width spread, and independent dry/wet controls.
   * **Interactive UI**: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).
 
-### 8. EQ / ConsoleQ
+### 10. EQ / ConsoleQ
 **Path**: `EQ/ConsoleQ.jsfx`  
 **Description**: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer
 
@@ -130,7 +160,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Output Section**: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.
   * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
 
-### 9. EQ / PocketQ
+### 11. EQ / PocketQ
 **Path**: `EQ/PocketQ.jsfx`  
 **Description**: Compact Console & Air Channel Strip EQ
 
@@ -160,12 +190,14 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── index.xml                   # ReaPack package index file
 ├── README.md                   # Repository documentation (shown in ReaPack)
 ├── Creative/                   # ReaPack Category: Creative
-│   └── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
+│   ├── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
+│   └── VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header
 ├── Delay/                      # ReaPack Category: Delay
 │   └── EchoForge.jsfx          # JSFX plugin with ReaPack metadata header
 ├── Dynamics/                   # ReaPack Category: Dynamics
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
+│   ├── PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 ├── EQ/                         # ReaPack Category: EQ
 │   ├── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
