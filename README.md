@@ -72,6 +72,20 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Studio Metering & HiDPI Zoom**: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
+### 5. Creative / ChronoWarp
+**Path**: `Creative/ChronoWarp.jsfx`  
+**Description**: Creative Half-Time & Varispeed Engine
+
+* **Key Features**:
+  * **3 Speed Modes**: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).
+  * **Continuous Ring-Buffer DSP**: 4-point Hermite cubic interpolation over an ~87-second continuous ring buffer for artifact-free, clickless time transformation.
+  * **Synchronized Loop Lengths**: Quantized to project tempo from 1/16 beat up to 8 full bars.
+  * **Bipolar Smooth Windowing**: Smooth contour shape transitions between transient-preserving percussion/FX mode and seamless sustain/swell mode.
+  * **Dual Bandpass Crossover**: Draggable low-cut and high-cut frequency filters with dedicated Band Solo auditioning.
+  * **Upper-Octave Shimmer & Reverse**: Layer an octave-up granular sheen or flip slice playback direction.
+  * **Tempo-Synced Fade In/Out**: Cleanly eliminates edge transients or creates musical fade swells.
+  * **Interactive Modern UI**: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).
+
 ---
 
 ## 📂 Repository Structure
@@ -87,6 +101,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── .reapack-index.conf         # reapack-index options
 ├── index.xml                   # ReaPack package index file
 ├── README.md                   # Repository documentation (shown in ReaPack)
+├── Creative/                   # ReaPack Category: Creative
+│   └── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
 ├── Dynamics/                   # ReaPack Category: Dynamics
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
