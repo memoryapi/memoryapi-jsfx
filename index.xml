@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="b40cb36259bc1744b2a8b5279c75e896b5052109">
+<index version="1" name="MemoryAPI JSFX" commit="abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8">
+  <category name="Creative">
+    <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 ChronoWarp\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Creative Half-Time and Varispeed Engine with continuous ring-buffer time stretching, smooth windowing, dual bandpass filtering, and shimmer pitch layering.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Three speed modes: 1.5x (-5 semitones), 2x Half-Time (-1 octave), 4x Quarter-Time (-2 octaves)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Synchronized loop lengths from 1/16 up to 8 Bars\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Continuous Smooth contour control for percussion/FX vs sustain/swell\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual bandpass filtering (Low Cut & High Cut) with Band Solo mode\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tempo-synced Fade In and Fade Out envelopes to eliminate clicks\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Forward and Reverse playback directions\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Upper-octave shimmer layer with blend control\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-15T13:09:57Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8/Creative/ChronoWarp.jsfx</source>
+      </version>
+    </reapack>
+  </category>
   <category name="Dynamics">
     <reapack name="Opto2A.jsfx" type="effect" desc="Opto2A (Optical Tube Compressor)">
       <metadata>
@@ -197,6 +224,17 @@ JClones
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Creative / ChronoWarp\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/ChronoWarp.jsfx}\line {\b Description}: Creative Half-Time & Varispeed Engine\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Speed Modes}: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Continuous Ring-Buffer DSP}: 4-point Hermite cubic interpolation over an ~87-second continuous ring buffer for artifact-free, clickless time transformation.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Synchronized Loop Lengths}: Quantized to project tempo from 1/16 beat up to 8 full bars.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Bipolar Smooth Windowing}: Smooth contour shape transitions between transient-preserving percussion/FX mode and seamless sustain/swell mode.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Bandpass Crossover}: Draggable low-cut and high-cut frequency filters with dedicated Band Solo auditioning.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Upper-Octave Shimmer & Reverse}: Layer an octave-up granular sheen or flip slice playback direction.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo-Synced Fade In/Out}: Cleanly eliminates edge transients or creates musical fade swells.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Modern UI}: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -208,6 +246,8 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? .reapack-index.conf         # reapack-index options\line
 \u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
+\u9500 ?\u9472 ?\u9472 ? Creative/                   # ReaPack Category: Creative\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
