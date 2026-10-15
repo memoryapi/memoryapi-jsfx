@@ -98,6 +98,22 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Tempo-Synced Fade In/Out**: Cleanly eliminates edge transients or creates musical fade swells.
   * **Interactive Modern UI**: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).
 
+### 7. Delay / EchoForge
+**Path**: `Delay/EchoForge.jsfx`  
+**Description**: Analog Tape, Lo-Fi & Diffused Delay Workstation
+
+* **Key Features**:
+  * **4 Delay Models**: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).
+  * **Tempo Sync & Free Milliseconds**: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.
+  * **Tape Pitch Glide vs Keep Pitch**: Switch between classic tape-style Doppler pitch slewing or clickless crossfaded time changes.
+  * **Self-Oscillation & Analog Distortion**: Feedback up to 150% with tape-modeled saturation and soft limiter protection.
+  * **Resonant Multi-Mode Filter**: Low-Pass, High-Pass, and Band-Pass filter in the feedback path with adjustable resonance.
+  * **4-Stage Stereo All-Pass Diffuser**: Smears delay repeats into expansive, lush ambient reverb washes.
+  * **Lo-Fi Degradation Engine**: Continuous sample rate downsampling (down to 1 kHz) and bitcrushing (down to 2 bits).
+  * **Multi-Destination Modulation**: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.
+  * **Tone Tilt, Spread & Mix**: Output tone shaping, stereo width spread, and independent dry/wet controls.
+  * **Interactive UI**: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).
+
 ---
 
 ## 📂 Repository Structure
@@ -115,6 +131,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── README.md                   # Repository documentation (shown in ReaPack)
 ├── Creative/                   # ReaPack Category: Creative
 │   └── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
+├── Delay/                      # ReaPack Category: Delay
+│   └── EchoForge.jsfx          # JSFX plugin with ReaPack metadata header
 ├── Dynamics/                   # ReaPack Category: Dynamics
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header

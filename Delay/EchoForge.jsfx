@@ -1,0 +1,1118 @@
+desc:EchoForge (Analog Tape, Lo-Fi & Diffused Delay)
+// @description EchoForge (Analog Tape, Lo-Fi & Diffused Delay)
+// @author MemoryAPI
+// @version 1.0.0
+// @changelog Initial release in repository
+// @about
+//   # EchoForge
+//   Analog Tape, Lo-Fi, and Diffused Delay workstation with modulation, distortion, bitcrushing, and 4-stage stereo all-pass diffusion.
+//
+//   ### Features
+//   - 4 Delay Models: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor)
+//   - Tempo-synced (1/16 to 1 bar) and free-running millisecond modes
+//   - Tape Pitch glide (authentic tape Doppler pitch slew) vs Keep Pitch (clickless time crossfading)
+//   - Self-oscillating feedback (up to 150%) tamed by analog-modeled tape saturation or limiter
+//   - Resonant feedback filter with Low-Pass, High-Pass, and Band-Pass modes
+//   - 4-Stage Stereo All-Pass Diffusion engine for smearing repeats into lush ambient reverb washes
+//   - Lo-Fi degradation engine: variable sample rate downsampling and bit depth reduction
+//   - Multi-destination modulation LFO targeting delay time and filter cutoff
+//   - Output tilt tone EQ, stereo width spread, and independent dry/wet controls
+//   - Scalable HiDPI text zoom (100% - 140%)
+// @provides
+//   [effect] EchoForge.jsfx
+
+options:maxmem=8388608
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:in_wet_pct=100<0,100,0.1>-Input Send (%)
+slider2:sync_on=1<0,1,1{Free ms,Tempo Sync}>-Tempo Sync
+slider3:time_ms=250<1,1000,0.1>-Delay Time (ms)
+slider4:sync_step=4<1,16,1>-Sync Time (16th Steps)
+slider5:keep_pitch=0<0,1,1{Tape Pitch,Keep Pitch}>-Keep Pitch
+slider6:smooth_pct=35<0,100,0.1>-Time Smoothing (%)
+slider7:offset_pct=0<-100,100,0.1>-Stereo Offset / Pan (%)
+slider8:delay_model=2<0,3,1{Mono,Stereo,Ping-Pong,Off (FX Only)}>-Delay Model
+slider9:spread_pct=100<0,100,0.1>-Stereo Spread (%)
+slider10:fb_pct=55<0,150,0.1>-Feedback Level (%)
+slider11:flt_type=0<0,3,1{LP (Low Pass),HP (High Pass),BP (Band Pass),Off}>-Filter Type
+slider12:flt_cut_hz=3500<20,20000,1>-Filter Cutoff (Hz)
+slider13:flt_res_pct=15<0,100,0.1>-Filter Resonance (%)
+slider14:srate_hz=48000<1000,48000,10>-Lo-Fi Sample Rate (Hz)
+slider15:bit_depth=16<2,16,0.1>-Lo-Fi Bit Depth (Bits)
+slider16:mod_rate_hz=1.2<0,20,0.05>-Mod Rate (Hz)
+slider17:mod_time_pct=12<0,100,0.1>-Mod Time Depth (%)
+slider18:mod_cut_pct=0<0,100,0.1>-Mod Cutoff Depth (%)
+slider19:diff_lvl_pct=0<0,100,0.1>-Diffusion Level (%)
+slider20:diff_spr_pct=50<0,100,0.1>-Diffusion Spread (%)
+slider21:dist_type=0<0,1,1{Saturation,Limiter}>-Distortion Type
+slider22:dist_lvl_pct=25<0,100,0.1>-Distortion Drive/Ceiling (%)
+slider23:dist_knee_pct=60<0,100,0.1>-Distortion Knee (%)
+slider24:dist_sym_pct=0<-100,100,0.1>-Distortion Symmetry (%)
+slider25:out_tone_pct=0<-100,100,0.1>-Output Tone (LP <-> HP)
+slider26:out_dry_pct=100<0,100,0.1>-Output Dry (%)
+slider27:out_wet_pct=80<0,100,0.1>-Output Wet (%)
+slider28:ui_zoom=1.15<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+MIN_FREQ = 20.0;
+MAX_FREQ = 20000.0;
+LOG_MIN  = log(MIN_FREQ);
+LOG_MAX  = log(MAX_FREQ);
+
+// Main Stereo Delay Ring Buffer: 1,048,576 stereo frames (~21 sec at 48kHz)
+DL_FRAMES = 1048576;
+DL_MASK   = DL_FRAMES - 1;
+DL_BASE   = 65536;
+
+// 4-Stage Stereo All-Pass Diffusion Buffers (65,536 frames per stage)
+AP_FRAMES = 65536;
+AP_MASK   = AP_FRAMES - 1;
+AP_L1_BASE = DL_BASE + (DL_FRAMES * 2);
+AP_L2_BASE = AP_L1_BASE + AP_FRAMES;
+AP_L3_BASE = AP_L2_BASE + AP_FRAMES;
+AP_L4_BASE = AP_L3_BASE + AP_FRAMES;
+AP_R1_BASE = AP_L4_BASE + AP_FRAMES;
+AP_R2_BASE = AP_R1_BASE + AP_FRAMES;
+AP_R3_BASE = AP_R2_BASE + AP_FRAMES;
+AP_R4_BASE = AP_R3_BASE + AP_FRAMES;
+
+// Echo visualizer history buffer (64 bins)
+ECHO_BINS = 64;
+echo_hist_l = 1024;
+echo_hist_r = 1200;
+
+// 4-point Hermite Cubic Interpolation on Stereo Ring Buffer
+function read_delay_hermite(del_samples, ch_offset)
+  local(r_pos, i0, frac, idx_m1, idx_0, idx_p1, idx_p2, y0, y1, y2, y3, c0, c1, c2, c3)
+(
+  del_samples = max(1.0, min(DL_FRAMES - 8.0, del_samples));
+  r_pos = write_pos - del_samples;
+  i0    = floor(r_pos);
+  frac  = r_pos - i0;
+
+  idx_m1 = ((i0 - 1) & DL_MASK) * 2 + ch_offset;
+  idx_0  = (i0       & DL_MASK) * 2 + ch_offset;
+  idx_p1 = ((i0 + 1) & DL_MASK) * 2 + ch_offset;
+  idx_p2 = ((i0 + 2) & DL_MASK) * 2 + ch_offset;
+
+  y0 = DL_BASE[idx_m1];
+  y1 = DL_BASE[idx_0];
+  y2 = DL_BASE[idx_p1];
+  y3 = DL_BASE[idx_p2];
+
+  c0 = y1;
+  c1 = 0.5 * (y2 - y0);
+  c2 = y0 - 2.5 * y1 + 2.0 * y2 - 0.5 * y3;
+  c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+
+  ((c3 * frac + c2) * frac + c1) * frac + c0;
+);
+
+// Single All-Pass Diffuser Stage
+function process_allpass(x, base_ptr, delay_len, g)
+  local(r_idx, w_idx, delayed, v, out)
+(
+  w_idx = ap_write_pos & AP_MASK;
+  r_idx = (ap_write_pos - delay_len) & AP_MASK;
+  delayed = base_ptr[r_idx];
+  v = x - g * delayed;
+  base_ptr[w_idx] = v;
+  delayed + g * v;
+);
+
+// Feedback Waveshaper (Saturation vs Hard/Soft Knee Limiter + Symmetry)
+function shape_sample(x)
+  local(drv, sym_bias, x_b, knee, abs_x, sign_x, y, y_zero)
+(
+  drv = 1.0 + (dist_lvl_pct * 0.01) * 5.0;
+  sym_bias = (dist_sym_pct * 0.01) * 0.38;
+  knee = dist_knee_pct * 0.01;
+
+  x_b = x * drv + sym_bias;
+
+  dist_type == 0 ? (
+    // Saturation mode: blend between hard-ish algebraic clip and smooth tanh-like curve
+    abs_x = abs(x_b);
+    // Adjustable knee softness
+    y = x_b / pow(1.0 + pow(abs_x, 2.0 - knee * 1.1), 1.0 / (2.0 - knee * 1.1));
+    // Subtract DC offset introduced by asymmetry
+    y_zero = sym_bias / pow(1.0 + pow(abs(sym_bias), 2.0 - knee * 1.1), 1.0 / (2.0 - knee * 1.1));
+    y = (y - y_zero) / pow(drv, 0.35);
+  ) : (
+    // Limiter mode: ceiling controlled by dist_lvl_pct, softness by knee
+    ceil_val = max(0.15, 1.05 - (dist_lvl_pct * 0.01) * 0.75);
+    x_b = x + sym_bias * 0.4;
+    abs_x = abs(x_b);
+    knee < 0.05 ? (
+      y = max(-ceil_val, min(ceil_val, x_b));
+    ) : (
+      soft_k = ceil_val / max(0.001, knee * 0.8 + 0.2);
+      y = ceil_val * (x_b / sqrt(ceil_val*ceil_val + x_b*x_b));
+      y = y * knee + max(-ceil_val, min(ceil_val, x_b)) * (1.0 - knee);
+    );
+    y -= sym_bias * 0.35;
+  );
+
+  max(-1.5, min(1.5, y));
+);
+
+function update_parameters()
+  local(SAFE_SRATE, SAFE_TEMPO, sec_per_step, base_sec, off_norm, l_mult, r_mult,
+        slew_ms, tone_freq, g_tn, k_tn)
+(
+  SAFE_SRATE = max(8000.0, srate);
+  SAFE_TEMPO = max(30.0, tempo > 0 ? tempo : 120.0);
+
+  // 1 Step = 1/16th of a 4/4 Bar = 0.25 beats
+  sec_per_step = (60.0 / SAFE_TEMPO) * 0.25;
+
+  sync_on ? (
+    base_sec = sync_step * sec_per_step;
+  ) : (
+    base_sec = time_ms * 0.001;
+  );
+
+  base_delay_samples = max(16.0, min(DL_FRAMES * 0.45, base_sec * SAFE_SRATE));
+
+  // Offset / Pan behavior depends on Delay Model:
+  // Mono (0) & Stereo (1): Offset scales L or R delay time
+  // Ping-Pong (2): Offset acts as input Pan
+  off_norm = offset_pct * 0.01;
+  (delay_model == 0 || delay_model == 1) ? (
+    l_mult = off_norm < 0.0 ? (1.0 + off_norm * 0.5) : 1.0;
+    r_mult = off_norm > 0.0 ? (1.0 - off_norm * 0.5) : 1.0;
+    target_del_l = max(16.0, base_delay_samples * l_mult);
+    target_del_r = max(16.0, base_delay_samples * r_mult);
+    pp_pan_l = 1.0;
+    pp_pan_r = 1.0;
+  ) : (
+    target_del_l = base_delay_samples;
+    target_del_r = base_delay_samples;
+    pp_pan_l = off_norm <= 0.0 ? 1.0 : (1.0 - off_norm);
+    pp_pan_r = off_norm >= 0.0 ? 1.0 : (1.0 + off_norm);
+  );
+
+  // Tape Time Smoothing slew rate (5 ms to 650 ms)
+  slew_ms = 5.0 + pow(smooth_pct * 0.01, 2.0) * 645.0;
+  time_slew_coeff = exp(-1.0 / max(1.0, (slew_ms * 0.001) * SAFE_SRATE));
+
+  // Filter resonance Q (0.707 up to self-oscillation edge Q = 12.0)
+  res_norm = flt_res_pct * 0.01;
+  flt_Q = 0.707 + pow(res_norm, 2.2) * 11.5;
+  flt_k = 1.0 / flt_Q;
+
+  // Lo-Fi Sample-and-Hold period & Bit Quantizer steps
+  decim_period = max(1.0, SAFE_SRATE / max(1000.0, srate_hz));
+  bit_steps = pow(2.0, max(2.0, bit_depth) - 1.0);
+  bit_inv   = 1.0 / bit_steps;
+
+  // All-Pass Diffusion tap lengths (prime sample offsets scaled by Diffusion Spread)
+  spr_scale = 0.20 + (diff_spr_pct * 0.01) * 1.40;
+  ap_len_l1 = max(17, floor(149 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_l2 = max(23, floor(263 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_l3 = max(31, floor(419 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_l4 = max(43, floor(607 * spr_scale * (SAFE_SRATE / 44100.0)));
+
+  ap_len_r1 = max(19, floor(167 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_r2 = max(29, floor(283 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_r3 = max(37, floor(443 * spr_scale * (SAFE_SRATE / 44100.0)));
+  ap_len_r4 = max(47, floor(641 * spr_scale * (SAFE_SRATE / 44100.0)));
+
+  // Output Tone Filter (Bipolar Tilt: Left = Low-Pass, Center = Off, Right = High-Pass)
+  abs(out_tone_pct) > 1.0 ? (
+    out_tone_pct < 0.0 ? (
+      // LP from 20 kHz down to 300 Hz
+      tone_norm = 1.0 - (abs(out_tone_pct) * 0.01);
+      tone_freq = exp(log(300.0) + tone_norm * (log(20000.0) - log(300.0)));
+    ) : (
+      // HP from 20 Hz up to 3500 Hz
+      tone_norm = out_tone_pct * 0.01;
+      tone_freq = exp(log(20.0) + tone_norm * (log(3500.0) - log(20.0)));
+    );
+    g_tn = tan($pi * min(tone_freq, SAFE_SRATE * 0.44) / SAFE_SRATE);
+    k_tn = 1.41421356;
+    tn_a1 = 1.0 / (1.0 + g_tn * (g_tn + k_tn));
+    tn_a2 = g_tn * tn_a1;
+    tn_a3 = g_tn * tn_a2;
+    tn_k  = k_tn;
+  );
+
+  // Update Keep-Pitch crossfade targets if user changed delay time while Keep Pitch is ON
+  keep_pitch && (abs(target_del_l - kp_active_l) > 2.0 || abs(target_del_r - kp_active_r) > 2.0) && !kp_xfading ? (
+    kp_old_l = kp_active_l;
+    kp_old_r = kp_active_r;
+    kp_active_l = target_del_l;
+    kp_active_r = target_del_r;
+    kp_xfade_pos = 0.0;
+    kp_xfading = 1;
+  );
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.15;
+  write_pos = 65536;
+  ap_write_pos = 1024;
+  update_parameters();
+  cur_del_l = target_del_l;
+  cur_del_r = target_del_r;
+  kp_active_l = target_del_l;
+  kp_active_r = target_del_r;
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+SAFE_SRATE = max(8000.0, srate);
+lfo_inc = (2.0 * $pi * mod_rate_hz) / SAFE_SRATE;
+kp_xfade_step = 1.0 / (0.035 * SAFE_SRATE); // 35 ms pitch-preserving crossfade
+
+@sample
+raw_l = spl0;
+raw_r = spl1;
+
+write_pos    += 1;
+ap_write_pos += 1;
+
+// Advance Sine LFO for Time (Wow/Flutter) and Filter Cutoff modulation
+lfo_phase += lfo_inc;
+lfo_phase >= (2.0 * $pi) ? lfo_phase -= (2.0 * $pi);
+lfo_sin = sin(lfo_phase);
+lfo_cos = cos(lfo_phase); // Quadrature phase for lush stereo chorus/wow spread
+
+// -------------------------------------------------------------------------
+// 1. READ DELAY ECHOES (TAPE VARISPEED vs KEEP-PITCH CROSSFADE)
+// -------------------------------------------------------------------------
+// LFO Time modulation depth (up to +/- 12 ms for tape wow/flutter & flanging)
+mod_samps_l = lfo_sin * (mod_time_pct * 0.01) * (0.008 * SAFE_SRATE);
+mod_samps_r = lfo_cos * (mod_time_pct * 0.01) * (0.008 * SAFE_SRATE);
+
+delay_model == 3 ? (
+  // Model = "Off (FX Only)": Instant zero-delay pass through the Filter/Sat/Lo-Fi/Diff chain
+  echo_l = raw_l * (in_wet_pct * 0.01);
+  echo_r = raw_r * (in_wet_pct * 0.01);
+) : (
+  !keep_pitch ? (
+    // Tape Mode: Smooth exponential slew on delay length causes natural analog pitch bend
+    cur_del_l = time_slew_coeff * cur_del_l + (1.0 - time_slew_coeff) * target_del_l;
+    cur_del_r = time_slew_coeff * cur_del_r + (1.0 - time_slew_coeff) * target_del_r;
+    kp_active_l = cur_del_l;
+    kp_active_r = cur_del_r;
+
+    echo_l = read_delay_hermite(cur_del_l + mod_samps_l, 0);
+    echo_r = read_delay_hermite(cur_del_r + mod_samps_r, 1);
+  ) : (
+    // Keep Pitch Mode: Dual-head crossfade when delay time changes (no Doppler pitch shift)
+    echo_l = read_delay_hermite(kp_active_l + mod_samps_l, 0);
+    echo_r = read_delay_hermite(kp_active_r + mod_samps_r, 1);
+
+    kp_xfading ? (
+      kp_xfade_pos += kp_xfade_step;
+      kp_xfade_pos >= 1.0 ? (
+        kp_xfading = 0;
+      ) : (
+        w_new = 0.5 - 0.5 * cos($pi * kp_xfade_pos);
+        w_old = 1.0 - w_new;
+        old_l = read_delay_hermite(kp_old_l + mod_samps_l, 0);
+        old_r = read_delay_hermite(kp_old_r + mod_samps_r, 1);
+        echo_l = echo_l * w_new + old_l * w_old;
+        echo_r = echo_r * w_new + old_r * w_old;
+      );
+    );
+  );
+);
+
+// -------------------------------------------------------------------------
+// 2. ALL-PASS DIFFUSION NETWORK (ECHO SMEARING)
+// -------------------------------------------------------------------------
+diff_lvl_pct > 0.1 ? (
+  d_mix = diff_lvl_pct * 0.01;
+  ap_g  = 0.62;
+
+  dl_s = process_allpass(echo_l, AP_L1_BASE, ap_len_l1, ap_g);
+  dl_s = process_allpass(dl_s,   AP_L2_BASE, ap_len_l2, ap_g);
+  dl_s = process_allpass(dl_s,   AP_L3_BASE, ap_len_l3, ap_g);
+  dl_s = process_allpass(dl_s,   AP_L4_BASE, ap_len_l4, ap_g);
+
+  dr_s = process_allpass(echo_r, AP_R1_BASE, ap_len_r1, ap_g);
+  dr_s = process_allpass(dr_s,   AP_R2_BASE, ap_len_r2, ap_g);
+  dr_s = process_allpass(dr_s,   AP_R3_BASE, ap_len_r3, ap_g);
+  dr_s = process_allpass(dr_s,   AP_R4_BASE, ap_len_r4, ap_g);
+
+  echo_l = echo_l * (1.0 - d_mix) + dl_s * d_mix;
+  echo_r = echo_r * (1.0 - d_mix) + dr_s * d_mix;
+);
+
+// -------------------------------------------------------------------------
+// 3. FEEDBACK LOOP PROCESSING: LO-FI DECIMATOR, SVF FILTER & WAVESHAPER
+// -------------------------------------------------------------------------
+// 3a. Sample Rate & Bit Depth Reduction
+(srate_hz < 47500.0 || bit_depth < 15.9) ? (
+  decim_phase += 1.0;
+  decim_phase >= decim_period ? (
+    decim_phase -= decim_period;
+    bit_depth < 15.9 ? (
+      snh_l = floor(echo_l * bit_steps + 0.5) * bit_inv;
+      snh_r = floor(echo_r * bit_steps + 0.5) * bit_inv;
+    ) : (
+      snh_l = echo_l;
+      snh_r = echo_r;
+    );
+  );
+  echo_l = snh_l;
+  echo_r = snh_r;
+);
+
+// 3b. Resonant Feedback Filter (LP, HP, BP, Off) with LFO Cutoff Modulation
+flt_type < 3 ? (
+  // Modulate cutoff in octaves (+/- 2.5 octaves max)
+  mod_oct = lfo_sin * (mod_cut_pct * 0.01) * 2.5;
+  eff_cut = max(20.0, min(SAFE_SRATE * 0.44, flt_cut_hz * pow(2.0, mod_oct)));
+
+  // Recompute SVF g every 8 samples for fast, smooth LFO sweeps
+  (write_pos & 7) == 0 ? (
+    flt_g  = tan($pi * eff_cut / SAFE_SRATE);
+    flt_a1 = 1.0 / (1.0 + flt_g * (flt_g + flt_k));
+    flt_a2 = flt_g * flt_a1;
+    flt_a3 = flt_g * flt_a2;
+  );
+
+  // Left SVF
+  v3 = echo_l - flt_l_ic2;
+  v1 = flt_a1 * flt_l_ic1 + flt_a2 * v3;
+  v2 = flt_l_ic2 + flt_a2 * flt_l_ic1 + flt_a3 * v3;
+  flt_l_ic1 = 2.0 * v1 - flt_l_ic1;
+  flt_l_ic2 = 2.0 * v2 - flt_l_ic2;
+
+  flt_type == 0 ? echo_l = v2 :                         // Low-Pass
+  flt_type == 1 ? echo_l = echo_l - flt_k * v1 - v2 :   // High-Pass
+                  echo_l = flt_k * v1;                  // Normalized Band-Pass
+
+  // Right SVF
+  v3 = echo_r - flt_r_ic2;
+  v1 = flt_a1 * flt_r_ic1 + flt_a2 * v3;
+  v2 = flt_r_ic2 + flt_a2 * flt_r_ic1 + flt_a3 * v3;
+  flt_r_ic1 = 2.0 * v1 - flt_r_ic1;
+  flt_r_ic2 = 2.0 * v2 - flt_r_ic2;
+
+  flt_type == 0 ? echo_r = v2 :
+  flt_type == 1 ? echo_r = echo_r - flt_k * v1 - v2 :
+                  echo_r = flt_k * v1;
+);
+
+// 3c. Feedback Distortion / Saturation / Limiter + DC Blocker
+echo_l = shape_sample(echo_l);
+echo_r = shape_sample(echo_r);
+
+// 1-pole 15 Hz DC Blocker so asymmetric waveshaping never builds DC offset in high feedback
+dc_l_out = echo_l - dc_l_in + 0.9985 * dc_l_out; dc_l_in = echo_l; echo_l = dc_l_out;
+dc_r_out = echo_r - dc_r_in + 0.9985 * dc_r_out; dc_r_in = echo_r; echo_r = dc_r_out;
+
+// -------------------------------------------------------------------------
+// 4. WRITE TO DELAY LINE BASED ON DELAY MODEL (MONO / STEREO / PING-PONG)
+// -------------------------------------------------------------------------
+in_send_l = raw_l * (in_wet_pct * 0.01);
+in_send_r = raw_r * (in_wet_pct * 0.01);
+fb_gain   = fb_pct * 0.01;
+
+delay_model == 0 ? (
+  // Mono Model: Input is summed to mono
+  mono_in = (in_send_l + in_send_r) * 0.5;
+  w_l = mono_in + echo_l * fb_gain;
+  w_r = mono_in + echo_r * fb_gain;
+) : delay_model == 1 ? (
+  // Stereo Model: Independent L and R delay channels
+  w_l = in_send_l + echo_l * fb_gain;
+  w_r = in_send_r + echo_r * fb_gain;
+) : delay_model == 2 ? (
+  // Ping-Pong Model: Panned input + crossed L<->R feedback loops
+  w_l = (in_send_l * pp_pan_l) + echo_r * fb_gain;
+  w_r = (in_send_r * pp_pan_r) + echo_l * fb_gain;
+) : (
+  w_l = 0.0;
+  w_r = 0.0;
+);
+
+w_idx = (write_pos & DL_MASK) * 2;
+DL_BASE[w_idx]     = max(-2.0, min(2.0, w_l));
+DL_BASE[w_idx + 1] = max(-2.0, min(2.0, w_r));
+
+// -------------------------------------------------------------------------
+// 5. STEREO SPREAD, OUTPUT TONE FILTER & DRY/WET MIX
+// -------------------------------------------------------------------------
+// Stereo Spread (0% = Mono Mid, 100% = Full Stereo)
+spr = spread_pct * 0.01;
+wet_mid  = (echo_l + echo_r) * 0.5;
+wet_side = (echo_l - echo_r) * 0.5 * spr;
+wet_out_l = wet_mid + wet_side;
+wet_out_r = wet_mid - wet_side;
+
+// Output Tone Filter (Bipolar LP <-> HP)
+abs(out_tone_pct) > 1.0 ? (
+  v3 = wet_out_l - tn_l_ic2;
+  v1 = tn_a1 * tn_l_ic1 + tn_a2 * v3;
+  v2 = tn_l_ic2 + tn_a2 * tn_l_ic1 + tn_a3 * v3;
+  tn_l_ic1 = 2.0 * v1 - tn_l_ic1;
+  tn_l_ic2 = 2.0 * v2 - tn_l_ic2;
+  wet_out_l = out_tone_pct < 0.0 ? v2 : (wet_out_l - tn_k * v1 - v2);
+
+  v3 = wet_out_r - tn_r_ic2;
+  v1 = tn_a1 * tn_r_ic1 + tn_a2 * v3;
+  v2 = tn_r_ic2 + tn_a2 * tn_r_ic1 + tn_a3 * v3;
+  tn_r_ic1 = 2.0 * v1 - tn_r_ic1;
+  tn_r_ic2 = 2.0 * v2 - tn_r_ic2;
+  wet_out_r = out_tone_pct < 0.0 ? v2 : (wet_out_r - tn_k * v1 - v2);
+);
+
+spl0 = raw_l * (out_dry_pct * 0.01) + wet_out_l * (out_wet_pct * 0.01);
+spl1 = raw_r * (out_dry_pct * 0.01) + wet_out_r * (out_wet_pct * 0.01);
+
+// Track peak envelope for UI waveshaper operating dot & echo visualizer
+env_wet_pk = max(max(abs(echo_l), abs(echo_r)), env_wet_pk * 0.9992);
+(write_pos & 511) == 0 ? (
+  eh_head = (eh_head + 1) % ECHO_BINS;
+  echo_hist_l[eh_head] = min(1.0, abs(wet_out_l));
+  echo_hist_r[eh_head] = min(1.0, abs(wet_out_r));
+);
+
+@gfx 840 680
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(720, gfx_w);
+H = max(580, gfx_h);
+
+// Responsive geometry scale & Linux X11 font multiplier
+S  = min(W / 840.0, H / 680.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(18, floor(22 * TS));
+f_sec   = max(12, floor(13 * TS));
+f_val   = max(12, floor(13 * TS));
+f_btn   = max(11, floor(12 * TS));
+f_grid  = max(10, floor(11 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_grid,  0);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Rotary Knob with Catppuccin Teal (#94E2D5) / Green (#A6E3A1) & Warning Ring support
+// warn_mode: 1 = Feedback > 100% turns Peach/Red, 2 = Resonance > 75% turns Peach/Red
+function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_hero, bipolar, warn_mode)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh,
+        pill_w, pill_h, pill_x, pill_y, rc, gc, bc)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 8)*(r + 8));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 550.0 : 145.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  // Determine Accent Color (Teal/Green default; Peach/Red when Feedback > 100% or Res > 75%)
+  rc = is_hero ? 0.58 : 0.65;
+  gc = is_hero ? 0.89 : 0.89;
+  bc = is_hero ? 0.84 : 0.63;
+
+  (warn_mode == 1 && val > 100.0) ? (
+    val > 125.0 ? ( rc = 0.95; gc = 0.55; bc = 0.66; ) : ( rc = 0.98; gc = 0.70; bc = 0.53; );
+  );
+  (warn_mode == 2 && val > 75.0) ? (
+    val > 88.0  ? ( rc = 0.95; gc = 0.55; bc = 0.66; ) : ( rc = 0.98; gc = 0.70; bc = 0.53; );
+  );
+
+  // Drop shadow & hover halo
+  gfx_set(0.05, 0.05, 0.09, 0.85);
+  gfx_circle(cx, cy + 2, r + 1, 1, 1);
+  hover ? (
+    gfx_set(rc, gc, bc, 0.16);
+    gfx_circle(cx, cy, r + 5, 1, 1);
+  );
+
+  // Knob body
+  gfx_set(0.11, 0.11, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.24, 0.25, 0.35, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  steps = 30;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? (
+      gfx_set(rc, gc, bc, 0.98);
+    ) : (
+      gfx_set(0.20, 0.21, 0.29, 0.9);
+    );
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    st += 1;
+  );
+
+  // Pointer line
+  gfx_set(0.95, 0.98, 0.97, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.25);
+  py0 = cy - cos(ang_val) * (r * 0.25);
+  px1 = cx + sin(ang_val) * (r - 6);
+  py1 = cy - cos(ang_val) * (r - 6);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.5, py0, px1 + 0.5, py1, 1);
+
+  // Label
+  gfx_setfont(2);
+  gfx_measurestr(label, lw, lh);
+  is_hero ? gfx_set(0.84, 0.96, 0.92, 1.0) : gfx_set(0.70, 0.76, 0.86, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(5 * S);
+  gfx_drawstr(label);
+
+  // Pill Value Readout
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(12 * S), floor(64 * S));
+  pill_h = vh + floor(5 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(7 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.22, hover ? gc : 0.24, hover ? bc : 0.34);
+  gfx_set(0.95, 0.98, 0.97, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR (DELAY MODEL SELECTOR & DPI SCALING)
+// =========================================================================
+hdr_h = floor(50 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.23, 0.28, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// Brand Title: ECHOFORGE in Catppuccin Teal (#94E2D5)
+gfx_setfont(1);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = floor(20 * S);
+gfx_measurestr("ECHO", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("ECHO");
+gfx_set(0.92, 0.95, 0.96, 1.0);
+gfx_drawstr("FORGE");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(10 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.20, 0.26, 1.0);
+gfx_rect(q_x, q_y, qw + 12, qh + 4);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = q_x + 6; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// Segmented Delay Model Selector in Center of Header (MONO | STEREO | PING-PONG | OFF/FX)
+mdl_w = floor(84 * S);
+mdl_h = floor(28 * S);
+mdl_gap = floor(5 * S);
+mdl_start_x = floor(W * 0.5 - (mdl_w * 4 + mdl_gap * 3) * 0.5);
+mdl_y = (hdr_h - mdl_h) * 0.5;
+
+mi = 0;
+loop(4,
+  mx_b = mdl_start_x + mi * (mdl_w + mdl_gap);
+  mhit = (mouse_x >= mx_b && mouse_x <= mx_b + mdl_w && mouse_y >= mdl_y && mouse_y <= mdl_y + mdl_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && mhit ? (
+    delay_model = mi;
+    update_parameters();
+    slider_automate(slider8);
+  );
+
+  delay_model == mi ? (
+    draw_panel_box(mx_b, mdl_y, mdl_w, mdl_h, 0.16, 0.48, 0.46, 0.58, 0.89, 0.84);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(mx_b, mdl_y, mdl_w, mdl_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+    gfx_set(0.74, 0.78, 0.88, 1.0);
+  );
+
+  mi == 0 ? strcpy(#m_s, "MONO") :
+  mi == 1 ? strcpy(#m_s, "STEREO") :
+  mi == 2 ? strcpy(#m_s, "PING-PONG") :
+            strcpy(#m_s, "OFF (FX)");
+
+  gfx_setfont(4);
+  gfx_measurestr(#m_s, mw, mh);
+  gfx_x = mx_b + (mdl_w - mw) * 0.5;
+  gfx_y = mdl_y + (mdl_h - mh) * 0.5;
+  gfx_drawstr(#m_s);
+  mi += 1;
+);
+
+// UI Text Scale Toggle Button (TEXT: 100% / 120% / 140%)
+zm_w = floor(102 * S); zm_h = floor(28 * S);
+zm_x = W - zm_w - floor(20 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider28);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+gfx_setfont(4);
+gfx_set(0.82, 0.86, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_lbl, "TEXT: 100%") :
+ui_zoom < 1.3 ? strcpy(#z_lbl, "TEXT: 120%") : strcpy(#z_lbl, "TEXT: 140%");
+gfx_measurestr(#z_lbl, zw, zh);
+gfx_x = zm_x + (zm_w - zw) * 0.5; gfx_y = zm_y + (zm_h - zh) * 0.5;
+gfx_drawstr(#z_lbl);
+
+// =========================================================================
+// 2. MASTER 2-ROW MODULAR GRID (INSPIRED BY FRUITY DELAY 3)
+// =========================================================================
+pad = floor(14 * S);
+avail_w = W - (pad * 2);
+avail_h = H - hdr_h - (pad * 3);
+
+row1_y = hdr_h + pad;
+row1_h = floor(avail_h * 0.48);
+row2_y = row1_y + row1_h + pad;
+row2_h = avail_h - row1_h;
+
+r_std  = min(floor(26 * S), floor(row1_h * 0.17));
+r_hero = min(floor(34 * S), floor(row1_h * 0.22));
+
+// -------------------------------------------------------------------------
+// ROW 1: [INPUT & DELAY TIME (44%)] | [FEEDBACK & LO-FI FILTER (56%)]
+// -------------------------------------------------------------------------
+c1_w = floor((avail_w - pad) * 0.45);
+c2_w = avail_w - pad - c1_w;
+c1_x = pad;
+c2_x = c1_x + c1_w + pad;
+
+draw_panel_box(c1_x, row1_y, c1_w, row1_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(c2_x, row1_y, c2_w, row1_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+// --- CARD 1: INPUT SEND & DELAY TIME ---
+gfx_setfont(2);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = c1_x + floor(14 * S); gfx_y = row1_y + floor(10 * S);
+gfx_drawstr("DELAY TIME & INPUT SEND");
+
+// Tempo Sync & Keep Pitch Toggle Pills in Top-Right of Card 1
+btn_h_sm = floor(24 * S);
+kp_w = floor(92 * S);
+sy_w = floor(76 * S);
+kp_x = c1_x + c1_w - kp_w - floor(12 * S);
+sy_x = kp_x - sy_w - floor(6 * S);
+top_btn_y = row1_y + floor(8 * S);
+
+sy_hit = (mouse_x >= sy_x && mouse_x <= sy_x + sy_w && mouse_y >= top_btn_y && mouse_y <= top_btn_y + btn_h_sm);
+kp_hit = (mouse_x >= kp_x && mouse_x <= kp_x + kp_w && mouse_y >= top_btn_y && mouse_y <= top_btn_y + btn_h_sm);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  sy_hit ? ( sync_on = !sync_on; update_parameters(); slider_automate(slider2); );
+  kp_hit ? ( keep_pitch = !keep_pitch; update_parameters(); slider_automate(slider5); );
+);
+
+sync_on ? (
+  draw_panel_box(sy_x, top_btn_y, sy_w, btn_h_sm, 0.16, 0.48, 0.46, 0.58, 0.89, 0.84);
+  gfx_set(1.0, 1.0, 1.0, 1.0); strcpy(#sy_s, "SYNC: ON");
+) : (
+  draw_panel_box(sy_x, top_btn_y, sy_w, btn_h_sm, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+  gfx_set(0.72, 0.76, 0.86, 1.0); strcpy(#sy_s, "FREE ms");
+);
+gfx_setfont(5);
+gfx_measurestr(#sy_s, tw, th);
+gfx_x = sy_x + (sy_w - tw)*0.5; gfx_y = top_btn_y + (btn_h_sm - th)*0.5;
+gfx_drawstr(#sy_s);
+
+keep_pitch ? (
+  draw_panel_box(kp_x, top_btn_y, kp_w, btn_h_sm, 0.16, 0.48, 0.46, 0.58, 0.89, 0.84);
+  gfx_set(1.0, 1.0, 1.0, 1.0); strcpy(#kp_s, "KEEP PITCH");
+) : (
+  draw_panel_box(kp_x, top_btn_y, kp_w, btn_h_sm, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+  gfx_set(0.72, 0.76, 0.86, 1.0); strcpy(#kp_s, "TAPE PITCH");
+);
+gfx_measurestr(#kp_s, tw, th);
+gfx_x = kp_x + (kp_w - tw)*0.5; gfx_y = top_btn_y + (btn_h_sm - th)*0.5;
+gfx_drawstr(#kp_s);
+
+// 4 Knobs inside Card 1: IN WET, TIME (16 Steps or ms), SMOOTH, OFFSET/PAN
+c1_cy = row1_y + row1_h * 0.45;
+
+// 1. IN WET
+sprintf(#iw_s, "%.0f %%", in_wet_pct);
+new_iw = draw_rotary_knob(1, c1_x + c1_w * 0.14, c1_cy, r_std, in_wet_pct, 0.0, 100.0, 100.0, "IN WET", #iw_s, 0, 0, 0);
+abs(new_iw - in_wet_pct) > 0.01 ? ( in_wet_pct = new_iw; slider_automate(slider1); );
+
+// 2. TIME (Steps when Sync ON, ms when Sync OFF)
+sync_on ? (
+  sprintf(#tm_s, "%d Step", floor(sync_step + 0.5));
+  new_st = draw_rotary_knob(2, c1_x + c1_w * 0.38, c1_cy, r_hero, sync_step, 1.0, 16.0, 4.0, "TIME", #tm_s, 1, 0, 0);
+  abs(new_st - sync_step) > 0.01 ? ( sync_step = floor(new_st + 0.5); update_parameters(); slider_automate(slider4); );
+) : (
+  sprintf(#tm_s, "%.0f ms", time_ms);
+  new_tms = draw_rotary_knob(2, c1_x + c1_w * 0.38, c1_cy, r_hero, time_ms, 1.0, 1000.0, 250.0, "TIME", #tm_s, 1, 0, 0);
+  abs(new_tms - time_ms) > 0.01 ? ( time_ms = new_tms; update_parameters(); slider_automate(slider3); );
+);
+
+// 3. SMOOTH
+sprintf(#sm_s, "%.0f %%", smooth_pct);
+new_sm = draw_rotary_knob(3, c1_x + c1_w * 0.63, c1_cy, r_std, smooth_pct, 0.0, 100.0, 35.0, "SMOOTH", #sm_s, 0, 0, 0);
+abs(new_sm - smooth_pct) > 0.01 ? ( smooth_pct = new_sm; update_parameters(); slider_automate(slider6); );
+
+// 4. OFFSET / PAN (label changes dynamically like Delay 3)
+delay_model == 2 ? strcpy(#of_lbl, "PAN") : strcpy(#of_lbl, "OFFSET");
+sprintf(#of_s, "%+.0f %%", offset_pct);
+new_of = draw_rotary_knob(4, c1_x + c1_w * 0.86, c1_cy, r_std, offset_pct, -100.0, 100.0, 0.0, #of_lbl, #of_s, 0, 1, 0);
+abs(new_of - offset_pct) > 0.01 ? ( offset_pct = new_of; update_parameters(); slider_automate(slider7); );
+
+// Live Stereo Echo Tap Monitor Bar at Bottom of Card 1
+tap_bar_x = c1_x + floor(14 * S);
+tap_bar_w = c1_w - floor(28 * S);
+tap_bar_h = floor(22 * S);
+tap_bar_y = row1_y + row1_h - tap_bar_h - floor(10 * S);
+draw_panel_box(tap_bar_x, tap_bar_y, tap_bar_w, tap_bar_h, 0.05, 0.05, 0.08, 0.18, 0.20, 0.28);
+
+col_bw = (tap_bar_w - 4) / ECHO_BINS;
+ei = 0;
+loop(ECHO_BINS,
+  eb_idx = (eh_head + 1 + ei) % ECHO_BINS;
+  el_v = echo_hist_l[eb_idx];
+  er_v = echo_hist_r[eb_idx];
+  ex = tap_bar_x + 2 + ei * col_bw;
+  mid_ty = tap_bar_y + tap_bar_h * 0.5;
+  gfx_set(0.58, 0.89, 0.84, 0.85);
+  gfx_rect(ex, mid_ty - el_v * (tap_bar_h * 0.45), max(1, col_bw - 1), max(1, el_v * (tap_bar_h * 0.45)));
+  gfx_set(0.65, 0.89, 0.63, 0.85);
+  gfx_rect(ex, mid_ty, max(1, col_bw - 1), max(1, er_v * (tap_bar_h * 0.45)));
+  ei += 1;
+);
+
+// --- CARD 2: FEEDBACK, RESONANT FILTER & LO-FI DECIMATOR ---
+gfx_setfont(2);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = c2_x + floor(14 * S); gfx_y = row1_y + floor(10 * S);
+gfx_drawstr("FEEDBACK, FILTER & LO-FI");
+
+// Filter Type Buttons in Top-Right of Card 2 (LP | HP | BP | OFF)
+ft_w = floor(42 * S);
+ft_gap = floor(4 * S);
+ft_start_x = c2_x + c2_w - (ft_w * 4 + ft_gap * 3) - floor(12 * S);
+
+fi = 0;
+loop(4,
+  fx_b = ft_start_x + fi * (ft_w + ft_gap);
+  fhit = (mouse_x >= fx_b && mouse_x <= fx_b + ft_w && mouse_y >= top_btn_y && mouse_y <= top_btn_y + btn_h_sm);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && fhit ? (
+    flt_type = fi;
+    slider_automate(slider11);
+  );
+
+  flt_type == fi ? (
+    draw_panel_box(fx_b, top_btn_y, ft_w, btn_h_sm, 0.16, 0.48, 0.46, 0.58, 0.89, 0.84);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(fx_b, top_btn_y, ft_w, btn_h_sm, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+    gfx_set(0.72, 0.76, 0.86, 1.0);
+  );
+
+  fi == 0 ? strcpy(#f_s, "LP") :
+  fi == 1 ? strcpy(#f_s, "HP") :
+  fi == 2 ? strcpy(#f_s, "BP") :
+            strcpy(#f_s, "OFF");
+
+  gfx_setfont(5);
+  gfx_measurestr(#f_s, tw, th);
+  gfx_x = fx_b + (ft_w - tw)*0.5; gfx_y = top_btn_y + (btn_h_sm - th)*0.5;
+  gfx_drawstr(#f_s);
+  fi += 1;
+);
+
+// 5 Knobs inside Card 2: LEVEL (0-150% Warn), CUTOFF, RES (0-100% Warn), SAMP RATE, BITS
+// 1. FEEDBACK LEVEL (Turns Peach/Red above 100%)
+sprintf(#fb_s, "%.0f %%", fb_pct);
+new_fb = draw_rotary_knob(5, c2_x + c2_w * 0.11, c1_cy, r_hero, fb_pct, 0.0, 150.0, 55.0, "FEEDBACK", #fb_s, 1, 0, 1);
+abs(new_fb - fb_pct) > 0.01 ? ( fb_pct = new_fb; slider_automate(slider10); );
+
+// 2. FILTER CUTOFF (Logarithmic feel)
+cut_norm = (log(max(MIN_FREQ, flt_cut_hz)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+flt_cut_hz >= 1000 ? sprintf(#ct_s, "%.2f kHz", flt_cut_hz * 0.001) : sprintf(#ct_s, "%d Hz", flt_cut_hz);
+new_cut_n = draw_rotary_knob(6, c2_x + c2_w * 0.31, c1_cy, r_std, cut_norm, 0.0, 1.0, 0.76, "CUTOFF", #ct_s, 0, 0, 0);
+abs(new_cut_n - cut_norm) > 0.0001 ? (
+  flt_cut_hz = exp(LOG_MIN + new_cut_n * (LOG_MAX - LOG_MIN));
+  slider_automate(slider12);
+);
+
+// 3. FILTER RESONANCE (Turns Peach/Red above 75%)
+sprintf(#rs_s, "%.0f %%", flt_res_pct);
+new_rs = draw_rotary_knob(7, c2_x + c2_w * 0.50, c1_cy, r_std, flt_res_pct, 0.0, 100.0, 15.0, "RES", #rs_s, 0, 0, 2);
+abs(new_rs - flt_res_pct) > 0.01 ? ( flt_res_pct = new_rs; update_parameters(); slider_automate(slider13); );
+
+// 4. LO-FI SAMPLE RATE (1 kHz to 48 kHz)
+srate_hz >= 1000 ? sprintf(#sr_s, "%.1f kHz", srate_hz * 0.001) : sprintf(#sr_s, "%d Hz", srate_hz);
+new_sr = draw_rotary_knob(8, c2_x + c2_w * 0.70, c1_cy, r_std, srate_hz, 1000.0, 48000.0, 48000.0, "SAMP RATE", #sr_s, 0, 0, 0);
+abs(new_sr - srate_hz) > 1.0 ? ( srate_hz = new_sr; update_parameters(); slider_automate(slider14); );
+
+// 5. LO-FI BIT DEPTH (2 to 16 Bits)
+sprintf(#bt_s, "%.1f Bit", bit_depth);
+new_bt = draw_rotary_knob(9, c2_x + c2_w * 0.89, c1_cy, r_std, bit_depth, 2.0, 16.0, 16.0, "BITS", #bt_s, 0, 0, 0);
+abs(new_bt - bit_depth) > 0.01 ? ( bit_depth = new_bt; update_parameters(); slider_automate(slider15); );
+
+// -------------------------------------------------------------------------
+// ROW 2: [MODULATION & DIFFUSION (37%)] | [FEEDBACK DISTORTION + GRAPH (35%)] | [OUTPUT & TONE (28%)]
+// -------------------------------------------------------------------------
+b1_w = floor((avail_w - pad * 2) * 0.37);
+b2_w = floor((avail_w - pad * 2) * 0.35);
+b3_w = avail_w - pad * 2 - b1_w - b2_w;
+
+b1_x = pad;
+b2_x = b1_x + b1_w + pad;
+b3_x = b2_x + b2_w + pad;
+
+draw_panel_box(b1_x, row2_y, b1_w, row2_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(b2_x, row2_y, b2_w, row2_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(b3_x, row2_y, b3_w, row2_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+r_sm = min(floor(23 * S), floor(row2_h * 0.15));
+
+// --- BOTTOM CARD 1: MODULATION (RATE, TIME, CUTOFF) & DIFFUSION (LEVEL, SPREAD) ---
+gfx_setfont(2);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = b1_x + floor(12 * S); gfx_y = row2_y + floor(8 * S);
+gfx_drawstr("MODULATION & DIFFUSION");
+
+row2_top_cy = row2_y + row2_h * 0.31;
+row2_bot_cy = row2_y + row2_h * 0.74;
+
+// Mod Rate (0..20 Hz)
+sprintf(#mr_s, "%.2f Hz", mod_rate_hz);
+new_mr = draw_rotary_knob(10, b1_x + b1_w * 0.18, row2_top_cy, r_sm, mod_rate_hz, 0.0, 20.0, 1.2, "MOD RATE", #mr_s, 0, 0, 0);
+abs(new_mr - mod_rate_hz) > 0.01 ? ( mod_rate_hz = new_mr; slider_automate(slider16); );
+
+// Mod Time Depth (0..100%)
+sprintf(#mt_s, "%.0f %%", mod_time_pct);
+new_mt = draw_rotary_knob(11, b1_x + b1_w * 0.50, row2_top_cy, r_sm, mod_time_pct, 0.0, 100.0, 12.0, "MOD TIME", #mt_s, 0, 0, 0);
+abs(new_mt - mod_time_pct) > 0.01 ? ( mod_time_pct = new_mt; slider_automate(slider17); );
+
+// Mod Cutoff Depth (0..100%)
+sprintf(#mc_s, "%.0f %%", mod_cut_pct);
+new_mc = draw_rotary_knob(12, b1_x + b1_w * 0.82, row2_top_cy, r_sm, mod_cut_pct, 0.0, 100.0, 0.0, "MOD CUT", #mc_s, 0, 0, 0);
+abs(new_mc - mod_cut_pct) > 0.01 ? ( mod_cut_pct = new_mc; slider_automate(slider18); );
+
+// Diffusion Level (0..100%)
+sprintf(#dl_s, "%.0f %%", diff_lvl_pct);
+new_dl = draw_rotary_knob(13, b1_x + b1_w * 0.32, row2_bot_cy, r_sm, diff_lvl_pct, 0.0, 100.0, 0.0, "DIFF LEVEL", #dl_s, 0, 0, 0);
+abs(new_dl - diff_lvl_pct) > 0.01 ? ( diff_lvl_pct = new_dl; slider_automate(slider19); );
+
+// Diffusion Spread (0..100%)
+sprintf(#ds_s, "%.0f %%", diff_spr_pct);
+new_ds = draw_rotary_knob(14, b1_x + b1_w * 0.68, row2_bot_cy, r_sm, diff_spr_pct, 0.0, 100.0, 50.0, "DIFF SPREAD", #ds_s, 0, 0, 0);
+abs(new_ds - diff_spr_pct) > 0.01 ? ( diff_spr_pct = new_ds; update_parameters(); slider_automate(slider20); );
+
+// --- BOTTOM CARD 2: FEEDBACK DISTORTION (LEVEL, KNEE, SYMMETRY + TRANSFER GRAPH) ---
+gfx_setfont(2);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = b2_x + floor(12 * S); gfx_y = row2_y + floor(8 * S);
+gfx_drawstr("FEEDBACK DISTORTION");
+
+// SAT / LIMIT Toggle Button in Top-Right of Card 2
+dt_w = floor(72 * S);
+dt_x = b2_x + b2_w - dt_w - floor(10 * S);
+dt_y = row2_y + floor(6 * S);
+dt_hit = (mouse_x >= dt_x && mouse_x <= dt_x + dt_w && mouse_y >= dt_y && mouse_y <= dt_y + btn_h_sm);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && dt_hit ? (
+  dist_type = !dist_type;
+  slider_automate(slider21);
+);
+dist_type == 0 ? (
+  draw_panel_box(dt_x, dt_y, dt_w, btn_h_sm, 0.72, 0.42, 0.25, 0.98, 0.70, 0.53);
+  gfx_set(1.0, 1.0, 1.0, 1.0); strcpy(#dt_s, "MODE: SAT");
+) : (
+  draw_panel_box(dt_x, dt_y, dt_w, btn_h_sm, 0.16, 0.48, 0.46, 0.58, 0.89, 0.84);
+  gfx_set(1.0, 1.0, 1.0, 1.0); strcpy(#dt_s, "MODE: LIM");
+);
+gfx_setfont(5);
+gfx_measurestr(#dt_s, tw, th);
+gfx_x = dt_x + (dt_w - tw)*0.5; gfx_y = dt_y + (btn_h_sm - th)*0.5;
+gfx_drawstr(#dt_s);
+
+// 3 Knobs along Top of Card 2: LEVEL, KNEE, SYMMETRY
+sprintf(#dv_s, "%.0f %%", dist_lvl_pct);
+new_dv = draw_rotary_knob(15, b2_x + b2_w * 0.19, row2_top_cy, r_sm, dist_lvl_pct, 0.0, 100.0, 25.0, "LEVEL", #dv_s, 0, 0, 0);
+abs(new_dv - dist_lvl_pct) > 0.01 ? ( dist_lvl_pct = new_dv; slider_automate(slider22); );
+
+sprintf(#dk_s, "%.0f %%", dist_knee_pct);
+new_dk = draw_rotary_knob(16, b2_x + b2_w * 0.50, row2_top_cy, r_sm, dist_knee_pct, 0.0, 100.0, 60.0, "KNEE", #dk_s, 0, 0, 0);
+abs(new_dk - dist_knee_pct) > 0.01 ? ( dist_knee_pct = new_dk; slider_automate(slider23); );
+
+sprintf(#dy_s, "%+.0f %%", dist_sym_pct);
+new_dy = draw_rotary_knob(17, b2_x + b2_w * 0.81, row2_top_cy, r_sm, dist_sym_pct, -100.0, 100.0, 0.0, "SYMMETRY", #dy_s, 0, 1, 0);
+abs(new_dy - dist_sym_pct) > 0.01 ? ( dist_sym_pct = new_dy; slider_automate(slider24); );
+
+// Live Waveshaper Transfer Curve Viewport at Bottom of Card 2
+ws_x = b2_x + floor(12 * S);
+ws_y = row2_y + floor(row2_h * 0.56);
+ws_w = b2_w - floor(24 * S);
+ws_h = (row2_y + row2_h) - ws_y - floor(10 * S);
+
+draw_panel_box(ws_x, ws_y, ws_w, ws_h, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
+
+// Center axes
+gfx_set(0.16, 0.18, 0.26, 1.0);
+gfx_line(ws_x + 1, ws_y + ws_h * 0.5, ws_x + ws_w - 1, ws_y + ws_h * 0.5);
+gfx_line(ws_x + ws_w * 0.5, ws_y + 1, ws_x + ws_w * 0.5, ws_y + ws_h - 1);
+
+// Plot bipolar waveshaper curve (-1..+1)
+ws_steps = 40;
+wi = 0;
+loop(ws_steps + 1,
+  wx_in = ((wi / ws_steps) * 2.0) - 1.0;
+  wy_out = shape_sample(wx_in);
+  px_w = ws_x + 3 + (wi / ws_steps) * (ws_w - 6);
+  py_w = ws_y + ws_h * 0.5 - max(-1.0, min(1.0, wy_out)) * (ws_h * 0.44);
+  wi > 0 ? (
+    gfx_set(0.58, 0.89, 0.84, 0.95);
+    gfx_line(prev_px_w, prev_py_w, px_w, py_w, 1);
+    gfx_line(prev_px_w, prev_py_w + 1, px_w, py_w + 1, 1);
+  );
+  prev_px_w = px_w;
+  prev_py_w = py_w;
+  wi += 1;
+);
+
+// --- BOTTOM CARD 3: OUTPUT (TONE, SPREAD, DRY, WET) ---
+gfx_setfont(2);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = b3_x + floor(12 * S); gfx_y = row2_y + floor(8 * S);
+gfx_drawstr("OUTPUT & TONE");
+
+// 1. TONE (LP <-> OFF <-> HP)
+abs(out_tone_pct) <= 1.0 ? strcpy(#tn_s, "OFF") :
+out_tone_pct < 0.0 ? sprintf(#tn_s, "LP %.0f%%", abs(out_tone_pct)) :
+                     sprintf(#tn_s, "HP %.0f%%", out_tone_pct);
+new_tn = draw_rotary_knob(18, b3_x + b3_w * 0.28, row2_top_cy, r_sm, out_tone_pct, -100.0, 100.0, 0.0, "TONE", #tn_s, 0, 1, 0);
+abs(new_tn - out_tone_pct) > 0.01 ? ( out_tone_pct = new_tn; update_parameters(); slider_automate(slider25); );
+
+// 2. STEREO SPREAD (0..100%)
+sprintf(#sp_s, "%.0f %%", spread_pct);
+new_sp = draw_rotary_knob(19, b3_x + b3_w * 0.72, row2_top_cy, r_sm, spread_pct, 0.0, 100.0, 100.0, "SPREAD", #sp_s, 0, 0, 0);
+abs(new_sp - spread_pct) > 0.01 ? ( spread_pct = new_sp; slider_automate(slider9); );
+
+// 3. DRY OUT (0..100%)
+sprintf(#dr_s, "%.0f %%", out_dry_pct);
+new_dr = draw_rotary_knob(20, b3_x + b3_w * 0.28, row2_bot_cy, r_sm, out_dry_pct, 0.0, 100.0, 100.0, "DRY", #dr_s, 0, 0, 0);
+abs(new_dr - out_dry_pct) > 0.01 ? ( out_dry_pct = new_dr; slider_automate(slider26); );
+
+// 4. WET OUT (0..100%)
+sprintf(#wt_s, "%.0f %%", out_wet_pct);
+new_wt = draw_rotary_knob(21, b3_x + b3_w * 0.72, row2_bot_cy, r_sm, out_wet_pct, 0.0, 100.0, 80.0, "WET", #wt_s, 1, 0, 0);
+abs(new_wt - out_wet_pct) > 0.01 ? ( out_wet_pct = new_wt; slider_automate(slider27); );
+
+// =========================================================================
+// 3. INFO OVERLAY MODAL (Click ECHOFORGE Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.74);
+  mh = floor(285 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.58, 0.89, 0.84);
+
+  gfx_setfont(1);
+  gfx_set(0.58, 0.89, 0.84, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("EchoForge v1.0 (Analog Tape, Lo-Fi & Diffused Delay)");
+
+  gfx_setfont(3);
+  gfx_set(0.90, 0.94, 0.96, 1.0);
+  lh_step = floor(27 * S);
+  ty = my + 62;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• Delay Models: Mono, Stereo, Ping-Pong, and Off (Instant Filter/Sat/Lo-Fi)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• TAPE PITCH mode glides delay times with authentic Doppler pitch bend");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• KEEP PITCH mode crossfades delay time changes without pitch shifting");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Feedback up to 150% for self-oscillation, tamed by Saturation/Limiter");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• 4-Stage Stereo All-Pass Diffuser smears echoes into lush ambient tails");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Drag knobs vertically (Ctrl for fine control, double-click to reset)");
+
+  gfx_set(0.58, 0.72, 0.70, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 34;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;
