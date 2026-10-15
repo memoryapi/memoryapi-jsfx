@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="073ed513dc2283a76548dbe6a794d5d2bcd5380c">
+<index version="1" name="MemoryAPI JSFX" commit="73cd3063b48b930159df0d9c6c2694526b42fcfe">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -167,6 +167,31 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T16:36:14Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/073ed513dc2283a76548dbe6a794d5d2bcd5380c/EQ/ConsoleQ.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="PocketQ.jsfx" type="effect" desc="PocketQ (Compact Console &amp; Air EQ)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 PocketQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Compact, ultra-low CPU console channel strip equalizer with fixed musical frequencies, E/G curves, and high-headroom Air Band.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Fixed musical frequency bands: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-headroom Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 18 dB/oct HPF and 12 dB/oct LPF console cut filters\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab E-Series (tight constant Q) and G-Series (smooth proportional Q) response curves\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Console Drive switch with Clean and Warm analog saturation\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Auto-gain compensation and phase invert toggle\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Ultra-lightweight DSP footprint optimized for loading across every mixer track\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0.0" author="MemoryAPI" time="2026-10-15T16:48:41Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/73cd3063b48b930159df0d9c6c2694526b42fcfe/EQ/PocketQ.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -352,6 +377,17 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Momentary Band Solo}: Hold the [S] audition button on any frequency band column to isolate its processing range.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Output Section}: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 9. EQ / PocketQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/PocketQ.jsfx}\line {\b Description}: Compact Console & Air Channel Strip EQ\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Fixed Musical Frequency Bands}: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Air Band}: Selectable ultra-high frequencies (2.5k, 5k, 10k, 20k, 40 kHz) with up to +20 dB boost.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Cut Filters}: 18 dB/oct HPF (20 - 500 Hz) and 12 dB/oct LPF (3k - 22 kHz).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b E-Series & G-Series Modes}: Switch between tight constant Q and smooth proportional Q response.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Drive}: Clean vs. Warm analog harmonic drive.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Auto Gain & Phase Invert}: Output level compensation and quick polarity toggle.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Ultra-Lightweight CPU Footprint}: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -372,7 +408,8 @@ JClones
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? PocketQ.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
     \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
