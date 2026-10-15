@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="9dc53df5b9bdb8986e8dc513b06e8c9215ae35b0">
-<category name="Dynamics"><reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)"><metadata><description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+<index version="1" name="MemoryAPI JSFX" commit="d1b16fe535b8df503097044b82946c359ed2e4c4">
+  <category name="Dynamics">
+    <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
 {\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
 \widowctrl\hyphauto
 
@@ -8,14 +11,28 @@
 {\pard \ql \f0 \sa180 \li0 \fi0 32-Band Dynamic Spectral Ducker using Cytomic SVF filters.\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 32-band Cytomic SVF dynamic spectral ducking\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-contrast visualizer with smooth animated controls and hover halos\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Stereo (L/R) and Mid/Side (M/S) processing modes\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Low-cut and high-cut sidechain filtering with interactive spectrum display\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Sidechain audition mode and freeze function\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Sidechain audition mode, freeze function, and scalable UI text zoom\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Safe ceiling and NaN/Inf protection\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Routing\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 Route sidechain control audio to Channels 3/4.\par}
 }
-]]></description></metadata><version name="1.1" author="Custom DSP" time="2026-10-14T22:52:23Z"><changelog><![CDATA[Initial release]]></changelog><source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/9dc53df5b9bdb8986e8dc513b06e8c9215ae35b0/Dynamics/SpectralCarver.jsfx</source></version></reapack></category><metadata><description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+]]></description>
+      </metadata>
+      <version name="1.1" author="Custom DSP" time="2026-10-14T22:52:23Z">
+        <changelog><![CDATA[Initial release]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/9dc53df5b9bdb8986e8dc513b06e8c9215ae35b0/Dynamics/SpectralCarver.jsfx</source>
+      </version>
+      <version name="1.2" author="Custom DSP" time="2026-10-15T01:02:51Z">
+        <changelog><![CDATA[Redesigned UI with DPI text zoom, animated drawer, and hover halos]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/d1b16fe535b8df503097044b82946c359ed2e4c4/Dynamics/SpectralCarver.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <metadata>
+    <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
 {\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
 \widowctrl\hyphauto
 
@@ -47,6 +64,7 @@ reapack.com
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 32-Band SVF Dynamic Carving}: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Routing}: Route your kick, vocals, or sidechain trigger audio to {\b Channels 3/4} of the track.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Spectrum Display}: Visual real-time sidechain energy and gain reduction meters with draggable Low-Cut and High-Cut filter boundary curtains.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Redesigned Animated UI}: Modern design with hover halos, animated collapsible drawer, and selectable UI Text Zoom (100%/120%/140%) for HiDPI displays.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo & Mid/Side Processing}: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Freeze & Audition}: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
@@ -85,4 +103,6 @@ jj bookmark set master -r @\line
 jj git push --bookmark master\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab The included GitHub Actions workflow will automatically run {\f1 reapack-index}, compile {\f1 index.xml}, and update the repository on GitHub.\sa180\par}
 }
-]]></description></metadata></index>
+]]></description>
+  </metadata>
+</index>
