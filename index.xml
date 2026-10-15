@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="b707fd49cbecf83900b601769728378c65b422d4">
+<index version="1" name="MemoryAPI JSFX" commit="11a3863d0cf6db7206d0e6f8f903f394fe77208b">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -24,6 +24,10 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T13:09:57Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8/Creative/ChronoWarp.jsfx</source>
+      </version>
+      <version name="1.2.0" author="MemoryAPI" time="2026-10-15T23:18:01Z">
+        <changelog><![CDATA[Symmetrical 30/40/30 layout, centered Hero Power button with radial fade ring, larger knobs]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/11a3863d0cf6db7206d0e6f8f903f394fe77208b/Creative/ChronoWarp.jsfx</source>
       </version>
     </reapack>
     <reapack name="VintageFlux.jsfx" type="effect" desc="VintageFlux (6-Module Vintage Multi-FX &amp; Lo-Fi Color)">
