@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="aef0f0c66df2a3ac59f18769a71f96d57a56ea16">
+<index version="1" name="MemoryAPI JSFX" commit="9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -247,6 +247,35 @@
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/73cd3063b48b930159df0d9c6c2694526b42fcfe/EQ/PocketQ.jsfx</source>
       </version>
     </reapack>
+    <reapack name="ReEQ_Studio.jsfx" type="effect" desc="ReEQ Studio (Polished 16-Band Parametric Equalizer)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 ReEQ Studio\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Polished 16-Band Parametric Equalizer with advanced spectrum analyzer, Mid/Side routing, Butterworth/Analog cut models, and musical Pultec curves.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 16 fully parametric filter bands with individual solo, gain, Q, frequency, and slope controls\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Multiple filter topologies: Peak, Low/High Cut (including Butterworth and Analog models), Low/High Shelf, Notch, Band Pass, Tilt Shelf, Pultec Low Shelf, and All Pass\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Flexible stereo routing: Stereo, Mid/Side, Left/Right processing per band\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-resolution real-time FFT spectrum analyzer with Pre-EQ, Post-EQ, Mid/Side, and L/R visualization\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Smart context-aware band creation and interactive multi-node marquee selection\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-Quality (HQ) oversampling mode with FIR half-band filtering\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Piano roll scale display and musical note snapping\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Credits\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Original ReEQ DSP & core architecture by Justin Johnson (ReJJ).\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="2.0.0" author="MemoryAPI" time="2026-10-15T20:58:37Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa/EQ/ReEQ_Studio.jsfx</source>
+        <source file="Dependencies/spectrum.jsfx-inc">https://github.com/memoryapi/memoryapi-jsfx/raw/9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa/EQ/Dependencies/spectrum.jsfx-inc</source>
+        <source file="Dependencies/svf_filter.jsfx-inc">https://github.com/memoryapi/memoryapi-jsfx/raw/9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa/EQ/Dependencies/svf_filter.jsfx-inc</source>
+        <source file="Dependencies/firhalfband.jsfx-inc">https://github.com/memoryapi/memoryapi-jsfx/raw/9434675c401b8b83bae3c6e84c4e1df8fdcaa5fa/EQ/Dependencies/firhalfband.jsfx-inc</source>
+      </version>
+    </reapack>
   </category>
   <category name="Saturation">
     <reapack name="OInflator.jsfx" type="effect" desc="OInflator (Harmonic Waveshaper &amp; Enhancer)">
@@ -476,6 +505,20 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Auto Gain & Phase Invert}: Output level compensation and quick polarity toggle.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Ultra-Lightweight CPU Footprint}: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 12. EQ / ReEQ Studio\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ReEQ_Studio.jsfx}\line {\b Description}: Polished 16-Band Parametric Equalizer\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/reeq_studio.webp]\cf0}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 16 Fully Parametric Bands}: Individual solo, gain, Q, frequency, and slope controls across all 16 bands.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Extended Filter Topologies}: Peak, Low/High Cut (including Butterworth and Analog models), Low/High Shelf, Notch, Band Pass, Tilt Shelf, Pultec Low Shelf, and All Pass.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo, Mid/Side & Left/Right}: Independent processing modes per band.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-Time FFT Analyzer}: High-resolution spectrum visualizer with Pre-EQ, Post-EQ, Mid/Side, and L/R visualization.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HQ Oversampling}: High-Quality mode with linear-phase FIR half-band filtering.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive GUI}: Marquee multi-node selection, piano roll scale display, and smart context-aware band creation.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: Original DSP & core architecture by {\field{\*\fldinst{HYPERLINK "https://github.com/Justin-Johnson/ReEQ"}}{\fldrslt{\ul
+Justin Johnson (ReJJ)
+}}}
+.\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -499,8 +542,13 @@ JClones
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? Dependencies/           # ReEQ include files\line
+\u9474 ?   \u9474 ?   \u9500 ?\u9472 ?\u9472 ? firhalfband.jsfx-inc\line
+\u9474 ?   \u9474 ?   \u9500 ?\u9472 ?\u9472 ? spectrum.jsfx-inc\line
+\u9474 ?   \u9474 ?   \u9492 ?\u9472 ?\u9472 ? svf_filter.jsfx-inc\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? PocketQ.jsfx            # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? PocketQ.jsfx            # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
     \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
