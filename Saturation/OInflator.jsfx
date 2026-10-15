@@ -1,0 +1,846 @@
+desc:OInflator (Harmonic Waveshaper & Enhancer)
+// @description OInflator (Harmonic Waveshaper & Enhancer)
+// @author JClones / Custom DSP
+// @version 1.2.0
+// @changelog Cleaned up UI, removed trademark references, credited original JClones repository
+// @link Original DSP repository https://github.com/JClones/JSFXClones
+// @about
+//   # OInflator
+//   A high-precision polynomial waveshaper and harmonic loudness enhancer with multiband split processing.
+//
+//   ### Features
+//   - Authentic polynomial transfer curve shaping
+//   - Phase-compensated 3-band split processing (240 Hz / 2.4 kHz crossovers)
+//   - Curve control (-50 to +50) for fine harmonic balance
+//   - Clip 0dB ceiling protection
+//   - Calibrated studio peak and RMS metering with clip indicators
+//   - Scalable HiDPI text zoom
+//
+//   ### Credits
+//   - Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.
+// @provides
+//   [effect] OInflator.jsfx
+
+// Sliders are hidden (- prefix) so the custom @gfx UI takes over,
+// while keeping all parameters exposed to REAPER automation.
+slider1:in_db=0<-6,12,0.1>-Input, dB
+slider2:eff_pct=0<0,100,0.1>-Effect, %
+slider3:crv_val=0<-50,50,0.1>-Curve
+slider4:clip_on=1<0,1,1{Off,On}>-Clip 0dB
+slider5:split_on=0<0,1,1{Off,On}>-Band Split
+slider6:out_db=0<-12,0,0.1>-Output, dB
+slider7:in_on=1<0,1,1{Bypass,In}>-Active (In)
+slider8:ui_zoom=1.20<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+function DB_TO_K(x)
+(
+  10 ^ (x / 20)
+);
+
+function K_TO_DB(lin)
+(
+  8.685889638 * log(max(0.000001, lin))
+);
+
+/*
+ * FilterParam (Original JClones DSP)
+ */
+
+function FilterParam_generateLPF(freq_k) local(t, a)
+(
+  t = tan(freq_k * $pi);
+  a = 0.5 / (t + 1.0);
+  this.k0 = a * t;
+  this.k1 = a * t;
+  this.k2 = (1.0 - t) * a;
+);
+
+function FilterParam_generateHPF(freq_k) local(t, a)
+(
+  t = tan(freq_k * $pi);
+  a = 0.125 / (t + 1.0);
+  this.k0 = a;
+  this.k1 = -a;
+  this.k2 = (1.0 - t) * 0.5 / (t + 1.0);
+);
+
+/*
+ * OInflator (Original JClones DSP)
+ */
+
+function OInflator_applyProcessing(x) local(gr)
+(
+  gr = abs(x) * 2.0 * this.curve + (1.0 - this.curve);
+  gr = max(-1.0, min(1.0, gr));
+  (1.0 - abs(gr * x)) * (gr * x) * (this.effect * 2.0) + (1.0 - this.effect) * x;
+);
+
+function OInflator_processSample(x) local(y, high, half_mid, mid, low_x, low)
+(
+  x *= this.input_gain;
+  x = max(-this.clip_threshold, min(this.clip_threshold, x));
+
+  (!this.multiband) ? (
+    y = this.OInflator_applyProcessing(x);
+  ) : (
+    // HIGH:
+    high = (this.high_hpf.k0 * x + this.high_hpf.state) * 2.0;
+    this.high_hpf.state = this.high_hpf.k1 * x + this.high_hpf.k2 * high;
+    high *= 4.0;
+
+    // MID:
+    half_mid = (this.mid_lpf.k0 * x + this.mid_lpf.state) * 2.0;
+    this.mid_lpf.state = this.mid_lpf.k1 * x + this.mid_lpf.k2 * half_mid;
+    half_mid *= 2.0;
+    mid = (this.mid_hpf.k0 * half_mid + this.mid_hpf.state) * 2.0;
+    this.mid_hpf.state = half_mid * this.mid_hpf.k1 + this.mid_hpf.k2 * mid;
+    mid *= 2.0;
+
+    // LOW:
+    low_x = x * 0.5;
+    low = (this.low_lpf.k0 * low_x + this.low_lpf.state) * 2.0;
+    this.low_lpf.state = low_x * this.low_lpf.k1 + this.low_lpf.k2 * low;
+    low *= 2.0;
+
+    // processing:
+    high = this.OInflator_applyProcessing(high);
+    mid = this.OInflator_applyProcessing(mid) * this.mid_gain;
+    low = this.OInflator_applyProcessing(low);
+
+    y = low + mid + high;
+  );
+
+  y * this.output_gain;
+);
+
+function OInflator_setGains(input_gain, output_gain)
+(
+  this.input_gain = input_gain * 0.5;
+  this.output_gain = output_gain * 2.0;
+);
+
+function OInflator_setMode(clip, multiband, effect, curve) local(curve_normalised)
+(
+  this.clip_threshold = clip ? 0.5 : 0.9999999;
+  this.multiband = multiband;
+  this.effect = effect;
+
+  curve_normalised = curve / 100.0 + 0.5; // curve: -50 .. +50 -> 0 .. 1
+  this.curve = 0.5 - curve_normalised * 0.5;
+);
+
+LOW_FREQ_HZ = 240.0;
+HIGH_FREQ_HZ = 2400.0;
+
+function OInflator_setSampleRate()
+(
+  this.high_hpf.FilterParam_generateHPF(HIGH_FREQ_HZ / srate);
+  this.mid_lpf.FilterParam_generateLPF(HIGH_FREQ_HZ / srate);
+  this.mid_hpf.FilterParam_generateHPF(LOW_FREQ_HZ / srate);
+  this.low_lpf.FilterParam_generateLPF(LOW_FREQ_HZ / srate);
+
+  this.mid_gain = 1.0 - tan(LOW_FREQ_HZ * $pi / srate) / tan(HIGH_FREQ_HZ * $pi / srate);
+);
+
+function OInflator_reset()
+(
+  this.low_lpf.state = 0.0;
+  this.mid_lpf.state = 0.0;
+  this.mid_hpf.state = 0.0;
+  this.high_hpf.state = 0.0;
+);
+
+function sync_dsp_params()
+(
+  input_gain = DB_TO_K(in_db);
+  effect = eff_pct;
+  curve = crv_val;
+  clip = clip_on;
+  bandsplit = split_on;
+  output_gain = DB_TO_K(out_db);
+
+  left.OInflator_setGains(input_gain, output_gain);
+  right.OInflator_setGains(input_gain, output_gain);
+
+  left.OInflator_setMode(clip, bandsplit, effect / 100.0, curve);
+  right.OInflator_setMode(clip, bandsplit, effect / 100.0, curve);
+
+  // Ballistics for UI meters
+  SAFE_SRATE = max(8000.0, srate);
+  meter_decay = exp(-1.0 / (0.18 * SAFE_SRATE));
+  hold_decay  = exp(-1.0 / (1.20 * SAFE_SRATE));
+);
+
+(sample_rate != srate) || !init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.20;
+  in_on = 1;
+  left.OInflator_setSampleRate();
+  right.OInflator_setSampleRate();
+  left.OInflator_reset();
+  right.OInflator_reset();
+  sample_rate = srate;
+  init_done = 1;
+);
+
+sync_dsp_params();
+
+@slider
+sync_dsp_params();
+
+@block
+(sample_rate != srate) ? (
+  left.OInflator_setSampleRate();
+  right.OInflator_setSampleRate();
+  sample_rate = srate;
+);
+sync_dsp_params();
+
+@sample
+raw_l = spl0;
+raw_r = spl1;
+
+// Measure Post-Input-Trim signal for input meter
+drv_l = abs(raw_l * input_gain);
+drv_r = abs(raw_r * input_gain);
+
+in_on ? (
+  out_l = left.OInflator_processSample(raw_l);
+  out_r = right.OInflator_processSample(raw_r);
+) : (
+  out_l = raw_l;
+  out_r = raw_r;
+);
+
+spl0 = out_l;
+spl1 = out_r;
+
+abs_out_l = abs(out_l);
+abs_out_r = abs(out_r);
+
+// Smooth peak envelopes for Input L/R, Output L/R, and Transfer Drive
+env_in_l  = max(drv_l,     env_in_l  * meter_decay);
+env_in_r  = max(drv_r,     env_in_r  * meter_decay);
+env_out_l = max(abs_out_l, env_out_l * meter_decay);
+env_out_r = max(abs_out_r, env_out_r * meter_decay);
+env_drv   = max(max(drv_l, drv_r), env_drv * meter_decay);
+
+// Peak-hold indicators
+hold_in_l  = max(drv_l,     hold_in_l  * hold_decay);
+hold_in_r  = max(drv_r,     hold_in_r  * hold_decay);
+hold_out_l = max(abs_out_l, hold_out_l * hold_decay);
+hold_out_r = max(abs_out_r, hold_out_r * hold_decay);
+
+// Clipping detection (> 0 dBFS)
+(drv_l > 1.0 || drv_r > 1.0) ? clip_in_latched = 1;
+(abs_out_l > 1.0 || abs_out_r > 1.0) ? clip_out_latched = 1;
+
+@gfx 720 620
+// Solid Catppuccin Mocha base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(600, gfx_w);
+H = max(500, gfx_h);
+
+// Responsive geometry scale & Linux X11 font multiplier
+S  = min(W / 720.0, H / 620.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(18, floor(22 * TS));
+f_sec   = max(13, floor(14 * TS));
+f_val   = max(14, floor(15 * TS));
+f_btn   = max(13, floor(14 * TS));
+f_grid  = max(11, floor(12 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_grid,  0);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Evaluate the exact Inflator polynomial for the Transfer Curve graph (x in 0..2)
+function eval_inflator_curve(x_in)
+  local(xh, gr, eff_n, crv_n, c_coeff)
+(
+  eff_n   = eff_pct * 0.01;
+  crv_n   = crv_val * 0.01 + 0.5;
+  c_coeff = 0.5 - crv_n * 0.5;
+  xh      = x_in * 0.5;
+  xh      = clip_on ? min(0.5, xh) : min(0.9999999, xh);
+  gr      = abs(xh) * 2.0 * c_coeff + (1.0 - c_coeff);
+  gr      = max(-1.0, min(1.0, gr));
+  ((1.0 - abs(gr * xh)) * (gr * xh) * (eff_n * 2.0) + (1.0 - eff_n) * xh) * 2.0;
+);
+
+// Vertical Studio Fader with Pill Readout
+function draw_vertical_fader(id, cx, fy, fh, val, vmin, vmax, vdef, label, val_str, is_accent, bipolar)
+  local(norm, zero_norm, track_w, thumb_w, thumb_h, thumb_y, zero_y, fill_y0, fill_y1,
+        hit, hover, sens, delta, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y, tick_i, ty)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  track_w = max(8, floor(10 * S));
+  thumb_w = max(32, floor(38 * S));
+  thumb_h = max(16, floor(18 * S));
+
+  hit = (mouse_x >= cx - thumb_w * 0.65) && (mouse_x <= cx + thumb_w * 0.65) &&
+        (mouse_y >= fy - thumb_h) && (mouse_y <= fy + fh + thumb_h);
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? (fh * 3.5) : fh;
+      delta = (drag_start_y - mouse_y) / max(40.0, sens);
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  thumb_y = fy + (1.0 - norm) * fh;
+
+  // Fader scale ticks along sides
+  gfx_set(0.28, 0.30, 0.42, 0.85);
+  tick_i = 0;
+  loop(11,
+    ty = fy + (tick_i / 10.0) * fh;
+    gfx_line(cx - thumb_w * 0.52, ty, cx - track_w * 0.8, ty);
+    gfx_line(cx + track_w * 0.8, ty, cx + thumb_w * 0.52, ty);
+    tick_i += 1;
+  );
+
+  // Recessed slot track
+  draw_panel_box(cx - track_w * 0.5, fy, track_w, fh, 0.05, 0.05, 0.08, 0.22, 0.24, 0.34);
+
+  // Glowing active fill bar inside track
+  is_accent ? gfx_set(0.98, 0.65, 0.32, 0.90) : gfx_set(0.45, 0.78, 0.98, 0.90);
+  bipolar ? (
+    zero_norm = (0.0 - vmin) / (vmax - vmin);
+    zero_y = fy + (1.0 - zero_norm) * fh;
+    fill_y0 = min(zero_y, thumb_y);
+    fill_y1 = max(zero_y, thumb_y);
+    gfx_rect(cx - track_w * 0.5 + 2, fill_y0, track_w - 4, max(2, fill_y1 - fill_y0));
+  ) : (
+    gfx_rect(cx - track_w * 0.5 + 2, thumb_y, track_w - 4, (fy + fh) - thumb_y);
+  );
+
+  // Fader Cap Shadow & Body
+  gfx_set(0.03, 0.03, 0.06, 0.85);
+  gfx_rect(cx - thumb_w * 0.5, thumb_y - thumb_h * 0.5 + 3, thumb_w, thumb_h);
+
+  hover ? (
+    draw_panel_box(cx - thumb_w * 0.5, thumb_y - thumb_h * 0.5, thumb_w, thumb_h, 0.24, 0.26, 0.38, 0.54, 0.78, 1.0);
+  ) : (
+    draw_panel_box(cx - thumb_w * 0.5, thumb_y - thumb_h * 0.5, thumb_w, thumb_h, 0.17, 0.19, 0.27, 0.35, 0.38, 0.52);
+  );
+
+  // Center Grip Line on Fader Cap
+  is_accent ? gfx_set(1.0, 0.75, 0.42, 1.0) : gfx_set(0.54, 0.82, 1.0, 1.0);
+  gfx_line(cx - thumb_w * 0.35, thumb_y, cx + thumb_w * 0.35, thumb_y);
+  gfx_line(cx - thumb_w * 0.35, thumb_y - 1, cx + thumb_w * 0.35, thumb_y - 1);
+
+  // Label above Fader
+  gfx_setfont(2);
+  gfx_measurestr(label, lw, lh);
+  is_accent ? gfx_set(0.98, 0.78, 0.55, 1.0) : gfx_set(0.75, 0.80, 0.94, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = fy - lh - floor(14 * S);
+  gfx_drawstr(label);
+
+  // High-Contrast Pill Readout below Fader
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(16 * S), floor(74 * S));
+  pill_h = vh + floor(8 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = fy + fh + floor(14 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? 0.45 : 0.22, hover ? 0.78 : 0.24, hover ? 0.98 : 0.34);
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// Stereo Segmented Bar-Graph Meter with OVER Clip Lamp & dB Scale
+function draw_stereo_meter(mx, my, mw, mh, env_l, env_r, hold_l, hold_r, clip_latched, title_str)
+  local(bar_w, gap, l_x, r_x, db_l, db_r, hdb_l, hdb_r, norm_l, norm_r, hnorm_l, hnorm_r,
+        segs, s_idx, sy0, sy1, s_norm, r_c, g_c, b_c, lamp_h, tw, th, db_mark, m_norm, my_pos)
+(
+  lamp_h = floor(20 * S);
+
+  // Title above meter
+  gfx_setfont(2);
+  gfx_measurestr(title_str, tw, th);
+  gfx_set(0.68, 0.72, 0.84, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my - th - floor(14 * S);
+  gfx_drawstr(title_str);
+
+  // OVER Clip Lamp at top of meter (Click to reset)
+  clip_latched ? (
+    draw_panel_box(mx, my, mw, lamp_h, 0.88, 0.22, 0.28, 1.0, 0.55, 0.60);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(mx, my, mw, lamp_h, 0.11, 0.11, 0.16, 0.22, 0.24, 0.34);
+    gfx_set(0.45, 0.48, 0.60, 1.0);
+  );
+  gfx_setfont(5);
+  gfx_measurestr("OVER", tw, th);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my + (lamp_h - th) * 0.5;
+  gfx_drawstr("OVER");
+
+  // Meter housing
+  my_body = my + lamp_h + 4;
+  mh_body = mh - lamp_h - 4;
+  draw_panel_box(mx, my_body, mw, mh_body, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
+
+  // Map -48 dB .. +3 dB to 0..1
+  db_l  = K_TO_DB(env_l);
+  db_r  = K_TO_DB(env_r);
+  hdb_l = K_TO_DB(hold_l);
+  hdb_r = K_TO_DB(hold_r);
+
+  norm_l  = max(0.0, min(1.0, (db_l  + 48.0) / 51.0));
+  norm_r  = max(0.0, min(1.0, (db_r  + 48.0) / 51.0));
+  hnorm_l = max(0.0, min(1.0, (hdb_l + 48.0) / 51.0));
+  hnorm_r = max(0.0, min(1.0, (hdb_r + 48.0) / 51.0));
+
+  gap   = 4;
+  bar_w = floor((mw - 12 - gap) * 0.5);
+  l_x   = mx + 6;
+  r_x   = l_x + bar_w + gap;
+
+  segs = 34;
+  s_idx = 0;
+  loop(segs,
+    s_norm = (s_idx + 0.5) / segs;
+    sy1 = my_body + mh_body - 4 - (s_idx / segs) * (mh_body - 8);
+    sy0 = my_body + mh_body - 4 - ((s_idx + 0.78) / segs) * (mh_body - 8);
+
+    // Color zones: Sapphire (< -6dB), Amber (-6..0dB), Coral Red (> 0dB)
+    s_norm > 0.94 ? (
+      r_c = 0.95; g_c = 0.32; b_c = 0.38;
+    ) : s_norm > 0.82 ? (
+      r_c = 0.98; g_c = 0.72; b_c = 0.32;
+    ) : (
+      r_c = 0.38; g_c = 0.75; b_c = 0.98;
+    );
+
+    // Left Channel Segment
+    s_norm <= norm_l ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.22, g_c * 0.22, b_c * 0.26, 0.55);
+    );
+    gfx_rect(l_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    // Right Channel Segment
+    s_norm <= norm_r ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.22, g_c * 0.22, b_c * 0.26, 0.55);
+    );
+    gfx_rect(r_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    s_idx += 1;
+  );
+
+  // Peak Hold Horizontal Markers
+  gfx_set(0.96, 0.98, 1.0, 0.95);
+  hy_l = my_body + mh_body - 4 - hnorm_l * (mh_body - 8);
+  hy_r = my_body + mh_body - 4 - hnorm_r * (mh_body - 8);
+  gfx_rect(l_x, hy_l - 1, bar_w, 2);
+  gfx_rect(r_x, hy_r - 1, bar_w, 2);
+
+  // Peak Readout Pill at Bottom of Meter
+  max_db = max(hdb_l, hdb_r);
+  max_db < -47.5 ? strcpy(#m_str, "-inf") : sprintf(#m_str, "%+.1f", max_db);
+  gfx_setfont(3);
+  gfx_measurestr(#m_str, tw, th);
+  pill_h = th + floor(8 * S);
+  pill_y = my + mh + floor(14 * S);
+  draw_panel_box(mx - 4, pill_y, mw + 8, pill_h, 0.06, 0.06, 0.10, 0.22, 0.24, 0.34);
+  gfx_set(0.88, 0.92, 0.98, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = pill_y + (pill_h - th) * 0.5;
+  gfx_drawstr(#m_str);
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.21, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// Brand Title (click to toggle Info modal)
+gfx_setfont(1);
+gfx_set(0.54, 0.71, 0.98, 1.0);
+gfx_x = floor(22 * S);
+gfx_measurestr("O-INFLATOR", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("O-");
+gfx_set(0.92, 0.94, 0.98, 1.0);
+gfx_drawstr("INFLATOR");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(10 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 12, qh + 4);
+gfx_set(0.65, 0.70, 0.85, 1.0);
+gfx_x = q_x + 6; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// UI Text Scale Toggle Button (TEXT: 100% / 120% / 140%)
+zm_w = floor(100 * S); zm_h = floor(30 * S);
+zm_x = W - floor(242 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider8);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+gfx_setfont(4);
+gfx_set(0.80, 0.84, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_lbl, "TEXT: 100%") :
+ui_zoom < 1.3 ? strcpy(#z_lbl, "TEXT: 120%") : strcpy(#z_lbl, "TEXT: 140%");
+gfx_measurestr(#z_lbl, zw, zh);
+gfx_x = zm_x + (zm_w - zw) * 0.5; gfx_y = zm_y + (zm_h - zh) * 0.5;
+gfx_drawstr(#z_lbl);
+
+// Active "IN" Toggle Button in Header
+in_w = floor(104 * S); in_h = floor(30 * S);
+in_x = W - in_w - floor(22 * S); in_y = (hdr_h - in_h) * 0.5;
+in_hit = mouse_x >= in_x && mouse_x <= in_x + in_w && mouse_y >= in_y && mouse_y <= in_y + in_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && in_hit ? (
+  in_on = !in_on;
+  slider_automate(slider7);
+);
+in_on ? (
+  draw_panel_box(in_x, in_y, in_w, in_h, 0.22, 0.58, 0.92, 0.55, 0.82, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+  strcpy(#in_str, "ACTIVE: IN");
+) : (
+  draw_panel_box(in_x, in_y, in_w, in_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+  gfx_set(0.65, 0.68, 0.78, 1.0);
+  strcpy(#in_str, "BYPASSED");
+);
+gfx_setfont(4);
+gfx_measurestr(#in_str, iw, ih);
+gfx_x = in_x + (in_w - iw) * 0.5; gfx_y = in_y + (in_h - ih) * 0.5;
+gfx_drawstr(#in_str);
+
+// =========================================================================
+// 2. THREE-COLUMN STUDIO LAYOUT
+// =========================================================================
+pad    = floor(18 * S);
+body_y = hdr_h + pad;
+body_h = H - hdr_h - (pad * 2);
+
+side_w = floor(158 * S);
+left_x = pad;
+right_x = W - pad - side_w;
+mid_x  = left_x + side_w + pad;
+mid_w  = right_x - mid_x - pad;
+
+// Panel Backgrounds
+draw_panel_box(left_x,  body_y, side_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(mid_x,   body_y, mid_w,  body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(right_x, body_y, side_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+fader_top = body_y + floor(52 * S);
+fader_h   = body_h - floor(112 * S);
+
+// =========================================================================
+// 3. LEFT MODULE: INPUT FADER & STEREO INPUT METER
+// =========================================================================
+sprintf(#in_val_str, "%+.1f dB", in_db);
+new_in_db = draw_vertical_fader(1, left_x + side_w * 0.31, fader_top, fader_h, in_db, -6.0, 12.0, 0.0, "INPUT", #in_val_str, 0, 1);
+abs(new_in_db - in_db) > 0.001 ? (
+  in_db = new_in_db;
+  sync_dsp_params();
+  slider_automate(slider1);
+);
+
+in_meter_x = left_x + floor(side_w * 0.60);
+in_meter_w = floor(44 * S);
+draw_stereo_meter(in_meter_x, fader_top, in_meter_w, fader_h, env_in_l, env_in_r, hold_in_l, hold_in_r, clip_in_latched, "IN dB");
+
+// Click Input Meter to clear OVER & Peak Hold
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= in_meter_x && mouse_x <= in_meter_x + in_meter_w && mouse_y >= fader_top - 10 && mouse_y <= fader_top + fader_h + 40) ? (
+  clip_in_latched = 0;
+  hold_in_l = 0; hold_in_r = 0;
+);
+
+// =========================================================================
+// 4. CENTER MODULE: TRANSFER CURVE VIEWPORT, EFFECT/CURVE FADERS & BUTTONS
+// =========================================================================
+inner_pad = floor(16 * S);
+plot_x = mid_x + inner_pad;
+plot_y = body_y + inner_pad;
+plot_w = mid_w - (inner_pad * 2);
+plot_h = floor(body_h * 0.42);
+
+draw_panel_box(plot_x, plot_y, plot_w, plot_h, 0.060, 0.062, 0.098, 0.22, 0.25, 0.36);
+
+// Grid lines inside Transfer Curve Viewport
+gfx_set(0.14, 0.15, 0.22, 1.0);
+g_i = 1;
+loop(3,
+  gx = plot_x + (g_i * 0.25) * plot_w;
+  gy = plot_y + (g_i * 0.25) * plot_h;
+  gfx_line(gx, plot_y + 1, gx, plot_y + plot_h - 1);
+  gfx_line(plot_x + 1, gy, plot_x + plot_w - 1, gy);
+  g_i += 1;
+);
+
+// 0 dB Clip Ceiling Boundary inside Plot (at x = 1.0 when Clip 0dB is OFF, or full scale)
+max_x_domain = clip_on ? 1.0 : 1.4142; // 0 dBFS vs +3 dBFS headroom view
+
+// Linear 1:1 Reference Diagonal
+gfx_set(0.30, 0.33, 0.45, 0.7);
+gfx_line(plot_x + 2, plot_y + plot_h - 2, plot_x + plot_w - 2, plot_y + 2, 1);
+
+// Live Audio Drive Column & Operating Point on Curve
+ui_drv_smooth = ui_drv_smooth * 0.65 + min(max_x_domain, env_drv) * 0.35;
+drv_norm_x = min(1.0, ui_drv_smooth / max_x_domain);
+drv_px     = plot_x + drv_norm_x * plot_w;
+drv_out_y  = eval_inflator_curve(ui_drv_smooth);
+drv_norm_y = min(1.0, drv_out_y / max_x_domain);
+drv_py     = plot_y + plot_h - drv_norm_y * plot_h;
+
+// Shaded Drive Area under active signal
+drv_norm_x > 0.005 ? (
+  gfx_set(0.35, 0.65, 0.98, 0.16);
+  gfx_rect(plot_x + 1, drv_py, drv_px - plot_x, (plot_y + plot_h) - drv_py - 1);
+);
+
+// Render Exact Polynomial Waveshaper Curve
+steps = 48;
+st = 0;
+loop(steps + 1,
+  t_norm = st / steps;
+  x_in   = t_norm * max_x_domain;
+  y_out  = eval_inflator_curve(x_in);
+  y_norm = max(0.0, min(1.05, y_out / max_x_domain));
+
+  cx_pt = plot_x + t_norm * (plot_w - 4) + 2;
+  cy_pt = plot_y + plot_h - 2 - y_norm * (plot_h - 4);
+
+  st > 0 ? (
+    gfx_set(0.45, 0.78, 0.98, 0.98);
+    gfx_line(prev_cx_pt, prev_cy_pt, cx_pt, cy_pt, 1);
+    gfx_line(prev_cx_pt, prev_cy_pt + 1, cx_pt, cy_pt + 1, 1);
+  );
+  prev_cx_pt = cx_pt;
+  prev_cy_pt = cy_pt;
+  st += 1;
+);
+
+// Glowing Real-Time Input/Output Operating Dot on the Curve
+ui_drv_smooth > 0.01 ? (
+  gfx_set(0.98, 0.72, 0.32, 0.95);
+  gfx_circle(drv_px, drv_py, floor(5 * S), 1, 1);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+  gfx_circle(drv_px, drv_py, floor(5 * S), 0, 1);
+);
+
+// Viewport Title & Instantaneous Harmonic Boost Readout
+boost_db = (ui_drv_smooth > 0.02) ? (K_TO_DB(drv_out_y) - K_TO_DB(ui_drv_smooth)) : 0.0;
+gfx_setfont(5);
+gfx_set(0.62, 0.68, 0.82, 1.0);
+gfx_x = plot_x + 10; gfx_y = plot_y + 8;
+gfx_drawstr("HARMONIC TRANSFER CURVE");
+
+sprintf(#bst_str, "BOOST: %+.1f dB", max(0.0, boost_db));
+gfx_measurestr(#bst_str, bw_s, bh_s);
+gfx_set(0.98, 0.75, 0.42, 1.0);
+gfx_x = plot_x + plot_w - bw_s - 10;
+gfx_y = plot_y + 8;
+gfx_drawstr(#bst_str);
+
+// Lower Half of Center Panel: EFFECT Fader, Mode Buttons, and CURVE Fader
+mid_fader_top = plot_y + plot_h + floor(44 * S);
+mid_fader_h   = (body_y + body_h) - mid_fader_top - floor(56 * S);
+
+// EFFECT Fader (0% to 100%)
+sprintf(#eff_str, "%.1f %%", eff_pct);
+new_eff = draw_vertical_fader(2, mid_x + mid_w * 0.22, mid_fader_top, mid_fader_h, eff_pct, 0.0, 100.0, 0.0, "EFFECT", #eff_str, 1, 0);
+abs(new_eff - eff_pct) > 0.001 ? (
+  eff_pct = new_eff;
+  sync_dsp_params();
+  slider_automate(slider2);
+);
+
+// CURVE Fader (-50 to +50)
+sprintf(#crv_str, "%+.1f", crv_val);
+new_crv = draw_vertical_fader(3, mid_x + mid_w * 0.78, mid_fader_top, mid_fader_h, crv_val, -50.0, 50.0, 0.0, "CURVE", #crv_str, 0, 1);
+abs(new_crv - crv_val) > 0.001 ? (
+  crv_val = new_crv;
+  sync_dsp_params();
+  slider_automate(slider3);
+);
+
+// Center Mode Toggle Buttons between EFFECT and CURVE: CLIP 0dB & BAND SPLIT
+btn_w = floor(mid_w * 0.34);
+btn_h = floor(38 * S);
+btn_x = mid_x + (mid_w - btn_w) * 0.5;
+clip_y  = mid_fader_top + floor(mid_fader_h * 0.22);
+split_y = clip_y + btn_h + floor(18 * S);
+
+// CLIP 0dB Button
+clip_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= clip_y && mouse_y <= (clip_y + btn_h);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && clip_hit ? (
+  clip_on = !clip_on;
+  sync_dsp_params();
+  slider_automate(slider4);
+);
+clip_on ? (
+  draw_panel_box(btn_x, clip_y, btn_w, btn_h, 0.85, 0.48, 0.14, 1.0, 0.75, 0.35);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(btn_x, clip_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.28, 0.32, 0.45);
+  gfx_set(0.75, 0.80, 0.92, 1.0);
+);
+gfx_setfont(4);
+gfx_measurestr("CLIP 0 dB", cw, ch);
+gfx_x = btn_x + (btn_w - cw) * 0.5; gfx_y = clip_y + (btn_h - ch) * 0.5;
+gfx_drawstr("CLIP 0 dB");
+
+// BAND SPLIT Button (240 Hz / 2400 Hz 3-Band Split)
+split_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= split_y && mouse_y <= (split_y + btn_h);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && split_hit ? (
+  split_on = !split_on;
+  sync_dsp_params();
+  slider_automate(slider5);
+);
+split_on ? (
+  draw_panel_box(btn_x, split_y, btn_w, btn_h, 0.18, 0.45, 0.78, 0.48, 0.78, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(btn_x, split_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.28, 0.32, 0.45);
+  gfx_set(0.75, 0.80, 0.92, 1.0);
+);
+gfx_setfont(4);
+gfx_measurestr("BAND SPLIT", sw, sh);
+gfx_x = btn_x + (btn_w - sw) * 0.5; gfx_y = split_y + (btn_h - sh) * 0.5;
+gfx_drawstr("BAND SPLIT");
+
+// Crossover status label under Band Split button
+gfx_setfont(5);
+split_on ? (
+  gfx_set(0.54, 0.78, 1.0, 0.95);
+  strcpy(#xover_str, "3-Band: 240Hz / 2.4kHz");
+) : (
+  gfx_set(0.45, 0.48, 0.60, 0.9);
+  strcpy(#xover_str, "Full-Band Mode");
+);
+gfx_measurestr(#xover_str, xw, xh);
+gfx_x = mid_x + (mid_w - xw) * 0.5;
+gfx_y = split_y + btn_h + floor(10 * S);
+gfx_drawstr(#xover_str);
+
+// =========================================================================
+// 5. RIGHT MODULE: STEREO OUTPUT METER & OUTPUT FADER
+// =========================================================================
+out_meter_x = right_x + floor(side_w * 0.14);
+out_meter_w = floor(44 * S);
+draw_stereo_meter(out_meter_x, fader_top, out_meter_w, fader_h, env_out_l, env_out_r, hold_out_l, hold_out_r, clip_out_latched, "OUT dB");
+
+// Click Output Meter to clear OVER & Peak Hold
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= out_meter_x && mouse_x <= out_meter_x + out_meter_w && mouse_y >= fader_top - 10 && mouse_y <= fader_top + fader_h + 40) ? (
+  clip_out_latched = 0;
+  hold_out_l = 0; hold_out_r = 0;
+);
+
+sprintf(#out_val_str, "%+.1f dB", out_db);
+new_out_db = draw_vertical_fader(4, right_x + side_w * 0.70, fader_top, fader_h, out_db, -12.0, 0.0, 0.0, "OUTPUT", #out_val_str, 0, 0);
+abs(new_out_db - out_db) > 0.001 ? (
+  out_db = new_out_db;
+  sync_dsp_params();
+  slider_automate(slider6);
+);
+
+// =========================================================================
+// 6. INFO OVERLAY MODAL (Click O-INFLATOR Logo to Open/Close)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.74);
+  mh = floor(275 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.54, 0.71, 0.98);
+
+  gfx_setfont(1);
+  gfx_set(0.54, 0.71, 0.98, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("OInflator v1.2");
+
+  gfx_setfont(3);
+  gfx_set(0.90, 0.93, 0.98, 1.0);
+  lh_step = floor(27 * S);
+  ty = my + 62;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• Authentic polynomial waveshaper & 3-band split enhancer");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Drag faders vertically (hold Ctrl for fine adjustment)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Double-click any fader cap to reset to default");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Click the IN or OUT meters to clear Peak Hold & OVER lamps");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• BAND SPLIT engages phase-compensated 240 Hz / 2.4 kHz crossovers");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Original DSP algorithms by JClones (github.com/JClones/JSFXClones)");
+
+  gfx_set(0.58, 0.64, 0.78, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 34;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

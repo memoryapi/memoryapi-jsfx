@@ -35,6 +35,19 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Freeze & Audition**: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.
   * **Safe DSP Ceiling**: Hard NaN/Inf protection and anti-explosion audio ceilings.
 
+### 2. Saturation / OInflator
+**Path**: `Saturation/OInflator.jsfx`  
+**Description**: Harmonic Waveshaper & Loudness Enhancer
+
+* **Key Features**:
+  * **Authentic Transfer Curve Waveshaping**: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.
+  * **Real-time Harmonic Transfer Viewport**: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.
+  * **Phase-Compensated Band Split**: Switchable 3-band split mode with 240 Hz and 2.4 kHz crossovers for independent multiband harmonic excitement.
+  * **Clip 0dB Protection**: Prevents signals from exceeding 0 dBFS ceiling when active.
+  * **Calibrated Studio Metering**: High-resolution input/output peak and RMS bar meters with hold decay and clip latches.
+  * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
+  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
+
 ---
 
 ## 📂 Repository Structure
@@ -50,8 +63,10 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── .reapack-index.conf         # reapack-index options
 ├── index.xml                   # ReaPack package index file
 ├── README.md                   # Repository documentation (shown in ReaPack)
-└── Dynamics/                   # ReaPack Category: Dynamics
-    └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
+├── Dynamics/                   # ReaPack Category: Dynamics
+│   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
+└── Saturation/                 # ReaPack Category: Saturation
+    └── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
 ```
 
 ---
