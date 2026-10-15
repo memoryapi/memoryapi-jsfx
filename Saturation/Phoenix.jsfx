@@ -1,0 +1,972 @@
+desc:Phoenix (Analog Tape Saturator)
+// @description Phoenix (Analog Tape Saturator)
+// @author JClones / Custom DSP
+// @version 1.2.0
+// @changelog Initial release in repository
+// @link Original DSP repository https://github.com/JClones/JSFXClones
+// @about
+//   # Phoenix
+//   Analog Tape Saturator with 5 selectable tape saturation topologies and 3 high-frequency flux responses.
+//
+//   ### Features
+//   - 5 selectable tape saturation topologies: Luminescent, Iridescent, Radiant, Luster, and Dark Essence
+//   - 3 high-frequency flux responses: Opal (Neutral), Gold (Warm), and Sapphire (Bright)
+//   - Input trim, process, and output trim controls
+//   - Auto-gain compensation mode
+//   - Calibrated studio peak and RMS metering with clip indicators
+//   - Scalable HiDPI text zoom
+//
+//   ### Credits
+//   - Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.
+// @provides
+//   [effect] Phoenix.jsfx
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:in_trim_db=0<-10,10,0.01>-Input Trim (dB)
+slider2:proc_pct=0<0,100,0.01>-Process (%)
+slider3:out_trim_db=0<-6,6,0.01>-Output Trim (dB)
+slider4:bright_mode=1<0,2,1{Opal,Gold,Sapphire}>-Brightness
+slider5:tape_type=1<0,4,1{Luminescent,Iridescent,Radiant,Luster,Dark Essence}>-Type
+slider6:auto_gain_on=0<0,1,1{Off,On}>-Auto Gain
+slider7:active_on=1<0,1,1{Bypass,Active}>-Active
+slider8:ui_zoom=1.20<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+function DB_TO_K(x)
+(
+  10 ^ (x / 20)
+);
+
+function K_TO_DB(lin)
+(
+  8.685889638 * log(max(0.000001, lin))
+);
+
+/*
+ * Phoenix DSP (JClones MIT)
+ */
+
+function Phoenix_setSampleRate()
+(
+  this.sr_scale = 1.0 / max(1.0, floor(srate / 44100.0));
+);
+
+function Phoenix_reset()
+(
+  this.s = 0.0;
+  this.prev_x = 0.0;
+);
+
+function Phoenix_setMode(brightness, type)
+(
+  (type == 0) ? ( // Luminescent
+    (brightness == 0) ? ( this.hpf_k = 0.625; this.lpf_k = 0.1875; );
+    (brightness == 1) ? ( this.hpf_k = 0.4375; this.lpf_k = 0.3125; );
+    (brightness == 2) ? ( this.hpf_k = 0.1875; this.lpf_k = 0.375; );
+
+    this.a3 = 0.25;
+    this.f1 = 0.75;
+    this.p20 = 0.3125;
+    this.p24 = 0.0625;
+    this.g0 = 1;
+    this.sat_type = 0;
+
+    this.auto_gain_a1 = -0.416;
+    this.auto_gain_a2 = 0.092;
+  );
+  (type == 1) ? ( // Iridescent
+    (brightness == 0) ? ( this.hpf_k = 0.625; this.lpf_k = 0.1875; );
+    (brightness == 1) ? ( this.hpf_k = 0.375; this.lpf_k = 0.3125; );
+    (brightness == 2) ? ( this.hpf_k = 0.3125; this.lpf_k = 0.5; );
+
+    this.a3 = 0.25;
+    this.f1 = 0.875;
+    this.p20 = 0.3125;
+    this.p24 = 0.0625;
+    this.g0 = 1;
+    this.sat_type = 0;
+
+    this.auto_gain_a1 = -0.393;
+    this.auto_gain_a2 = 0.082;
+  );
+  (type == 2) ? ( // Radiant
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5; );
+
+    this.a3 = 0.375;
+    this.f1 = 0.75;
+    this.p20 = 0.1875;
+    this.p24 = 0.0125;
+    this.g0 = 0;
+    this.sat_type = 1;
+
+    this.auto_gain_a1 = -0.441;
+    this.auto_gain_a2 = 0.103;
+  );
+  (type == 3) ? ( // Luster
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5625; );
+
+    this.a3 = 1.0;
+    this.f1 = 0.6875;
+    this.p20 = 0.27343899;
+    this.p24 = 0.1171875;
+    this.g0 = 0;
+    this.sat_type = 2;
+
+    this.auto_gain_a1 = -0.712;
+    this.auto_gain_a2 = 0.172;
+  );
+  (type == 4) ? ( // Dark Essence
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5625; );
+
+    this.a3 = 0.375;
+    this.f1 = 0.75;
+    this.p20 = 0.5625;
+    this.p24 = 0.0125;
+    this.g0 = 0;
+    this.sat_type = 2;
+
+    this.auto_gain_a1 = -0.636;
+    this.auto_gain_a2 = 0.17;
+  );
+
+  this.hpf_k *= this.sr_scale;
+  this.lpf_k *= this.sr_scale;
+  this.model_type = type;
+);
+
+function Phoenix_setProcessing(processing)
+(
+  this.processing = processing;
+  this.auto_gain = 1.0 + processing * this.auto_gain_a1 + processing * processing * this.auto_gain_a2;
+);
+
+const_1_2_PI = $pi / 2.0;
+const_3_2_PI = 3.0 / 2.0 * $pi;
+const_5_2_PI = 5.0 / 2.0 * $pi;
+const_7_2_PI = 7.0 / 2.0 * $pi;
+
+function Phoenix_sat(x) local(y, x2, x4, x6, x8, a, b)
+(
+  y = 0.0;
+
+  (this.sat_type == 0) ? (
+    x = max(-1.0, min(x, 1.0));
+
+    x2 = x * x;
+    x4 = x2 * x2;
+    x6 = x4 * x2;
+    x8 = x4 * x4;
+
+    y = x * 2.827568855 +
+      x2 * 0.0003903798913 +
+      x2 * x * -4.17220229 +
+      x4 * -0.0001107320401 +
+      x4 * x * 0.523459874 +
+      x6 * 0.0002768079893 +
+      x6 * x * -0.423546883 +
+      x8 * -0.001448632 +
+      x8 * x * 3.224580615 +
+      x8 * x2 * 0.002728704 +
+      x8 * x2 * x * -5.495344862 +
+      x8 * x4 * -0.002846356 +
+      x8 * x4 * x * 5.449768693 +
+      x8 * x6 * 0.001310366 +
+      x8 * x6 * x * -2.414078731;
+  );
+  (this.sat_type == 1) ? (
+    x = max(-1.0, min(x, 1.0));
+
+    y = -sin(const_1_2_PI * x) * -0.479960539 +
+      sin(const_3_2_PI * x) * 0.325640796 -
+      sin(const_5_2_PI * x) * 0.132427442 +
+      sin(const_7_2_PI * x) * 0.022275243;
+  );
+  (this.sat_type == 2) ? (
+    a = 2.052;
+    b = 1.350;
+    y = x * a / exp(abs((x * b)^5));
+  );
+
+  y;
+);
+
+function Phoenix_processSample(x) local(processing, x1, x2, x3, x4, x5, y)
+(
+  processing = this.processing * this.a3;
+
+  x1 = this.hpf_k * x + (x - this.prev_x);
+  x2 = x1 * this.f1 + x1;
+  x3 = (!this.g0) ? x : x2;
+  x4 = (this.model_type == 3) ? this.Phoenix_sat(x2 * processing) : this.Phoenix_sat(x2);
+  x5 = this.Phoenix_sat(x4 * processing * this.p20 + x3);
+
+  this.prev_x = x;
+
+  this.s += (x5 - this.s) * this.lpf_k;
+
+  y = processing * (this.s - x * this.p24);
+
+  (this.model_type == 3) ? ( y *= 0.5 );
+
+  y += x;
+
+  this.use_auto_gain ? ( y *= this.auto_gain );
+
+  y;
+);
+
+function sync_dsp_params()
+(
+  input_gain  = DB_TO_K(in_trim_db);
+  output_gain = DB_TO_K(out_trim_db);
+
+  left.Phoenix_setMode(bright_mode, tape_type);
+  right.Phoenix_setMode(bright_mode, tape_type);
+
+  left.Phoenix_setProcessing(proc_pct / 100.0);
+  right.Phoenix_setProcessing(proc_pct / 100.0);
+
+  left.use_auto_gain  = auto_gain_on;
+  right.use_auto_gain = auto_gain_on;
+
+  // UI preview instance kept in sync for plotting the exact saturation curve
+  ui_ref.sr_scale = left.sr_scale;
+  ui_ref.Phoenix_setMode(bright_mode, tape_type);
+  ui_ref.Phoenix_setProcessing(proc_pct / 100.0);
+  ui_ref.use_auto_gain = auto_gain_on;
+
+  SAFE_SRATE  = max(8000.0, srate);
+  meter_decay = exp(-1.0 / (0.18 * SAFE_SRATE));
+  hold_decay  = exp(-1.0 / (1.20 * SAFE_SRATE));
+);
+
+(sample_rate != srate) || !init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.20;
+  active_on = 1;
+  left.Phoenix_setSampleRate();
+  right.Phoenix_setSampleRate();
+  left.Phoenix_reset();
+  right.Phoenix_reset();
+  sample_rate = srate;
+  init_done = 1;
+);
+
+sync_dsp_params();
+
+@slider
+sync_dsp_params();
+
+@block
+(sample_rate != srate) ? (
+  left.Phoenix_setSampleRate();
+  right.Phoenix_setSampleRate();
+  sample_rate = srate;
+);
+sync_dsp_params();
+
+@sample
+raw_l = spl0;
+raw_r = spl1;
+
+in_l = raw_l * input_gain;
+in_r = raw_r * input_gain;
+
+active_on ? (
+  out_l = left.Phoenix_processSample(in_l) * output_gain;
+  out_r = right.Phoenix_processSample(in_r) * output_gain;
+) : (
+  out_l = raw_l;
+  out_r = raw_r;
+);
+
+spl0 = out_l;
+spl1 = out_r;
+
+abs_in_l  = abs(in_l);
+abs_in_r  = abs(in_r);
+abs_out_l = abs(out_l);
+abs_out_r = abs(out_r);
+
+env_in_l  = max(abs_in_l,  env_in_l  * meter_decay);
+env_in_r  = max(abs_in_r,  env_in_r  * meter_decay);
+env_out_l = max(abs_out_l, env_out_l * meter_decay);
+env_out_r = max(abs_out_r, env_out_r * meter_decay);
+env_drv   = max(max(abs_in_l, abs_in_r), env_drv * meter_decay);
+
+hold_in_l  = max(abs_in_l,  hold_in_l  * hold_decay);
+hold_in_r  = max(abs_in_r,  hold_in_r  * hold_decay);
+hold_out_l = max(abs_out_l, hold_out_l * hold_decay);
+hold_out_r = max(abs_out_r, hold_out_r * hold_decay);
+
+(abs_in_l > 1.0 || abs_in_r > 1.0) ? clip_in_latched = 1;
+(abs_out_l > 1.0 || abs_out_r > 1.0) ? clip_out_latched = 1;
+
+@gfx 720 650
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(600, gfx_w);
+H = max(540, gfx_h);
+
+// Responsive geometry scale & Linux X11 font multiplier
+S  = min(W / 720.0, H / 650.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(18, floor(22 * TS));
+f_sec   = max(13, floor(14 * TS));
+f_val   = max(14, floor(15 * TS));
+f_btn   = max(12, floor(13 * TS));
+f_grid  = max(11, floor(12 * TS));
+f_big   = max(17, floor(20 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_grid,  0);
+gfx_setfont(6, "sans-serif", f_big,   'b');
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Evaluate instantaneous static tape saturation transfer curve for scope display
+function eval_phoenix_curve(x_in)
+  local(proc, x1, x2, x3, x4, x5, y)
+(
+  proc = ui_ref.processing * ui_ref.a3;
+  x1   = ui_ref.hpf_k * x_in + x_in * 0.35;
+  x2   = x1 * ui_ref.f1 + x1;
+  x3   = (!ui_ref.g0) ? x_in : x2;
+  x4   = (ui_ref.model_type == 3) ? ui_ref.Phoenix_sat(x2 * proc) : ui_ref.Phoenix_sat(x2);
+  x5   = ui_ref.Phoenix_sat(x4 * proc * ui_ref.p20 + x3);
+  y    = proc * (x5 - x_in * ui_ref.p24);
+  (ui_ref.model_type == 3) ? ( y *= 0.5; );
+  y += x_in;
+  ui_ref.use_auto_gain ? ( y *= ui_ref.auto_gain; );
+  y;
+);
+
+// Rotary Knob with Catppuccin Peach / Amber Accent & High-Contrast Pill Badge
+function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_hero, bipolar)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val, ang_zero,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 10)*(r + 10));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 550.0 : 160.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  // Drop shadow & warm Peach hover halo
+  gfx_set(0.05, 0.05, 0.09, 0.85);
+  gfx_circle(cx, cy + 3, r + 1, 1, 1);
+  hover ? (
+    gfx_set(0.98, 0.70, 0.53, 0.16);
+    gfx_circle(cx, cy, r + 6, 1, 1);
+  );
+
+  // Knob body (#181825 mantle, #313244 border)
+  gfx_set(0.11, 0.11, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(0.98, 0.70, 0.53, 0.95) : gfx_set(0.24, 0.25, 0.35, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  // Value arc (3 radial passes for crisp visibility)
+  steps = 36;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? (
+      is_hero ? gfx_set(0.98, 0.70, 0.53, 1.0) : gfx_set(0.98, 0.88, 0.68, 0.95);
+    ) : (
+      gfx_set(0.20, 0.21, 0.29, 0.9);
+    );
+
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    gfx_line(cx + sin(a0)*(r-6), cy - cos(a0)*(r-6), cx + sin(a1)*(r-6), cy - cos(a1)*(r-6), 1);
+    st += 1;
+  );
+
+  // Pointer line
+  gfx_set(0.96, 0.95, 0.98, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.25);
+  py0 = cy - cos(ang_val) * (r * 0.25);
+  px1 = cx + sin(ang_val) * (r - 8);
+  py1 = cy - cos(ang_val) * (r - 8);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
+  is_hero ? (
+    gfx_set(0.98, 0.70, 0.53, 1.0);
+    gfx_circle(px1, py1, 2.5, 1, 1);
+  );
+
+  // Label
+  gfx_setfont(2);
+  gfx_measurestr(label, lw, lh);
+  is_hero ? gfx_set(0.98, 0.78, 0.64, 1.0) : gfx_set(0.75, 0.78, 0.88, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(8 * S);
+  gfx_drawstr(label);
+
+  // Pill Value Readout
+  is_hero ? gfx_setfont(6) : gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(18 * S), floor(82 * S));
+  pill_h = vh + floor(8 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(12 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? 0.98 : 0.22, hover ? 0.70 : 0.24, hover ? 0.53 : 0.34);
+  gfx_set(0.96, 0.96, 0.99, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// Stereo Segmented Bar-Graph Meter (Warm Peach / Yellow / Red Zones)
+function draw_stereo_meter(mx, my, mw, mh, env_l, env_r, hold_l, hold_r, clip_latched, title_str)
+  local(bar_w, gap, l_x, r_x, db_l, db_r, hdb_l, hdb_r, norm_l, norm_r, hnorm_l, hnorm_r,
+        segs, s_idx, sy0, sy1, s_norm, r_c, g_c, b_c, lamp_h, tw, th, my_body, mh_body, hy_l, hy_r, max_db, pill_h, pill_y)
+(
+  lamp_h = floor(20 * S);
+
+  gfx_setfont(2);
+  gfx_measurestr(title_str, tw, th);
+  gfx_set(0.72, 0.75, 0.86, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my - th - floor(8 * S);
+  gfx_drawstr(title_str);
+
+  // OVER Clip Lamp
+  clip_latched ? (
+    draw_panel_box(mx, my, mw, lamp_h, 0.95, 0.35, 0.45, 1.0, 0.65, 0.70);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(mx, my, mw, lamp_h, 0.11, 0.11, 0.16, 0.22, 0.24, 0.34);
+    gfx_set(0.45, 0.48, 0.60, 1.0);
+  );
+  gfx_setfont(5);
+  gfx_measurestr("OVER", tw, th);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my + (lamp_h - th) * 0.5;
+  gfx_drawstr("OVER");
+
+  my_body = my + lamp_h + 4;
+  mh_body = mh - lamp_h - 4;
+  draw_panel_box(mx, my_body, mw, mh_body, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
+
+  db_l  = K_TO_DB(env_l);
+  db_r  = K_TO_DB(env_r);
+  hdb_l = K_TO_DB(hold_l);
+  hdb_r = K_TO_DB(hold_r);
+
+  norm_l  = max(0.0, min(1.0, (db_l  + 48.0) / 51.0));
+  norm_r  = max(0.0, min(1.0, (db_r  + 48.0) / 51.0));
+  hnorm_l = max(0.0, min(1.0, (hdb_l + 48.0) / 51.0));
+  hnorm_r = max(0.0, min(1.0, (hdb_r + 48.0) / 51.0));
+
+  gap   = 4;
+  bar_w = floor((mw - 12 - gap) * 0.5);
+  l_x   = mx + 6;
+  r_x   = l_x + bar_w + gap;
+
+  segs = 32;
+  s_idx = 0;
+  loop(segs,
+    s_norm = (s_idx + 0.5) / segs;
+    sy1 = my_body + mh_body - 4 - (s_idx / segs) * (mh_body - 8);
+    sy0 = my_body + mh_body - 4 - ((s_idx + 0.78) / segs) * (mh_body - 8);
+
+    // Catppuccin Red (>0dB), Peach (-6..0dB), Warm Yellow (< -6dB)
+    s_norm > 0.94 ? (
+      r_c = 0.95; g_c = 0.55; b_c = 0.66; // Red (#F38BA8)
+    ) : s_norm > 0.80 ? (
+      r_c = 0.98; g_c = 0.70; b_c = 0.53; // Peach (#FAB387)
+    ) : (
+      r_c = 0.98; g_c = 0.89; b_c = 0.69; // Yellow (#F9E2AF)
+    );
+
+    s_norm <= norm_l ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.20, g_c * 0.20, b_c * 0.22, 0.55);
+    );
+    gfx_rect(l_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    s_norm <= norm_r ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.20, g_c * 0.20, b_c * 0.22, 0.55);
+    );
+    gfx_rect(r_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    s_idx += 1;
+  );
+
+  // Peak Hold Markers
+  gfx_set(0.98, 0.96, 0.95, 0.95);
+  hy_l = my_body + mh_body - 4 - hnorm_l * (mh_body - 8);
+  hy_r = my_body + mh_body - 4 - hnorm_r * (mh_body - 8);
+  gfx_rect(l_x, hy_l - 1, bar_w, 2);
+  gfx_rect(r_x, hy_r - 1, bar_w, 2);
+
+  // Peak Readout Pill
+  max_db = max(hdb_l, hdb_r);
+  max_db < -47.5 ? strcpy(#m_str, "-inf") : sprintf(#m_str, "%+.1f", max_db);
+  gfx_setfont(3);
+  gfx_measurestr(#m_str, tw, th);
+  pill_h = th + floor(8 * S);
+  pill_y = my + mh + floor(10 * S);
+  draw_panel_box(mx - 4, pill_y, mw + 8, pill_h, 0.06, 0.06, 0.10, 0.22, 0.24, 0.34);
+  gfx_set(0.95, 0.94, 0.98, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = pill_y + (pill_h - th) * 0.5;
+  gfx_drawstr(#m_str);
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.22, 0.20, 0.28, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// PHOENIX Title with Catppuccin Peach Accent
+gfx_setfont(1);
+gfx_set(0.98, 0.70, 0.53, 1.0); // #FAB387 Peach
+gfx_x = floor(22 * S);
+gfx_measurestr("PHOENIX", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("PHOENIX");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(10 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 12, qh + 4);
+gfx_set(0.98, 0.78, 0.64, 1.0);
+gfx_x = q_x + 6; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// UI Text Scale Button (TEXT: 100% / 120% / 140%)
+zm_w = floor(100 * S); zm_h = floor(30 * S);
+zm_x = W - floor(354 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider8);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+gfx_setfont(4);
+gfx_set(0.84, 0.86, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_lbl, "TEXT: 100%") :
+ui_zoom < 1.3 ? strcpy(#z_lbl, "TEXT: 120%") : strcpy(#z_lbl, "TEXT: 140%");
+gfx_measurestr(#z_lbl, zw, zh);
+gfx_x = zm_x + (zm_w - zw) * 0.5; gfx_y = zm_y + (zm_h - zh) * 0.5;
+gfx_drawstr(#z_lbl);
+
+// AUTO GAIN Button in Header
+ag_w = floor(106 * S); ag_h = floor(30 * S);
+ag_x = W - floor(238 * S); ag_y = (hdr_h - ag_h) * 0.5;
+ag_hit = mouse_x >= ag_x && mouse_x <= ag_x + ag_w && mouse_y >= ag_y && mouse_y <= ag_y + ag_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && ag_hit ? (
+  auto_gain_on = !auto_gain_on;
+  sync_dsp_params();
+  slider_automate(slider6);
+);
+auto_gain_on ? (
+  draw_panel_box(ag_x, ag_y, ag_w, ag_h, 0.72, 0.45, 0.26, 0.98, 0.70, 0.53);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(ag_x, ag_y, ag_w, ag_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+  gfx_set(0.78, 0.80, 0.90, 1.0);
+);
+gfx_setfont(4);
+gfx_measurestr("AUTO GAIN", agw, agh);
+gfx_x = ag_x + (ag_w - agw) * 0.5; gfx_y = ag_y + (ag_h - agh) * 0.5;
+gfx_drawstr("AUTO GAIN");
+
+// ACTIVE / BYPASS Button in Header
+act_w = floor(102 * S); act_h = floor(30 * S);
+act_x = W - act_w - floor(22 * S); act_y = (hdr_h - act_h) * 0.5;
+act_hit = mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= act_y && mouse_y <= act_y + act_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && act_hit ? (
+  active_on = !active_on;
+  slider_automate(slider7);
+);
+active_on ? (
+  draw_panel_box(act_x, act_y, act_w, act_h, 0.82, 0.46, 0.26, 0.98, 0.74, 0.56);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+  strcpy(#act_str, "ACTIVE");
+) : (
+  draw_panel_box(act_x, act_y, act_w, act_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+  gfx_set(0.65, 0.68, 0.78, 1.0);
+  strcpy(#act_str, "BYPASSED");
+);
+gfx_setfont(4);
+gfx_measurestr(#act_str, acw, ach);
+gfx_x = act_x + (act_w - acw) * 0.5; gfx_y = act_y + (act_h - ach) * 0.5;
+gfx_drawstr(#act_str);
+
+// =========================================================================
+// 2. LAYOUT GEOMETRY (LEFT/RIGHT METER TOWERS + CENTRAL TAPE DECK)
+// =========================================================================
+pad    = floor(18 * S);
+body_y = hdr_h + pad;
+body_h = H - hdr_h - (pad * 2);
+
+meter_col_w = floor(86 * S);
+left_x      = pad;
+right_x     = W - pad - meter_col_w;
+center_x    = left_x + meter_col_w + pad;
+center_w    = right_x - center_x - pad;
+
+draw_panel_box(left_x,   body_y, meter_col_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(right_x,  body_y, meter_col_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+m_top = body_y + floor(38 * S);
+m_h   = body_h - floor(88 * S);
+m_w   = floor(48 * S);
+
+draw_stereo_meter(left_x + (meter_col_w - m_w)*0.5,  m_top, m_w, m_h, env_in_l,  env_in_r,  hold_in_l,  hold_in_r,  clip_in_latched,  "IN dB");
+draw_stereo_meter(right_x + (meter_col_w - m_w)*0.5, m_top, m_w, m_h, env_out_l, env_out_r, hold_out_l, hold_out_r, clip_out_latched, "OUT dB");
+
+// Click meters to clear OVER & Peak Hold
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  (mouse_x >= left_x && mouse_x <= left_x + meter_col_w && mouse_y >= body_y && mouse_y <= body_y + body_h) ? (
+    clip_in_latched = 0; hold_in_l = 0; hold_in_r = 0;
+  );
+  (mouse_x >= right_x && mouse_x <= right_x + meter_col_w && mouse_y >= body_y && mouse_y <= body_y + body_h) ? (
+    clip_out_latched = 0; hold_out_l = 0; hold_out_r = 0;
+  );
+);
+
+// Split Center Deck into 3 Stacked Cards:
+// [Top: Saturation Transfer Scope] [Mid: 3 Primary Knobs] [Bottom: Tape Type & Brightness Selectors]
+scope_h = floor(body_h * 0.34);
+sel_h   = floor(body_h * 0.25);
+knobs_h = body_h - scope_h - sel_h - (pad * 2);
+
+scope_y = body_y;
+knobs_y = scope_y + scope_h + pad;
+sel_y   = knobs_y + knobs_h + pad;
+
+// =========================================================================
+// 3. TOP CENTER: TAPE SATURATION TRANSFER SCOPE
+// =========================================================================
+draw_panel_box(center_x, scope_y, center_w, scope_h, 0.065, 0.065, 0.105, 0.22, 0.24, 0.34);
+
+// Subtle grid lines
+gfx_set(0.14, 0.15, 0.22, 1.0);
+gi = 1;
+loop(3,
+  gx = center_x + (gi * 0.25) * center_w;
+  gy = scope_y  + (gi * 0.25) * scope_h;
+  gfx_line(gx, scope_y + 1, gx, scope_y + scope_h - 1);
+  gfx_line(center_x + 1, gy, center_x + center_w - 1, gy);
+  gi += 1;
+);
+
+// 1:1 Linear Reference Line
+gfx_set(0.28, 0.30, 0.42, 0.7);
+gfx_line(center_x + 4, scope_y + scope_h - 4, center_x + center_w - 4, scope_y + 4, 1);
+
+// Live Audio Drive Shaded Fill
+ui_drv_smooth = ui_drv_smooth * 0.65 + min(1.0, env_drv) * 0.35;
+drv_px  = center_x + 4 + ui_drv_smooth * (center_w - 8);
+drv_out = min(1.15, max(0.0, eval_phoenix_curve(ui_drv_smooth)));
+drv_py  = scope_y + scope_h - 4 - (drv_out / 1.15) * (scope_h - 8);
+
+ui_drv_smooth > 0.005 ? (
+  gfx_set(0.98, 0.70, 0.53, 0.16);
+  gfx_rect(center_x + 4, drv_py, drv_px - (center_x + 4), (scope_y + scope_h - 4) - drv_py);
+);
+
+// Render Active Tape Saturation Curve in Catppuccin Peach
+steps = 48;
+st = 0;
+loop(steps + 1,
+  t_x = st / steps;
+  y_c = min(1.15, max(0.0, eval_phoenix_curve(t_x)));
+  cx_pt = center_x + 4 + t_x * (center_w - 8);
+  cy_pt = scope_y + scope_h - 4 - (y_c / 1.15) * (scope_h - 8);
+
+  st > 0 ? (
+    gfx_set(0.98, 0.70, 0.53, 0.98);
+    gfx_line(prev_cx, prev_cy, cx_pt, cy_pt, 1);
+    gfx_line(prev_cx, prev_cy + 1, cx_pt, cy_pt + 1, 1);
+  );
+  prev_cx = cx_pt;
+  prev_cy = cy_pt;
+  st += 1;
+);
+
+// Glowing Operating Point Dot on Curve
+ui_drv_smooth > 0.01 ? (
+  gfx_set(0.95, 0.55, 0.66, 1.0); // Catppuccin Red/Rose dot
+  gfx_circle(drv_px, drv_py, floor(5 * S), 1, 1);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+  gfx_circle(drv_px, drv_py, floor(5 * S), 0, 1);
+);
+
+// Scope Status Labels
+gfx_setfont(5);
+gfx_set(0.75, 0.78, 0.90, 1.0);
+tape_type == 0 ? strcpy(#t_name, "TAPE CHARACTER: LUMINESCENT") :
+tape_type == 1 ? strcpy(#t_name, "TAPE CHARACTER: IRIDESCENT") :
+tape_type == 2 ? strcpy(#t_name, "TAPE CHARACTER: RADIANT") :
+tape_type == 3 ? strcpy(#t_name, "TAPE CHARACTER: LUSTER") :
+                 strcpy(#t_name, "TAPE CHARACTER: DARK ESSENCE");
+gfx_x = center_x + 12; gfx_y = scope_y + 10;
+gfx_drawstr(#t_name);
+
+bright_mode == 0 ? strcpy(#b_name, "FLUX: OPAL") :
+bright_mode == 1 ? strcpy(#b_name, "FLUX: GOLD") :
+                   strcpy(#b_name, "FLUX: SAPPHIRE");
+gfx_measurestr(#b_name, bnw, bnh);
+gfx_set(0.98, 0.85, 0.65, 1.0);
+gfx_x = center_x + center_w - bnw - 12; gfx_y = scope_y + 10;
+gfx_drawstr(#b_name);
+
+// =========================================================================
+// 4. MIDDLE CENTER: PRIMARY ROTARY KNOBS (INPUT TRIM, PROCESS, OUTPUT TRIM)
+// =========================================================================
+draw_panel_box(center_x, knobs_y, center_w, knobs_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+knob_cy = knobs_y + knobs_h * 0.38;
+r_trim  = min(floor(36 * S), floor(knobs_h * 0.22));
+r_proc  = min(floor(54 * S), floor(knobs_h * 0.30));
+
+// Input Trim (-10 to +10 dB)
+sprintf(#in_str, "%+.2f dB", in_trim_db);
+new_in_trim = draw_rotary_knob(1, center_x + center_w * 0.19, knob_cy, r_trim, in_trim_db, -10.0, 10.0, 0.0, "INPUT TRIM", #in_str, 0, 1);
+abs(new_in_trim - in_trim_db) > 0.001 ? (
+  in_trim_db = new_in_trim;
+  sync_dsp_params();
+  slider_automate(slider1);
+);
+
+// Central PROCESS Knob (0 to 100%)
+sprintf(#prc_str, "%.1f %%", proc_pct);
+new_proc = draw_rotary_knob(2, center_x + center_w * 0.50, knob_cy - floor(4 * S), r_proc, proc_pct, 0.0, 100.0, 0.0, "PROCESS", #prc_str, 1, 0);
+abs(new_proc - proc_pct) > 0.001 ? (
+  proc_pct = new_proc;
+  sync_dsp_params();
+  slider_automate(slider2);
+);
+
+// Output Trim (-6 to +6 dB)
+sprintf(#out_str, "%+.2f dB", out_trim_db);
+new_out_trim = draw_rotary_knob(3, center_x + center_w * 0.81, knob_cy, r_trim, out_trim_db, -6.0, 6.0, 0.0, "OUTPUT TRIM", #out_str, 0, 1);
+abs(new_out_trim - out_trim_db) > 0.001 ? (
+  out_trim_db = new_out_trim;
+  sync_dsp_params();
+  slider_automate(slider3);
+);
+
+// =========================================================================
+// 5. BOTTOM CENTER: TAPE TYPE (5 MODES) & BRIGHTNESS (3 MODES) SELECTOR DECK
+// =========================================================================
+draw_panel_box(center_x, sel_y, center_w, sel_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+inner_x = center_x + floor(14 * S);
+inner_w = center_w - floor(28 * S);
+
+// Row 1: 5 Tape Types (Luminescent, Iridescent, Radiant, Luster, Dark Essence)
+gfx_setfont(5);
+gfx_set(0.68, 0.72, 0.84, 1.0);
+gfx_x = inner_x; gfx_y = sel_y + floor(8 * S);
+gfx_drawstr("TAPE TYPE");
+
+type_y   = sel_y + floor(26 * S);
+type_h   = floor(sel_h * 0.30);
+type_gap = floor(6 * S);
+type_w   = floor((inner_w - type_gap * 4) / 5.0);
+
+ti = 0;
+loop(5,
+  tx = inner_x + ti * (type_w + type_gap);
+  thit = (mouse_x >= tx && mouse_x <= tx + type_w && mouse_y >= type_y && mouse_y <= type_y + type_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && thit ? (
+    tape_type = ti;
+    sync_dsp_params();
+    slider_automate(slider5);
+  );
+
+  tape_type == ti ? (
+    draw_panel_box(tx, type_y, type_w, type_h, 0.78, 0.44, 0.25, 0.98, 0.72, 0.54);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(tx, type_y, type_w, type_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+    gfx_set(0.76, 0.80, 0.90, 1.0);
+  );
+
+  ti == 0 ? strcpy(#tlbl, "Luminescent") :
+  ti == 1 ? strcpy(#tlbl, "Iridescent") :
+  ti == 2 ? strcpy(#tlbl, "Radiant") :
+  ti == 3 ? strcpy(#tlbl, "Luster") :
+            strcpy(#tlbl, "Dark Essence");
+
+  gfx_setfont(5);
+  gfx_measurestr(#tlbl, tlw, tlh);
+  gfx_x = tx + (type_w - tlw) * 0.5;
+  gfx_y = type_y + (type_h - tlh) * 0.5;
+  gfx_drawstr(#tlbl);
+
+  ti += 1;
+);
+
+// Row 2: 3 Brightness Modes (Opal, Gold, Sapphire)
+gfx_setfont(5);
+gfx_set(0.68, 0.72, 0.84, 1.0);
+br_lbl_y = type_y + type_h + floor(10 * S);
+gfx_x = inner_x; gfx_y = br_lbl_y;
+gfx_drawstr("BRIGHTNESS");
+
+br_y   = br_lbl_y + floor(18 * S);
+br_h   = floor(sel_h * 0.28);
+br_gap = floor(10 * S);
+br_w   = floor((inner_w - br_gap * 2) / 3.0);
+
+bi = 0;
+loop(3,
+  bx = inner_x + bi * (br_w + br_gap);
+  bhit = (mouse_x >= bx && mouse_x <= bx + br_w && mouse_y >= br_y && mouse_y <= br_y + br_h);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && bhit ? (
+    bright_mode = bi;
+    sync_dsp_params();
+    slider_automate(slider4);
+  );
+
+  bright_mode == bi ? (
+    // Distinct Catppuccin gemstone accents for Opal (Rosewater), Gold (Yellow), Sapphire (Lavender)
+    bi == 0 ? draw_panel_box(bx, br_y, br_w, br_h, 0.58, 0.48, 0.50, 0.96, 0.88, 0.86) :
+    bi == 1 ? draw_panel_box(bx, br_y, br_w, br_h, 0.68, 0.54, 0.24, 0.98, 0.89, 0.69) :
+              draw_panel_box(bx, br_y, br_w, br_h, 0.38, 0.44, 0.75, 0.71, 0.75, 0.99);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(bx, br_y, br_w, br_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+    gfx_set(0.76, 0.80, 0.90, 1.0);
+  );
+
+  bi == 0 ? strcpy(#blbl, "OPAL (Neutral)") :
+  bi == 1 ? strcpy(#blbl, "GOLD (Warm)") :
+            strcpy(#blbl, "SAPPHIRE (Bright)");
+
+  gfx_setfont(4);
+  gfx_measurestr(#blbl, blw, blh);
+  gfx_x = bx + (br_w - blw) * 0.5;
+  gfx_y = br_y + (br_h - blh) * 0.5;
+  gfx_drawstr(#blbl);
+
+  bi += 1;
+);
+
+// =========================================================================
+// 6. INFO OVERLAY MODAL (Click PHOENIX Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.74);
+  mh = floor(280 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.98, 0.70, 0.53);
+
+  gfx_setfont(1);
+  gfx_set(0.98, 0.70, 0.53, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("Phoenix v1.2 (Analog Tape Saturator)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.93, 0.98, 1.0);
+  lh_step = floor(27 * S);
+  ty = my + 62;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 5 selectable tape saturation topologies (Luminescent to Dark Essence)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• 3 high-frequency flux responses: Opal, Gold, and Sapphire");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Double-click any knob to reset to its default value");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Click the IN or OUT meters to reset Peak Hold & OVER indicators");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• DSP by JClones (github.com/JClones/JSFXClones) | MIT License");
+
+  gfx_set(0.72, 0.66, 0.68, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 34;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

@@ -48,6 +48,17 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
+### 3. Saturation / Phoenix
+**Path**: `Saturation/Phoenix.jsfx`  
+**Description**: Analog Tape Saturator
+
+* **Key Features**:
+  * **5 Tape Topologies**: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).
+  * **3 Brightness Curves**: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).
+  * **Input & Output Trims with Auto-Gain**: Input Trim (-10 to +10 dB), Process amount (0 to 100%), Output Trim (-6 to +6 dB), and optional automatic gain compensation.
+  * **Studio Metering & HiDPI Zoom**: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.
+  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
+
 ---
 
 ## 📂 Repository Structure
@@ -66,7 +77,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── Dynamics/                   # ReaPack Category: Dynamics
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
-    └── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
+    ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
+    └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
 ```
 
 ---
