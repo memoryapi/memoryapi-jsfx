@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8">
+<index version="1" name="MemoryAPI JSFX" commit="4cb7c27b53e5a46df38d4f0c620a0a6c4d3063f3">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -52,6 +52,30 @@
       <version name="1.2.0" author="MemoryAPI" time="2026-10-15T11:36:21Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/b40cb36259bc1744b2a8b5279c75e896b5052109/Dynamics/Opto2A.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="OverTop.jsfx" type="effect" desc="OverTop (3-Band Upward/Downward Multiband Compressor)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 OverTop\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 3-Band Upward and Downward Multiband Dynamics Processor (OTT style) for aggressive presence, punch, and detail leveling.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3-band split crossover (88 Hz and 2.5 kHz) with independent upward and downward compression engines\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive threshold bar editing: drag horizontally to shift thresholds per band\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Per-band bypass switches and dedicated band output gain trims\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Global Depth, Time scaling, and In/Out gain controls\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dedicated Upward % and Downward % intensity knobs\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Modern animated vector UI with real-time level meters and gain reduction traces\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-15T14:40:14Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/4cb7c27b53e5a46df38d4f0c620a0a6c4d3063f3/Dynamics/OverTop.jsfx</source>
       </version>
     </reapack>
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
@@ -200,7 +224,16 @@ reapack.com
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Saturation / OInflator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Dynamics / OverTop\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/OverTop.jsfx}\line {\b Description}: 3-Band Upward/Downward Multiband Compressor (OTT Style)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3-Band Upward & Downward Dynamics}: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Threshold Bars}: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Per-Band Gain & Bypass}: Dedicated bypass toggle and +/-24 dB output gain control for Low (<88 Hz), Mid, and High (>2.5 kHz) bands.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Global Controls}: Depth percentage (dry/wet scaling), Time scaling (1% to 1000%), and Master Input/Output gain trims.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dedicated Upward % & Downward %}: Balance upward vs downward compression intensity from 0% to 200%.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector UI}: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Saturation / OInflator\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
@@ -213,7 +246,7 @@ JClones
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Saturation / Phoenix\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Saturation / Phoenix\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
@@ -224,7 +257,7 @@ JClones
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Creative / ChronoWarp\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 6. Creative / ChronoWarp\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/ChronoWarp.jsfx}\line {\b Description}: Creative Half-Time & Varispeed Engine\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Speed Modes}: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).\par}
@@ -250,6 +283,7 @@ JClones
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
