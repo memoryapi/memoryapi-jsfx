@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="4cb7c27b53e5a46df38d4f0c620a0a6c4d3063f3">
+<index version="1" name="MemoryAPI JSFX" commit="12a0b7fc3bb4b3bd11e7732809eb73d371043835">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -24,6 +24,35 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T13:09:57Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8/Creative/ChronoWarp.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Delay">
+    <reapack name="EchoForge.jsfx" type="effect" desc="EchoForge (Analog Tape, Lo-Fi &amp; Diffused Delay)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 EchoForge\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Analog Tape, Lo-Fi, and Diffused Delay workstation with modulation, distortion, bitcrushing, and 4-stage stereo all-pass diffusion.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 4 Delay Models: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tempo-synced (1/16 to 1 bar) and free-running millisecond modes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tape Pitch glide (authentic tape Doppler pitch slew) vs Keep Pitch (clickless time crossfading)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Self-oscillating feedback (up to 150%) tamed by analog-modeled tape saturation or limiter\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Resonant feedback filter with Low-Pass, High-Pass, and Band-Pass modes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 4-Stage Stereo All-Pass Diffusion engine for smearing repeats into lush ambient reverb washes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Lo-Fi degradation engine: variable sample rate downsampling and bit depth reduction\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Multi-destination modulation LFO targeting delay time and filter cutoff\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Output tilt tone EQ, stereo width spread, and independent dry/wet controls\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0.0" author="MemoryAPI" time="2026-10-15T15:34:32Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/12a0b7fc3bb4b3bd11e7732809eb73d371043835/Delay/EchoForge.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -268,6 +297,19 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Upper-Octave Shimmer & Reverse}: Layer an octave-up granular sheen or flip slice playback direction.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo-Synced Fade In/Out}: Cleanly eliminates edge transients or creates musical fade swells.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Modern UI}: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 7. Delay / EchoForge\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Delay/EchoForge.jsfx}\line {\b Description}: Analog Tape, Lo-Fi & Diffused Delay Workstation\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Delay Models}: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo Sync & Free Milliseconds}: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tape Pitch Glide vs Keep Pitch}: Switch between classic tape-style Doppler pitch slewing or clickless crossfaded time changes.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Self-Oscillation & Analog Distortion}: Feedback up to 150% with tape-modeled saturation and soft limiter protection.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Resonant Multi-Mode Filter}: Low-Pass, High-Pass, and Band-Pass filter in the feedback path with adjustable resonance.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Stage Stereo All-Pass Diffuser}: Smears delay repeats into expansive, lush ambient reverb washes.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Lo-Fi Degradation Engine}: Continuous sample rate downsampling (down to 1 kHz) and bitcrushing (down to 2 bits).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Destination Modulation}: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tone Tilt, Spread & Mix}: Output tone shaping, stereo width spread, and independent dry/wet controls.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive UI}: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -281,6 +323,8 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
 \u9500 ?\u9472 ?\u9472 ? Creative/                   # ReaPack Category: Creative\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
+\u9500 ?\u9472 ?\u9472 ? Delay/                      # ReaPack Category: Delay\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? EchoForge.jsfx          # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
