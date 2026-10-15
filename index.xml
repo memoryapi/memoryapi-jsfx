@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="73cd3063b48b930159df0d9c6c2694526b42fcfe">
+<index version="1" name="MemoryAPI JSFX" commit="aef0f0c66df2a3ac59f18769a71f96d57a56ea16">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -24,6 +24,34 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T13:09:57Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/abbf18bdbf2cd0b23b57f7f21b0dc40e5c91d1b8/Creative/ChronoWarp.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="VintageFlux.jsfx" type="effect" desc="VintageFlux (6-Module Vintage Multi-FX &amp; Lo-Fi Color)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 VintageFlux\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 6-Module vintage texture, retro color, and lo-fi multi-effects workstation with global magnitude scaling and organic parameter flux.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 6 Dedicated Vintage FX Modules:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Noise: Vinyl, Cassette, VHS, and White noise with envelope following and ducking\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Wobble: Pitch wow and flutter with rate and stereo drift\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Distort: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Digital: Sample rate downsampling and bitcrushing with smoothing and pass/cut options\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Space: Ambient algorithmic reverb with pre-delay, decay, and damping controls\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Magnetic: Vintage tape wear, dropouts, and flutter imperfections\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Global Magnitude slider to scale all module intensities simultaneously\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dedicated FLUX controls on every module for organic, non-repeating analog drift\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Master Section with 12/24 dB Low & High Cut filters, Tilt/Smile tone EQ, M/S Width, and Output Trim\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0.0" author="MemoryAPI" time="2026-10-15T17:38:02Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/aef0f0c66df2a3ac59f18769a71f96d57a56ea16/Creative/VintageFlux.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -105,6 +133,31 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T14:40:14Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/4cb7c27b53e5a46df38d4f0c620a0a6c4d3063f3/Dynamics/OverTop.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="PulseDuck.jsfx" type="effect" desc="PulseDuck (Multiband Sidechain &amp; Envelope Shaper)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 PulseDuck\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Multiband sidechain volume shaper and rhythmic ducking engine with custom breakpoint curve editing, real-time kick overlay scope, and automatic sidechain tracing.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 16 Instant Curve Presets plus custom multi-node breakpoint envelope editor with tension control\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 4 Flexible Trigger Modes: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Multiband Crossover: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Real-time Dual Oscilloscope displaying ducked audio (white) alongside incoming sidechain trigger (yellow)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab One-click TRACE SC: Automatically captures and fits the ducking envelope around your kick drum transient\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Variable Curve Slope and Timing Shift (<< < > >>) to dial in the groove and lock the pocket\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Audio trigger filter, threshold, hold-off, and MIDI velocity sensitivity\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom (100% - 140%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0.0" author="MemoryAPI" time="2026-10-15T17:38:02Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/aef0f0c66df2a3ac59f18769a71f96d57a56ea16/Dynamics/PulseDuck.jsfx</source>
       </version>
     </reapack>
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
@@ -316,7 +369,17 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Global Controls}: Depth percentage (dry/wet scaling), Time scaling (1% to 1000%), and Master Input/Output gain trims.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dedicated Upward % & Downward %}: Balance upward vs downward compression intensity from 0% to 200%.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector UI}: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Saturation / OInflator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Dynamics / PulseDuck\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/PulseDuck.jsfx}\line {\b Description}: Multiband Sidechain & Envelope Shaper\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 16 Instant Curve Presets}: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Trigger Modes}: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multiband Crossover}: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Real-Time Scope}: Overlay ducked bass audio (white) directly over incoming sidechain trigger kick (yellow).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b One-Click Trace SC}: Automatically detects and fits the ducking curve around your incoming kick transient.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Groove Shaping}: Variable curve slope, timing offset, and phase shift controls (<< < > >>) to lock the pocket.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Saturation / OInflator\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
@@ -329,7 +392,7 @@ JClones
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Saturation / Phoenix\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 6. Saturation / Phoenix\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
@@ -340,7 +403,7 @@ JClones
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 6. Creative / ChronoWarp\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 7. Creative / ChronoWarp\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/ChronoWarp.jsfx}\line {\b Description}: Creative Half-Time & Varispeed Engine\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Speed Modes}: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).\par}
@@ -351,7 +414,21 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Upper-Octave Shimmer & Reverse}: Layer an octave-up granular sheen or flip slice playback direction.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo-Synced Fade In/Out}: Cleanly eliminates edge transients or creates musical fade swells.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Modern UI}: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 7. Delay / EchoForge\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 8. Creative / VintageFlux\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/VintageFlux.jsfx}\line {\b Description}: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 6 Dedicated Vintage FX Modules}:\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Noise}: Vinyl, Cassette, VHS, and White noise with envelope following and ducking.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Wobble}: Pitch wow & flutter with rate and stereo drift.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Distort}: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Digital}: Sample rate downsampling and bitcrushing with smoothing and pass/cut modes.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Space}: Ambient algorithmic reverb with pre-delay, decay, and damping controls.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Magnetic}: Vintage tape wear, dropouts, and flutter imperfections.\sa180\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Global Magnitude Slider}: Scales all module intensities and master character simultaneously.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dedicated Flux Controls}: Organic, non-repeating random analog drift on every module.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Master Tone & Filters}: 12/24 dB Low/High cuts, Tilt/Smile tone EQ, M/S width, and output trim.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 9. Delay / EchoForge\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Delay/EchoForge.jsfx}\line {\b Description}: Analog Tape, Lo-Fi & Diffused Delay Workstation\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Delay Models}: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).\par}
@@ -364,7 +441,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Destination Modulation}: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tone Tilt, Spread & Mix}: Output tone shaping, stereo width spread, and independent dry/wet controls.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive UI}: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 8. EQ / ConsoleQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 10. EQ / ConsoleQ\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ConsoleQ.jsfx}\line {\b Description}: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Band Console EQ}: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.\par}
@@ -377,7 +454,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Momentary Band Solo}: Hold the [S] audition button on any frequency band column to isolate its processing range.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Output Section}: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 9. EQ / PocketQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 11. EQ / PocketQ\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/PocketQ.jsfx}\line {\b Description}: Compact Console & Air Channel Strip EQ\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Fixed Musical Frequency Bands}: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).\par}
@@ -400,12 +477,14 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
 \u9500 ?\u9472 ?\u9472 ? Creative/                   # ReaPack Category: Creative\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Delay/                      # ReaPack Category: Delay\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? EchoForge.jsfx          # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
