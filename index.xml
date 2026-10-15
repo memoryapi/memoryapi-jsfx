@@ -1,6 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="cdf9dd3f0eef72210a8a8006a5fabbf7c529b789">
+<index version="1" name="MemoryAPI JSFX" commit="b40cb36259bc1744b2a8b5279c75e896b5052109">
   <category name="Dynamics">
+    <reapack name="Opto2A.jsfx" type="effect" desc="Opto2A (Optical Tube Compressor)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Opto2A\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Optical Tube Compressor with program-dependent T4 photocell attenuation and tube output stage modeling.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Authentic T4 optical attenuator modeling with two-stage release memory\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Switchable Compress and Limit modes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab HF Emphasis (R37) sidechain filter control for frequency-dependent compression\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Classic vs Fast opto cell response modes\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-resolution scrolling Gain Reduction trace and illuminated VU meter\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Credits\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.\sa180\par}
+}
+]]></description>
+        <link rel="website" href="https://github.com/JClones/JSFXClones">Original DSP repository</link>
+      </metadata>
+      <version name="1.2.0" author="MemoryAPI" time="2026-10-15T11:36:21Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/b40cb36259bc1744b2a8b5279c75e896b5052109/Dynamics/Opto2A.jsfx</source>
+      </version>
+    </reapack>
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
       <metadata>
         <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
@@ -134,7 +160,20 @@ reapack.com
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo & Mid/Side Processing}: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Freeze & Audition}: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 2. Saturation / OInflator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 2. Dynamics / Opto2A\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/Opto2A.jsfx}\line {\b Description}: Optical Tube Compressor\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b T4 Optical Attenuator Modeling}: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Compress / Limit Modes}: Switchable knee characteristics from gentle musical leveling to peak limiting.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HF Emphasis (R37)}: Dedicated sidechain high-pass emphasis control for frequency-conscious vocal leveling and de-essing.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Classic vs. Fast Photocell Speed}: Switch between vintage relaxed optical response and modern fast response.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Display Metering}: Illuminated vintage VU meter with real-time scrolling Gain Reduction trace graph.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HiDPI Text Scaling}: Quick toggle for 100%, 120%, and 140% UI text zoom.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
+JClones
+}}}
+, licensed under MIT.\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Saturation / OInflator\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
@@ -147,7 +186,7 @@ reapack.com
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Saturation / Phoenix\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Saturation / Phoenix\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
@@ -170,6 +209,7 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
     \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
