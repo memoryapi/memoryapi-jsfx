@@ -30,6 +30,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **32-Band SVF Dynamic Carving**: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.
   * **Routing**: Route your kick, vocals, or sidechain trigger audio to **Channels 3/4** of the track.
   * **Interactive Spectrum Display**: Visual real-time sidechain energy and gain reduction meters with draggable Low-Cut and High-Cut filter boundary curtains.
+  * **Redesigned Animated UI**: Modern design with hover halos, animated collapsible drawer, and selectable UI Text Zoom (100%/120%/140%) for HiDPI displays.
   * **Stereo & Mid/Side Processing**: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).
   * **Freeze & Audition**: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.
   * **Safe DSP Ceiling**: Hard NaN/Inf protection and anti-explosion audio ceilings.

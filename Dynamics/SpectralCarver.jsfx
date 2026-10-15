@@ -1,17 +1,18 @@
 desc:SpectralCarver (32-Band Dynamic Spectral Ducker)
 // @description SpectralCarver (32-Band Dynamic Spectral Ducker)
 // @author Custom DSP
-// @version 1.1
-// @changelog Initial release
+// @version 1.2
+// @changelog Redesigned UI with DPI text zoom, animated drawer, and hover halos
 // @about
 //   # SpectralCarver
 //   32-Band Dynamic Spectral Ducker using Cytomic SVF filters.
 //
 //   ### Features
 //   - 32-band Cytomic SVF dynamic spectral ducking
+//   - High-contrast visualizer with smooth animated controls and hover halos
 //   - Stereo (L/R) and Mid/Side (M/S) processing modes
 //   - Low-cut and high-cut sidechain filtering with interactive spectrum display
-//   - Sidechain audition mode and freeze function
+//   - Sidechain audition mode, freeze function, and scalable UI text zoom
 //   - Safe ceiling and NaN/Inf protection
 //
 //   ### Routing
@@ -29,6 +30,7 @@ slider7:pan_val=0<-100,100,1>-Pan / M-S Balance (%)
 slider8:freeze_on=0<0,1,1{Off,On}>-Freeze
 slider9:audition_on=0<0,1,1{Off,On}>-SC Audition
 slider10:adv_open=0<0,1,1{Closed,Open}>-Advanced Panel
+slider11:ui_zoom=1.15<1.0,1.5,0.25>-UI Text Zoom
 
 in_pin:Main Left
 in_pin:Main Right
@@ -38,7 +40,6 @@ out_pin:Output Left
 out_pin:Output Right
 
 @init
-// Prevent REAPER from wiping filter states and arrays on transport play/stop
 ext_noinit = 1.0;
 
 NUM_BANDS = 32;
@@ -49,26 +50,23 @@ LOG_MAX = log(MAX_FREQ);
 SAFE_SRATE = max(8000.0, srate);
 
 // Memory allocation map (non-overlapping blocks of 64 floats)
-freq_table  = 100;  // Band center frequencies
-svf_g       = 200;  // Precomputed tan(pi * fc / srate) per band
-sc_a1       = 300;  // Sidechain bandpass SVF coeff a1
-sc_a2       = 400;  // Sidechain bandpass SVF coeff a2
-sc_ic1      = 500;  // Sidechain SVF state 1
-sc_ic2      = 600;  // Sidechain SVF state 2
+freq_table  = 100;
+svf_g       = 200;
+sc_a1       = 300;
+sc_a2       = 400;
+sc_ic1      = 500;
+sc_ic2      = 600;
 
-env_state   = 700;  // Linear envelope detector state
-env_db_arr  = 800;  // Sidechain level in dB
-red_db_arr  = 900;  // Target gain reduction in dB
+env_state   = 700;
+env_db_arr  = 800;
+red_db_arr  = 900;
 
-// Cytomic SVF Bell coefficients for Ch0 (Left/Mid) and Ch1 (Right/Side)
 eq0_a1 = 1000; eq0_a2 = 1100; eq0_m1 = 1200;
 eq1_a1 = 1300; eq1_a2 = 1400; eq1_m1 = 1500;
 
-// Cytomic SVF states for Ch0 and Ch1
 eq0_ic1 = 1600; eq0_ic2 = 1700;
 eq1_ic1 = 1800; eq1_ic2 = 1900;
 
-// UI visual smoothing buffers
 ui_sc_norm  = 2000;
 ui_red_norm = 2100;
 
@@ -119,17 +117,14 @@ function init_filterbank()
     fc = min(fc, SAFE_SRATE * 0.44);
     freq_table[i] = fc;
 
-    // Precompute frequency warping tan() once per sample-rate change
     g = tan($pi * fc / SAFE_SRATE);
     svf_g[i] = g;
 
-    // Constant-0dB-peak SVF bandpass for sidechain analysis
     k_bp = 1.0 / EQ_Q;
     a1_bp = 1.0 / (1.0 + g * (g + k_bp));
     sc_a1[i] = a1_bp;
     sc_a2[i] = g * a1_bp;
 
-    // Initialize main EQ bands to unity (0 dB gain)
     eq0_a1[i] = a1_bp; eq0_a2[i] = g * a1_bp; eq0_m1[i] = 0.0;
     eq1_a1[i] = a1_bp; eq1_a2[i] = g * a1_bp; eq1_m1[i] = 0.0;
 
@@ -138,8 +133,9 @@ function init_filterbank()
   last_srate = SAFE_SRATE;
 );
 
-// Only clear filter states once on first load or if sample rate changes
 !dsp_initialized || (last_srate != srate) ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.15;
+  adv_anim = adv_open ? 1.0 : 0.0;
   init_filterbank();
   update_parameters();
   dsp_initialized = 1;
@@ -152,12 +148,10 @@ update_parameters();
 last_srate != srate ? init_filterbank();
 update_parameters();
 
-// Update 32-band SVF Bell coefficients once per block
 i = 0;
 loop(NUM_BANDS,
   fc = freq_table[i];
 
-  // Smooth roll-off outside Low-Cut and High-Cut boundaries
   mask = 1.0;
   fc < low_cut_hz ? (
     oct_below = log(low_cut_hz / fc) / log(2.0);
@@ -168,12 +162,10 @@ loop(NUM_BANDS,
     mask = min(mask, max(0.0, 1.0 - oct_above * 1.5));
   );
 
-  // Convert linear envelope to dB (-60 dB floor)
   env_lin = max(0.000001, env_state[i]);
-  env_db = 8.685889638 * log(env_lin); // 20 / ln(10) * ln(x)
+  env_db = 8.685889638 * log(env_lin);
   env_db_arr[i] = env_db;
 
-  // Calculate gain reduction (0 to -24 dB max)
   excess_db = max(0.0, env_db + 54.0);
   raw_red_db = -(excess_db * (amount_pct * 0.01) * 0.55) * mask;
   target_red_db = max(-24.0, min(0.0, raw_red_db));
@@ -181,16 +173,16 @@ loop(NUM_BANDS,
 
   g = svf_g[i];
 
-  // Channel 0 (Left or Mid) Cytomic Bell SVF
+  // Channel 0 (Left or Mid)
   g0_db = target_red_db * weight_ch0;
-  A0 = exp(g0_db * 0.0575646273); // 10^(dB/40) = exp(dB * ln(10)/40)
+  A0 = exp(g0_db * 0.0575646273);
   k0 = 1.0 / (EQ_Q * A0);
   a1_0 = 1.0 / (1.0 + g * (g + k0));
   eq0_a1[i] = a1_0;
   eq0_a2[i] = g * a1_0;
   eq0_m1[i] = k0 * (A0 * A0 - 1.0);
 
-  // Channel 1 (Right or Side) Cytomic Bell SVF
+  // Channel 1 (Right or Side)
   g1_db = target_red_db * weight_ch1;
   A1 = exp(g1_db * 0.0575646273);
   k1 = 1.0 / (EQ_Q * A1);
@@ -208,7 +200,6 @@ in_r = spl1;
 sc_l = spl2;
 sc_r = spl3;
 
-// Sum sidechain to mono and apply Low-Cut / High-Cut SVF filters
 sc_mono = (sc_l + sc_r) * 0.5;
 
 low_cut_hz > 21.0 ? (
@@ -229,7 +220,6 @@ high_cut_hz < 19900.0 ? (
   sc_mono = v2;
 );
 
-// Update 32-band sidechain envelope detectors unless Freeze is active
 !freeze_on ? (
   k_bp = 1.0 / EQ_Q;
   b = 0;
@@ -245,7 +235,6 @@ high_cut_hz < 19900.0 ? (
     sc_ic1[b] = 2.0 * v1 - ic1;
     sc_ic2[b] = 2.0 * v2 - ic2;
 
-    // Normalized bandpass output = k_bp * v1
     rect = abs(k_bp * v1);
     curr_env = env_state[b];
     rect > curr_env ? (
@@ -261,7 +250,6 @@ audition_on ? (
   spl0 = sc_mono;
   spl1 = sc_mono;
 ) : (
-  // Encode Mid/Side if selected
   proc_mode == 1 ? (
     ch0 = (in_l + in_r) * 0.70710678;
     ch1 = (in_l - in_r) * 0.70710678;
@@ -270,12 +258,10 @@ audition_on ? (
     ch1 = in_r;
   );
 
-  // Cascade through 32 unconditionally stable SVF Bell filters
   b = 0;
   loop(NUM_BANDS,
     g_b = svf_g[b];
 
-    // Channel 0
     ic1 = eq0_ic1[b]; ic2 = eq0_ic2[b];
     a1  = eq0_a1[b];  a2  = eq0_a2[b];
     v3  = ch0 - ic2;
@@ -285,7 +271,6 @@ audition_on ? (
     eq0_ic2[b] = 2.0 * v2 - ic2;
     ch0 = ch0 + eq0_m1[b] * v1;
 
-    // Channel 1
     ic1 = eq1_ic1[b]; ic2 = eq1_ic2[b];
     a1  = eq1_a1[b];  a2  = eq1_a2[b];
     v3  = ch1 - ic2;
@@ -298,7 +283,6 @@ audition_on ? (
     b += 1;
   );
 
-  // Decode Mid/Side back to L/R
   proc_mode == 1 ? (
     out_l = (ch0 + ch1) * 0.70710678;
     out_r = (ch0 - ch1) * 0.70710678;
@@ -307,7 +291,6 @@ audition_on ? (
     out_r = ch1;
   );
 
-  // Hard NaN/Inf protection + +6 dB safety ceiling so meters can never explode
   (out_l != out_l || abs(out_l) > 2.0) ? (
     out_l = max(-2.0, min(2.0, out_l));
   );
@@ -319,13 +302,37 @@ audition_on ? (
   spl1 = out_r;
 );
 
-@gfx 650 650
-// Solid RGB clear (R=20, G=23, B=30) prevents Linux X11/Wayland buffer flickering
-gfx_clear = 20 + (23 * 256) + (30 * 65536);
-W = max(500, gfx_w);
-H = max(520, gfx_h);
+@gfx 700 680
+// Solid dark base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
 
-// Strictly scoped UI helper functions using local()
+W = max(560, gfx_w);
+H = max(540, gfx_h);
+
+// Responsive geometry scale & user text scale for Linux X11
+S  = min(W / 700.0, H / 680.0);
+TS = S * max(1.0, ui_zoom);
+
+// Configure crisp readable fonts (scaled automatically)
+f_title = max(18, floor(22 * TS));
+f_sec   = max(14, floor(15 * TS));
+f_val   = max(14, floor(15 * TS));
+f_btn   = max(13, floor(14 * TS));
+f_grid  = max(12, floor(13 * TS));
+f_big   = max(18, floor(21 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_grid,  0);
+gfx_setfont(6, "sans-serif", f_big,   'b');
+
+// Smooth animation for the Advanced Drawer (eliminates dead space when closed)
+target_adv = adv_open ? 1.0 : 0.0;
+adv_anim = adv_anim + (target_adv - adv_anim) * 0.35;
+abs(target_adv - adv_anim) < 0.005 ? adv_anim = target_adv;
+
 function freq_to_x(f, x0, xw)
   local(clamped)
 (
@@ -340,12 +347,23 @@ function x_to_freq(px, x0, xw)
   exp(LOG_MIN + norm * (LOG_MAX - LOG_MIN));
 );
 
-function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_accent)
-  local(norm, hit, sens, delta, ang_start, ang_end, ang_val, steps, st, t0, t1, a0, a1, px0, py0, px1, py1, lw, lh, vw, vh)
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_hero)
+  local(norm, hit, hover, sens, delta, ang_start, ang_end, ang_val, steps, st, t0, t1, a0, a1,
+        px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y)
 (
   norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
 
-  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 8)*(r + 8));
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 10)*(r + 10));
+  hover = hit || (drag_id == id);
+
   (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
     (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
       val = vdef;
@@ -361,7 +379,7 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
 
   drag_id == id ? (
     (mouse_cap & 1) ? (
-      sens = (mouse_cap & 4) ? 500.0 : 150.0;
+      sens = (mouse_cap & 4) ? 550.0 : 160.0;
       delta = (drag_start_y - mouse_y) / sens;
       val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
     ) : (
@@ -371,20 +389,26 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
 
   norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
 
-  // Knob body
-  gfx_set(0.05, 0.06, 0.08, 1.0);
-  gfx_circle(cx, cy + 2, r, 1, 1);
-  gfx_set(0.14, 0.16, 0.21, 1.0);
+  // Soft outer drop shadow & hover halo
+  gfx_set(0.05, 0.05, 0.09, 0.85);
+  gfx_circle(cx, cy + 3, r + 1, 1, 1);
+  hover ? (
+    gfx_set(0.54, 0.71, 0.98, 0.16);
+    gfx_circle(cx, cy, r + 6, 1, 1);
+  );
+
+  // Knob body (#181825 inner, #313244 rim)
+  gfx_set(0.11, 0.11, 0.17, 1.0);
   gfx_circle(cx, cy, r, 1, 1);
-  gfx_set(0.26, 0.30, 0.38, 1.0);
+  hover ? gfx_set(0.45, 0.55, 0.75, 1.0) : gfx_set(0.24, 0.25, 0.35, 1.0);
   gfx_circle(cx, cy, r, 0, 1);
 
   ang_start = -2.356194;
   ang_end   =  2.356194;
   ang_val   = ang_start + norm * (ang_end - ang_start);
 
-  // Value arc
-  steps = 32;
+  // Thick value arc (3 radial passes so it looks bold on unscaled X11)
+  steps = 36;
   st = 0;
   loop(steps,
     t0 = st / steps;
@@ -392,81 +416,158 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
     a0 = ang_start + t0 * (ang_end - ang_start);
     a1 = ang_start + t1 * (ang_end - ang_start);
     t1 <= norm ? (
-      is_accent ? gfx_set(0.18, 0.70, 1.0, 1.0) : gfx_set(0.45, 0.78, 0.98, 0.95);
+      is_hero ? gfx_set(0.45, 0.78, 0.98, 1.0) : gfx_set(0.54, 0.71, 0.98, 0.95);
     ) : (
-      gfx_set(0.22, 0.25, 0.31, 0.8);
+      gfx_set(0.20, 0.21, 0.29, 0.9);
     );
     gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
     gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    gfx_line(cx + sin(a0)*(r-6), cy - cos(a0)*(r-6), cx + sin(a1)*(r-6), cy - cos(a1)*(r-6), 1);
     st += 1;
   );
 
-  // Pointer indicator
-  gfx_set(0.95, 0.97, 1.0, 1.0);
-  px0 = cx + sin(ang_val) * (r * 0.28);
-  py0 = cy - cos(ang_val) * (r * 0.28);
-  px1 = cx + sin(ang_val) * (r - 7);
-  py1 = cy - cos(ang_val) * (r - 7);
+  // Crisp double-line pointer indicator + center cap dot
+  gfx_set(0.95, 0.96, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.25);
+  py0 = cy - cos(ang_val) * (r * 0.25);
+  px1 = cx + sin(ang_val) * (r - 8);
+  py1 = cy - cos(ang_val) * (r - 8);
   gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
+  is_hero ? (
+    gfx_set(0.45, 0.78, 0.98, 1.0);
+    gfx_circle(px1, py1, 2.5, 1, 1);
+  );
 
-  // Text label & readout
-  gfx_setfont(1, "sans-serif", 13, 'b');
+  // Upper/Lower Section Label
+  gfx_setfont(2);
   gfx_measurestr(label, lw, lh);
-  gfx_set(0.68, 0.73, 0.82, 1.0);
-  gfx_x = cx - lw * 0.5; gfx_y = cy + r + 8;
+  is_hero ? gfx_set(0.85, 0.90, 1.0, 1.0) : gfx_set(0.68, 0.72, 0.84, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(8 * S);
   gfx_drawstr(label);
 
-  gfx_setfont(1, "sans-serif", 12, 0);
+  // High-contrast Value Readout Pill Badge
+  is_hero ? gfx_setfont(6) : gfx_setfont(3);
   gfx_measurestr(val_str, vw, vh);
-  gfx_set(0.92, 0.95, 1.0, 1.0);
-  gfx_x = cx - vw * 0.5; gfx_y = cy + r + 24;
+  pill_w = max(vw + floor(18 * S), floor(76 * S));
+  pill_h = vh + floor(8 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(13 * S);
+
+  gfx_set(0.07, 0.07, 0.11, 1.0);
+  gfx_rect(pill_x, pill_y, pill_w, pill_h);
+  hover ? gfx_set(0.45, 0.78, 0.98, 0.85) : gfx_set(0.22, 0.24, 0.33, 1.0);
+  gfx_rect(pill_x, pill_y, pill_w, pill_h, 0);
+
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
   gfx_drawstr(val_str);
 
   val;
 );
 
-// 1. Header Bar
-gfx_set(0.11, 0.13, 0.17, 1.0);
-gfx_rect(0, 0, W, 44);
-gfx_set(0.20, 0.23, 0.29, 1.0);
-gfx_line(0, 44, W, 44);
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.21, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
 
-gfx_setfont(1, "sans-serif", 18, 'b');
-gfx_set(0.22, 0.72, 1.0, 1.0);
-gfx_x = 20; gfx_y = 12;
+// Brand Title (click to toggle Info modal)
+gfx_setfont(1);
+gfx_set(0.54, 0.71, 0.98, 1.0);
+gfx_x = floor(22 * S);
+gfx_measurestr("SPECTRAL", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
 gfx_drawstr("SPECTRAL");
-gfx_set(0.92, 0.95, 1.0, 1.0);
+gfx_set(0.92, 0.94, 0.98, 1.0);
 gfx_drawstr("CARVER");
 
-title_hit = mouse_x >= 16 && mouse_x <= 200 && mouse_y >= 8 && mouse_y <= 38;
+// Subtle "INFO" badge next to logo
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(10 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 12, qh + 4);
+gfx_set(0.65, 0.70, 0.85, 1.0);
+gfx_x = q_x + 6; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
 (mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
   info_open = !info_open;
 );
 
-// Freeze Button
-frz_x = W - 115; frz_y = 9; frz_w = 95; frz_h = 26;
+// UI Text Scale Toggle Button (1x / 1.15x / 1.35x) for Linux X11 convenience
+zm_w = floor(96 * S); zm_h = floor(30 * S);
+zm_x = W - floor(238 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider11);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+gfx_setfont(4);
+gfx_set(0.80, 0.84, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_lbl, "TEXT: 100%") :
+ui_zoom < 1.3 ? strcpy(#z_lbl, "TEXT: 120%") : strcpy(#z_lbl, "TEXT: 140%");
+gfx_measurestr(#z_lbl, zw, zh);
+gfx_x = zm_x + (zm_w - zw) * 0.5; gfx_y = zm_y + (zm_h - zh) * 0.5;
+gfx_drawstr(#z_lbl);
+
+// Freeze Button in Header
+frz_w = floor(104 * S); frz_h = floor(30 * S);
+frz_x = W - frz_w - floor(22 * S); frz_y = (hdr_h - frz_h) * 0.5;
 frz_hit = mouse_x >= frz_x && mouse_x <= frz_x + frz_w && mouse_y >= frz_y && mouse_y <= frz_y + frz_h;
 (mouse_cap & 1) && !(last_mouse_cap & 1) && frz_hit ? (
   freeze_on = !freeze_on;
   slider_automate(slider8);
 );
-freeze_on ? gfx_set(0.16, 0.62, 0.95, 1.0) : gfx_set(0.17, 0.20, 0.26, 1.0);
-gfx_rect(frz_x, frz_y, frz_w, frz_h);
-gfx_set(0.35, 0.42, 0.52, 1.0);
-gfx_rect(frz_x, frz_y, frz_w, frz_h, 0);
-gfx_setfont(1, "sans-serif", 12, 'b');
-freeze_on ? gfx_set(1, 1, 1, 1) : gfx_set(0.75, 0.80, 0.88, 1);
+freeze_on ? (
+  draw_panel_box(frz_x, frz_y, frz_w, frz_h, 0.22, 0.58, 0.92, 0.55, 0.82, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(frz_x, frz_y, frz_w, frz_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+  gfx_set(0.80, 0.84, 0.96, 1.0);
+);
+gfx_setfont(4);
 gfx_measurestr("FREEZE", fw, fh);
 gfx_x = frz_x + (frz_w - fw) * 0.5; gfx_y = frz_y + (frz_h - fh) * 0.5;
 gfx_drawstr("FREEZE");
 
-// 2. Spectrum Analyzer Viewport
-spec_x = 20; spec_y = 58; spec_w = W - 40; spec_h = 240;
-gfx_set(0.05, 0.06, 0.08, 1.0);
-gfx_rect(spec_x, spec_y, spec_w, spec_h);
+// =========================================================================
+// 2. DYNAMIC GEOMETRY CALCULATION (NO DEAD SPACE WHEN ADVANCED IS CLOSED)
+// =========================================================================
+pad = floor(20 * S);
+adv_full_h = floor(150 * S);
+cur_adv_h  = floor(adv_full_h * adv_anim);
+cur_adv_gap = floor(14 * S * adv_anim);
 
-// Grid lines: Frequency verticals
-gfx_setfont(1, "sans-serif", 10, 0);
+avail_h = H - hdr_h - (pad * 3) - cur_adv_h - cur_adv_gap;
+spec_x  = pad;
+spec_y  = hdr_h + pad;
+spec_w  = W - (pad * 2);
+// Analyzer expands smoothly when Advanced Panel is collapsed
+spec_h  = floor(avail_h * (0.56 - 0.04 * adv_anim));
+
+ctrl_x  = pad;
+ctrl_y  = spec_y + spec_h + pad;
+ctrl_w  = spec_w;
+ctrl_h  = avail_h - spec_h;
+
+// =========================================================================
+// 3. SPECTRUM ANALYZER VIEWPORT
+// =========================================================================
+draw_panel_box(spec_x, spec_y, spec_w, spec_h, 0.067, 0.067, 0.106, 0.22, 0.24, 0.34);
+
+// Frequency Grid Lines & Large Readable Labels
+gfx_setfont(5);
 f_idx = 0;
 loop(8,
   f_idx == 0 ? gf = 50 :
@@ -478,57 +579,68 @@ loop(8,
   f_idx == 6 ? gf = 5000 : gf = 10000;
 
   gx = freq_to_x(gf, spec_x, spec_w);
-  gfx_set(0.13, 0.15, 0.19, 1.0);
-  gfx_line(gx, spec_y, gx, spec_y + spec_h);
+  gfx_set(0.14, 0.15, 0.22, 1.0);
+  gfx_line(gx, spec_y + 1, gx, spec_y + spec_h - 1);
 
-  gfx_set(0.42, 0.46, 0.54, 1.0);
+  gfx_set(0.58, 0.62, 0.75, 1.0);
   gf >= 1000 ? sprintf(#flbl, "%dk", gf/1000) : sprintf(#flbl, "%d", gf);
   gfx_measurestr(#flbl, flw, flh);
-  gfx_x = gx - flw * 0.5; gfx_y = spec_y + spec_h - 14;
+  gfx_x = gx - flw * 0.5;
+  gfx_y = spec_y + spec_h - flh - 6;
   gfx_drawstr(#flbl);
   f_idx += 1;
 );
 
-// Grid lines: Horizontal dB markers
+// Horizontal dB Grid Lines (-6, -12, -18 dB)
 db_idx = 1;
-loop(4,
-  gy = spec_y + (db_idx / 5.0) * spec_h;
-  gfx_set(0.13, 0.15, 0.19, 1.0);
-  gfx_line(spec_x, gy, spec_x + spec_w, gy);
-  gfx_set(0.42, 0.46, 0.54, 1.0);
+loop(3,
+  gy = spec_y + (db_idx / 4.0) * spec_h;
+  gfx_set(0.14, 0.15, 0.22, 1.0);
+  gfx_line(spec_x + 1, gy, spec_x + spec_w - 1, gy);
+  gfx_set(0.55, 0.59, 0.72, 1.0);
   sprintf(#dblbl, "-%d dB", db_idx * 6);
-  gfx_x = spec_x + 6; gfx_y = gy + 2;
+  gfx_x = spec_x + 8;
+  gfx_y = gy + 3;
   gfx_drawstr(#dblbl);
   db_idx += 1;
 );
 
-// Smooth and render Sidechain (blue, bottom-up) and Reduction (white, top-down)
+// Smooth Sidechain (bottom-up blue) and Gain Reduction (top-down white)
 ui_b = 0;
 loop(NUM_BANDS,
   target_sc = max(0.0, min(1.0, (env_db_arr[ui_b] + 60.0) / 60.0));
-  ui_sc_norm[ui_b] = ui_sc_norm[ui_b] * 0.65 + target_sc * 0.35;
+  ui_sc_norm[ui_b] = ui_sc_norm[ui_b] * 0.62 + target_sc * 0.38;
 
   target_red = max(0.0, min(1.0, abs(red_db_arr[ui_b]) / 24.0));
-  ui_red_norm[ui_b] = ui_red_norm[ui_b] * 0.65 + target_red * 0.35;
+  ui_red_norm[ui_b] = ui_red_norm[ui_b] * 0.62 + target_red * 0.38;
   ui_b += 1;
 );
 
 ui_b = 0;
 loop(NUM_BANDS,
   bx = freq_to_x(freq_table[ui_b], spec_x, spec_w);
-  by_sc = spec_y + spec_h - ui_sc_norm[ui_b] * (spec_h - 18);
-  by_red = spec_y + ui_red_norm[ui_b] * (spec_h * 0.85);
+  by_sc  = spec_y + spec_h - ui_sc_norm[ui_b] * (spec_h - 24);
+  by_red = spec_y + 2 + ui_red_norm[ui_b] * (spec_h * 0.85);
 
-  col_w = (spec_w / NUM_BANDS) * 0.78;
-  gfx_set(0.12, 0.55, 0.95, 0.25);
+  // Sidechain bar fill
+  col_w = (spec_w / NUM_BANDS) * 0.82;
+  gfx_set(0.35, 0.65, 0.98, 0.24);
   gfx_rect(bx - col_w*0.5, by_sc, col_w, (spec_y + spec_h) - by_sc);
 
+  // Top-down Gain Reduction subtle white tint
+  ui_red_norm[ui_b] > 0.005 ? (
+    gfx_set(0.92, 0.95, 1.0, 0.12);
+    gfx_rect(bx - col_w*0.5, spec_y + 1, col_w, by_red - spec_y);
+  );
+
   ui_b > 0 ? (
-    gfx_set(0.20, 0.72, 1.0, 0.95);
+    // Sidechain Blue Curve (2px thick)
+    gfx_set(0.45, 0.78, 0.98, 0.95);
     gfx_line(prev_bx, prev_by_sc, bx, by_sc, 1);
     gfx_line(prev_bx, prev_by_sc + 1, bx, by_sc + 1, 1);
 
-    gfx_set(0.96, 0.98, 1.0, 0.95);
+    // Gain Reduction White Curve (2px thick)
+    gfx_set(0.98, 0.99, 1.0, 0.98);
     gfx_line(prev_bx, prev_by_red, bx, by_red, 1);
     gfx_line(prev_bx, prev_by_red + 1, bx, by_red + 1, 1);
   );
@@ -539,24 +651,39 @@ loop(NUM_BANDS,
   ui_b += 1;
 );
 
-// Interactive Low-Cut / High-Cut curtains
+// Interactive Low-Cut & High-Cut Curtains + Labeled Grab Flags
 lc_x = freq_to_x(low_cut_hz, spec_x, spec_w);
 hc_x = freq_to_x(high_cut_hz, spec_x, spec_w);
 
-gfx_set(0.02, 0.03, 0.05, 0.58);
-lc_x > spec_x ? gfx_rect(spec_x, spec_y, lc_x - spec_x, spec_h);
-hc_x < spec_x + spec_w ? gfx_rect(hc_x, spec_y, (spec_x + spec_w) - hc_x, spec_h);
+gfx_set(0.03, 0.03, 0.06, 0.62);
+lc_x > spec_x ? gfx_rect(spec_x + 1, spec_y + 1, lc_x - spec_x, spec_h - 2);
+hc_x < spec_x + spec_w ? gfx_rect(hc_x, spec_y + 1, (spec_x + spec_w) - hc_x - 1, spec_h - 2);
 
-gfx_set(0.35, 0.75, 1.0, 0.85);
-gfx_line(lc_x, spec_y, lc_x, spec_y + spec_h);
-gfx_line(hc_x, spec_y, hc_x, spec_y + spec_h);
-gfx_circle(lc_x, spec_y + 18, 5, 1, 1);
-gfx_circle(hc_x, spec_y + 18, 5, 1, 1);
+gfx_set(0.54, 0.71, 0.98, 0.9);
+gfx_line(lc_x, spec_y + 1, lc_x, spec_y + spec_h - 2);
+gfx_line(lc_x + 1, spec_y + 1, lc_x + 1, spec_y + spec_h - 2);
+gfx_line(hc_x, spec_y + 1, hc_x, spec_y + spec_h - 2);
+gfx_line(hc_x - 1, spec_y + 1, hc_x - 1, spec_y + spec_h - 2);
 
+// "LC" and "HC" grab tabs at top of curtains
+gfx_setfont(5);
+tab_w = floor(28 * S); tab_h = floor(20 * S);
+gfx_set(0.22, 0.48, 0.85, 1.0);
+gfx_rect(lc_x, spec_y + 8, tab_w, tab_h);
+gfx_rect(hc_x - tab_w, spec_y + 8, tab_w, tab_h);
+gfx_set(0.95, 0.97, 1.0, 1.0);
+gfx_measurestr("LC", lcw, lch);
+gfx_x = lc_x + (tab_w - lcw)*0.5; gfx_y = spec_y + 8 + (tab_h - lch)*0.5;
+gfx_drawstr("LC");
+gfx_measurestr("HC", hcw, hch);
+gfx_x = hc_x - tab_w + (tab_w - hcw)*0.5; gfx_y = spec_y + 8 + (tab_h - hch)*0.5;
+gfx_drawstr("HC");
+
+// Dragging Low-Cut / High-Cut lines directly in analyzer
 (mouse_cap & 1) && !(last_mouse_cap & 1) && drag_id == 0 ? (
   mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
-    abs(mouse_x - lc_x) < 10 ? drag_id = 101 :
-    abs(mouse_x - hc_x) < 10 ? drag_id = 102;
+    abs(mouse_x - lc_x) < 16 ? drag_id = 101 :
+    abs(mouse_x - hc_x) < 16 ? drag_id = 102;
   );
 );
 drag_id == 101 ? (
@@ -574,182 +701,215 @@ drag_id == 102 ? (
   ) : drag_id = 0;
 );
 
-// Spectrum Border
-gfx_set(0.22, 0.26, 0.33, 1.0);
-gfx_rect(spec_x, spec_y, spec_w, spec_h, 0);
+// ADV Toggle Pill Button (Bottom-Right Corner inside Spectrum Analyzer)
+adv_btn_w = floor(74 * S);
+adv_btn_h = floor(26 * S);
+adv_btn_x = spec_x + spec_w - adv_btn_w - 10;
+adv_btn_y = spec_y + spec_h - adv_btn_h - 8;
+adv_hit = mouse_x >= adv_btn_x && mouse_x <= (adv_btn_x + adv_btn_w) &&
+          mouse_y >= adv_btn_y && mouse_y <= (adv_btn_y + adv_btn_h);
 
-// Hover Readout
-mouse_x >= spec_x && mouse_x <= spec_x + spec_w && mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
-  hover_freq = x_to_freq(mouse_x, spec_x, spec_w);
-  hover_db   = -((mouse_y - spec_y) / spec_h) * 24.0;
-  hover_freq >= 1000 ? (
-    sprintf(#hover_str, "%.2f kHz  |  %.1f dB", hover_freq * 0.001, hover_db);
-  ) : (
-    sprintf(#hover_str, "%d Hz  |  %.1f dB", hover_freq, hover_db);
-  );
-  gfx_setfont(1, "sans-serif", 11, 0);
-  gfx_measurestr(#hover_str, hw, hh);
-  gfx_set(0.08, 0.10, 0.14, 0.90);
-  gfx_rect(spec_x + spec_w - hw - 18, spec_y + 8, hw + 12, hh + 8);
-  gfx_set(0.82, 0.88, 0.96, 1.0);
-  gfx_x = spec_x + spec_w - hw - 12; gfx_y = spec_y + 12;
-  gfx_drawstr(#hover_str);
-);
-
-// Little Blue Dot (toggles Advanced Panel)
-dot_cx = spec_x + spec_w - 16;
-dot_cy = spec_y + spec_h - 16;
-dot_r  = 7;
-dot_hit = ((mouse_x - dot_cx)*(mouse_x - dot_cx) + (mouse_y - dot_cy)*(mouse_y - dot_cy)) <= ((dot_r + 5)*(dot_r + 5));
-(mouse_cap & 1) && !(last_mouse_cap & 1) && dot_hit ? (
+(mouse_cap & 1) && !(last_mouse_cap & 1) && adv_hit ? (
   adv_open = !adv_open;
   slider_automate(slider10);
 );
-adv_open ? gfx_set(0.22, 0.80, 1.0, 1.0) : gfx_set(0.14, 0.48, 0.78, 0.85);
-gfx_circle(dot_cx, dot_cy, dot_r, 1, 1);
-gfx_set(0.85, 0.95, 1.0, 0.9);
-gfx_circle(dot_cx, dot_cy, dot_r, 0, 1);
 
-// 3. Main Controls (Low Cut, Amount, High Cut)
-main_cy = 405;
+adv_open ? (
+  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.16, 0.35, 0.62, 0.45, 0.78, 0.98);
+) : (
+  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.13, 0.14, 0.21, 0.30, 0.33, 0.46);
+);
 
+// Glowing Blue Dot + "ADV" text inside the pill button
+dot_cx = adv_btn_x + floor(14 * S);
+dot_cy = adv_btn_y + adv_btn_h * 0.5;
+adv_open ? gfx_set(0.45, 0.88, 1.0, 1.0) : gfx_set(0.32, 0.65, 0.95, 0.9);
+gfx_circle(dot_cx, dot_cy, floor(5 * S), 1, 1);
+
+gfx_setfont(4);
+gfx_set(0.92, 0.95, 1.0, 1.0);
+gfx_measurestr("ADV", adw, adh);
+gfx_x = dot_cx + floor(10 * S);
+gfx_y = adv_btn_y + (adv_btn_h - adh) * 0.5;
+gfx_drawstr("ADV");
+
+// Hover Frequency & dB Readout Badge (Top-Right of Spectrum Analyzer)
+(mouse_x >= spec_x && mouse_x <= spec_x + spec_w && mouse_y >= spec_y && mouse_y <= spec_y + spec_h && !adv_hit) ? (
+  hover_freq = x_to_freq(mouse_x, spec_x, spec_w);
+  hover_db   = -((mouse_y - spec_y) / spec_h) * 24.0;
+  hover_freq >= 1000 ? (
+    sprintf(#hover_str, "%.2f kHz   %.1f dB", hover_freq * 0.001, hover_db);
+  ) : (
+    sprintf(#hover_str, "%d Hz   %.1f dB", hover_freq, hover_db);
+  );
+  gfx_setfont(3);
+  gfx_measurestr(#hover_str, hw, hh);
+  hb_w = hw + 20; hb_h = hh + 10;
+  hb_x = spec_x + spec_w - hb_w - 12;
+  hb_y = spec_y + 10;
+  draw_panel_box(hb_x, hb_y, hb_w, hb_h, 0.10, 0.11, 0.16, 0.32, 0.36, 0.50);
+  gfx_set(0.92, 0.95, 1.0, 1.0);
+  gfx_x = hb_x + 10; gfx_y = hb_y + 5;
+  gfx_drawstr(#hover_str);
+);
+
+// =========================================================================
+// 4. MAIN CONTROLS CARD (EXPANDS TO FILL WINDOW WHEN ADVANCED IS CLOSED)
+// =========================================================================
+draw_panel_box(ctrl_x, ctrl_y, ctrl_w, ctrl_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+knob_cy = ctrl_y + ctrl_h * 0.40;
+r_side  = min(floor(40 * S), floor(ctrl_h * 0.22));
+r_hero  = min(floor(62 * S), floor(ctrl_h * 0.31));
+
+// Low-Cut Knob
 lc_norm = (log(max(MIN_FREQ, low_cut_hz)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
 low_cut_hz >= 1000 ? sprintf(#lc_str, "%.2f kHz", low_cut_hz*0.001) : sprintf(#lc_str, "%d Hz", low_cut_hz);
-new_lc_norm = draw_rotary_knob(1, 135, main_cy, 34, lc_norm, 0.0, 1.0, 0.0, "LOW CUT", #lc_str, 0);
+new_lc_norm = draw_rotary_knob(1, ctrl_x + ctrl_w * 0.20, knob_cy, r_side, lc_norm, 0.0, 1.0, 0.0, "LOW CUT", #lc_str, 0);
 abs(new_lc_norm - lc_norm) > 0.0001 ? (
   low_cut_hz = min(high_cut_hz - 20, exp(LOG_MIN + new_lc_norm * (LOG_MAX - LOG_MIN)));
   update_parameters();
   slider_automate(slider2);
 );
 
+// Central Hero AMOUNT Knob
 sprintf(#amt_str, "%.1f %%", amount_pct);
-new_amt = draw_rotary_knob(2, W * 0.5, main_cy - 6, 56, amount_pct, 0.0, 100.0, 25.0, "AMOUNT", #amt_str, 1);
+new_amt = draw_rotary_knob(2, ctrl_x + ctrl_w * 0.50, knob_cy - floor(4 * S), r_hero, amount_pct, 0.0, 100.0, 25.0, "AMOUNT", #amt_str, 1);
 abs(new_amt - amount_pct) > 0.001 ? (
   amount_pct = new_amt;
   slider_automate(slider1);
 );
 
+// High-Cut Knob
 hc_norm = (log(max(MIN_FREQ, high_cut_hz)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
 high_cut_hz >= 1000 ? sprintf(#hc_str, "%.2f kHz", high_cut_hz*0.001) : sprintf(#hc_str, "%d Hz", high_cut_hz);
-new_hc_norm = draw_rotary_knob(3, W - 135, main_cy, 34, hc_norm, 0.0, 1.0, 1.0, "HIGH CUT", #hc_str, 0);
+new_hc_norm = draw_rotary_knob(3, ctrl_x + ctrl_w * 0.80, knob_cy, r_side, hc_norm, 0.0, 1.0, 1.0, "HIGH CUT", #hc_str, 0);
 abs(new_hc_norm - hc_norm) > 0.0001 ? (
   high_cut_hz = max(low_cut_hz + 20, exp(LOG_MIN + new_hc_norm * (LOG_MAX - LOG_MIN)));
   update_parameters();
   slider_automate(slider3);
 );
 
-// 4. Collapsible Advanced Panel
-adv_y = 505;
-adv_h = 125;
-adv_open ? (
-  gfx_set(0.11, 0.13, 0.17, 1.0);
-  gfx_rect(20, adv_y, W - 40, adv_h);
-  gfx_set(0.22, 0.26, 0.33, 1.0);
-  gfx_rect(20, adv_y, W - 40, adv_h, 0);
+// =========================================================================
+// 5. COLLAPSIBLE ADVANCED DRAWER (ONLY RENDERED WHEN OPEN)
+// =========================================================================
+adv_anim > 0.45 ? (
+  adv_y = ctrl_y + ctrl_h + cur_adv_gap;
+  draw_panel_box(pad, adv_y, spec_w, cur_adv_h, 0.095, 0.098, 0.145, 0.22, 0.25, 0.36);
 
-  adv_cy = adv_y + 48;
+  adv_cy = adv_y + cur_adv_h * 0.36;
+  r_adv  = min(floor(26 * S), floor(cur_adv_h * 0.19));
 
+  // Pan / M-S Balance Knob
   proc_mode == 0 ? (
-    pan_val < -0.5 ? sprintf(#pan_str, "%d L", abs(pan_val)) :
-    pan_val >  0.5 ? sprintf(#pan_str, "%d R", pan_val) : strcpy(#pan_str, "Center");
+    pan_val < -0.5 ? sprintf(#pan_str, "%d %% L", abs(pan_val)) :
+    pan_val >  0.5 ? sprintf(#pan_str, "%d %% R", pan_val) : strcpy(#pan_str, "Center");
     strcpy(#pan_lbl, "PAN (L/R)");
   ) : (
-    pan_val < -0.5 ? sprintf(#pan_str, "%d M", abs(pan_val)) :
-    pan_val >  0.5 ? sprintf(#pan_str, "%d S", pan_val) : strcpy(#pan_str, "Even M/S");
-    strcpy(#pan_lbl, "BALANCE (M/S)");
+    pan_val < -0.5 ? sprintf(#pan_str, "%d %% Mid", abs(pan_val)) :
+    pan_val >  0.5 ? sprintf(#pan_str, "%d %% Side", pan_val) : strcpy(#pan_str, "Even M/S");
+    strcpy(#pan_lbl, "M/S BALANCE");
   );
-  new_pan = draw_rotary_knob(4, 95, adv_cy, 24, pan_val, -100.0, 100.0, 0.0, #pan_lbl, #pan_str, 0);
+  new_pan = draw_rotary_knob(4, pad + spec_w * 0.13, adv_cy, r_adv, pan_val, -100.0, 100.0, 0.0, #pan_lbl, #pan_str, 0);
   abs(new_pan - pan_val) > 0.01 ? (
     pan_val = new_pan;
     update_parameters();
     slider_automate(slider7);
   );
 
+  // Attack Knob
   sprintf(#att_str, "%.1f ms", attack_ms);
-  new_att = draw_rotary_knob(5, 220, adv_cy, 24, attack_ms, 0.1, 200.0, 10.0, "ATTACK", #att_str, 0);
+  new_att = draw_rotary_knob(5, pad + spec_w * 0.33, adv_cy, r_adv, attack_ms, 0.1, 200.0, 10.0, "ATTACK", #att_str, 0);
   abs(new_att - attack_ms) > 0.01 ? (
     attack_ms = new_att;
     update_parameters();
     slider_automate(slider4);
   );
 
+  // Release Knob
   sprintf(#rel_str, "%d ms", release_ms);
-  new_rel = draw_rotary_knob(6, 345, adv_cy, 24, release_ms, 5.0, 1000.0, 80.0, "RELEASE", #rel_str, 0);
+  new_rel = draw_rotary_knob(6, pad + spec_w * 0.53, adv_cy, r_adv, release_ms, 5.0, 1000.0, 80.0, "RELEASE", #rel_str, 0);
   abs(new_rel - release_ms) > 0.01 ? (
     release_ms = new_rel;
     update_parameters();
     slider_automate(slider5);
   );
 
-  // Mode Toggle Button
-  mode_x = 435; mode_y = adv_y + 26; mode_w = 82; mode_h = 34;
-  mode_hit = mouse_x >= mode_x && mouse_x <= mode_x + mode_w && mouse_y >= mode_y && mouse_y <= mode_y + mode_h;
+  // Right-side Segmented Mode & SC Audition Buttons inside Advanced Panel
+  btn_x = pad + floor(spec_w * 0.68);
+  btn_w = spec_w - floor(spec_w * 0.68) - floor(18 * S);
+  btn_h = floor(36 * S);
+
+  // Mode Toggle (L/R vs M/S)
+  mode_y = adv_y + floor(cur_adv_h * 0.18);
+  mode_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= mode_y && mouse_y <= (mode_y + btn_h);
   (mouse_cap & 1) && !(last_mouse_cap & 1) && mode_hit ? (
     proc_mode = !proc_mode;
     slider_automate(slider6);
   );
-  gfx_set(0.17, 0.21, 0.28, 1.0);
-  gfx_rect(mode_x, mode_y, mode_w, mode_h);
-  gfx_set(0.32, 0.39, 0.49, 1.0);
-  gfx_rect(mode_x, mode_y, mode_w, mode_h, 0);
-  gfx_setfont(1, "sans-serif", 13, 'b');
-  gfx_set(0.22, 0.75, 1.0, 1.0);
-  proc_mode == 0 ? strcpy(#m_str, "MODE: L/R") : strcpy(#m_str, "MODE: M/S");
+  draw_panel_box(btn_x, mode_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.30, 0.35, 0.50);
+  gfx_setfont(4);
+  gfx_set(0.54, 0.78, 1.0, 1.0);
+  proc_mode == 0 ? strcpy(#m_str, "MODE: STEREO (L/R)") : strcpy(#m_str, "MODE: MID / SIDE");
   gfx_measurestr(#m_str, mw, mh);
-  gfx_x = mode_x + (mode_w - mw) * 0.5; gfx_y = mode_y + (mode_h - mh) * 0.5;
+  gfx_x = btn_x + (btn_w - mw) * 0.5; gfx_y = mode_y + (btn_h - mh) * 0.5;
   gfx_drawstr(#m_str);
 
-  // SC Audition Button
-  aud_x = 530; aud_y = adv_y + 26; aud_w = 85; aud_h = 34;
-  aud_hit = mouse_x >= aud_x && mouse_x <= aud_x + aud_w && mouse_y >= aud_y && mouse_y <= aud_y + aud_h;
+  // SC Audition Toggle
+  aud_y = mode_y + btn_h + floor(14 * S);
+  aud_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= aud_y && mouse_y <= (aud_y + btn_h);
   (mouse_cap & 1) && !(last_mouse_cap & 1) && aud_hit ? (
     audition_on = !audition_on;
     slider_automate(slider9);
   );
-  audition_on ? gfx_set(0.90, 0.52, 0.12, 1.0) : gfx_set(0.17, 0.21, 0.28, 1.0);
-  gfx_rect(aud_x, aud_y, aud_w, aud_h);
-  gfx_set(0.35, 0.42, 0.52, 1.0);
-  gfx_rect(aud_x, aud_y, aud_w, aud_h, 0);
-  gfx_setfont(1, "sans-serif", 12, 'b');
-  audition_on ? gfx_set(1, 1, 1, 1) : gfx_set(0.75, 0.80, 0.88, 1);
-  gfx_measurestr("SC AUDITION", aw, ah);
-  gfx_x = aud_x + (aud_w - aw) * 0.5; gfx_y = aud_y + (aud_h - ah) * 0.5;
-  gfx_drawstr("SC AUDITION");
-) : (
-  gfx_setfont(1, "sans-serif", 11, 0);
-  gfx_set(0.42, 0.47, 0.55, 1.0);
-  strcpy(#hint_str, "Click the blue dot in the bottom-right of the analyzer to open the Advanced Panel");
-  gfx_measurestr(#hint_str, htw, hth);
-  gfx_x = (W - htw) * 0.5; gfx_y = adv_y + 50;
-  gfx_drawstr(#hint_str);
+  audition_on ? (
+    draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.85, 0.48, 0.14, 1.0, 0.75, 0.35);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.30, 0.35, 0.50);
+    gfx_set(0.82, 0.86, 0.96, 1.0);
+  );
+  gfx_setfont(4);
+  gfx_measurestr("SIDECHAIN AUDITION", aw, ah);
+  gfx_x = btn_x + (btn_w - aw) * 0.5; gfx_y = aud_y + (btn_h - ah) * 0.5;
+  gfx_drawstr("SIDECHAIN AUDITION");
 );
 
-// 5. Info Overlay
+// =========================================================================
+// 6. INFO OVERLAY MODAL
+// =========================================================================
 info_open ? (
-  gfx_set(0.05, 0.06, 0.09, 0.96);
-  gfx_rect(120, 150, W - 240, 210);
-  gfx_set(0.22, 0.72, 1.0, 1.0);
-  gfx_rect(120, 150, W - 240, 210, 0);
+  mw = floor(W * 0.74);
+  mh = floor(280 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
 
-  gfx_setfont(1, "sans-serif", 16, 'b');
-  gfx_x = 145; gfx_y = 172;
-  gfx_drawstr("SpectralCarver JSFX v1.1");
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.54, 0.71, 0.98);
 
-  gfx_setfont(1, "sans-serif", 12, 0);
-  gfx_set(0.82, 0.86, 0.92, 1.0);
-  gfx_x = 145; gfx_y = 204;
-  gfx_drawstr("- 32-band Cytomic SVF spectral ducker");
-  gfx_x = 145; gfx_y = 226;
-  gfx_drawstr("- Route Sidechain audio to Channels 3/4");
-  gfx_x = 145; gfx_y = 248;
-  gfx_drawstr("- Drag knobs vertically (hold Ctrl for fine control)");
-  gfx_x = 145; gfx_y = 270;
-  gfx_drawstr("- Double-click any knob to reset to default");
-  gfx_x = 145; gfx_y = 292;
-  gfx_drawstr("- Drag Low/High Cut lines directly inside the spectrum");
-  gfx_set(0.55, 0.62, 0.72, 1.0);
-  gfx_x = 145; gfx_y = 324;
-  gfx_drawstr("Click the logo again to close this panel.");
+  gfx_setfont(1);
+  gfx_set(0.54, 0.71, 0.98, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("SpectralCarver JSFX v1.2");
+
+  gfx_setfont(3);
+  gfx_set(0.90, 0.93, 0.98, 1.0);
+  lh_step = floor(28 * S);
+  ty = my + 64;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 32-Band Cytomic SVF dynamic spectral ducker");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Route your priority track to Sidechain Channels 3/4");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Double-click any knob to reset to its default value");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Drag the LC and HC flags directly inside the spectrum");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Use TEXT: 100%/120%/140% in the top bar for Linux DPI scaling");
+
+  gfx_set(0.58, 0.64, 0.78, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 34;
+  gfx_drawstr("Click anywhere on the Info card or header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
 );
 
 last_mouse_cap = mouse_cap;
