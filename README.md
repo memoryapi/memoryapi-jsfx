@@ -196,6 +196,21 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Ultra-Lightweight CPU Footprint**: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.
   * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
 
+### 12. EQ / ReEQ Studio
+**Path**: `EQ/ReEQ_Studio.jsfx`  
+**Description**: Polished 16-Band Parametric Equalizer
+
+![ReEQ Studio](screenshots/reeq_studio.webp)
+
+* **Key Features**:
+  * **16 Fully Parametric Bands**: Individual solo, gain, Q, frequency, and slope controls across all 16 bands.
+  * **Extended Filter Topologies**: Peak, Low/High Cut (including Butterworth and Analog models), Low/High Shelf, Notch, Band Pass, Tilt Shelf, Pultec Low Shelf, and All Pass.
+  * **Stereo, Mid/Side & Left/Right**: Independent processing modes per band.
+  * **Real-Time FFT Analyzer**: High-resolution spectrum visualizer with Pre-EQ, Post-EQ, Mid/Side, and L/R visualization.
+  * **HQ Oversampling**: High-Quality mode with linear-phase FIR half-band filtering.
+  * **Interactive GUI**: Marquee multi-node selection, piano roll scale display, and smart context-aware band creation.
+  * **Credits**: Original DSP & core architecture by [Justin Johnson (ReJJ)](https://github.com/Justin-Johnson/ReEQ).
+
 ---
 
 ## 📂 Repository Structure
@@ -223,8 +238,13 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   ├── PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 ├── EQ/                         # ReaPack Category: EQ
+│   ├── Dependencies/           # ReEQ include files
+│   │   ├── firhalfband.jsfx-inc
+│   │   ├── spectrum.jsfx-inc
+│   │   └── svf_filter.jsfx-inc
 │   ├── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
-│   └── PocketQ.jsfx            # JSFX plugin with ReaPack metadata header
+│   ├── PocketQ.jsfx            # JSFX plugin with ReaPack metadata header
+│   └── ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
     └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
