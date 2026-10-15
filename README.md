@@ -35,7 +35,20 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Freeze & Audition**: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.
   * **Safe DSP Ceiling**: Hard NaN/Inf protection and anti-explosion audio ceilings.
 
-### 2. Saturation / OInflator
+### 2. Dynamics / Opto2A
+**Path**: `Dynamics/Opto2A.jsfx`  
+**Description**: Optical Tube Compressor
+
+* **Key Features**:
+  * **T4 Optical Attenuator Modeling**: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.
+  * **Compress / Limit Modes**: Switchable knee characteristics from gentle musical leveling to peak limiting.
+  * **HF Emphasis (R37)**: Dedicated sidechain high-pass emphasis control for frequency-conscious vocal leveling and de-essing.
+  * **Classic vs. Fast Photocell Speed**: Switch between vintage relaxed optical response and modern fast response.
+  * **Dual Display Metering**: Illuminated vintage VU meter with real-time scrolling Gain Reduction trace graph.
+  * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
+  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
+
+### 3. Saturation / OInflator
 **Path**: `Saturation/OInflator.jsfx`  
 **Description**: Harmonic Waveshaper & Loudness Enhancer
 
@@ -48,7 +61,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 3. Saturation / Phoenix
+### 4. Saturation / Phoenix
 **Path**: `Saturation/Phoenix.jsfx`  
 **Description**: Analog Tape Saturator
 
@@ -75,6 +88,7 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 ├── index.xml                   # ReaPack package index file
 ├── README.md                   # Repository documentation (shown in ReaPack)
 ├── Dynamics/                   # ReaPack Category: Dynamics
+│   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header

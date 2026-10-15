@@ -1,0 +1,1167 @@
+desc:Opto2A (Optical Tube Compressor)
+// @description Opto2A (Optical Tube Compressor)
+// @author MemoryAPI
+// @version 1.2.0
+// @changelog Initial release in repository
+// @link Original DSP repository https://github.com/JClones/JSFXClones
+// @about
+//   # Opto2A
+//   Optical Tube Compressor with program-dependent T4 photocell attenuation and tube output stage modeling.
+//
+//   ### Features
+//   - Authentic T4 optical attenuator modeling with two-stage release memory
+//   - Switchable Compress and Limit modes
+//   - HF Emphasis (R37) sidechain filter control for frequency-dependent compression
+//   - Classic vs Fast opto cell response modes
+//   - High-resolution scrolling Gain Reduction trace and illuminated VU meter
+//   - Scalable HiDPI text zoom
+//
+//   ### Credits
+//   - Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.
+// @provides
+//   [effect] Opto2A.jsfx
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:peak_red_pct=50<0,100,0.1>-Peak Reduction (%)
+slider2:gain_pct=40<0,100,0.1>-Makeup Gain (%)
+slider3:limit_mode=0<0,1,1{Compress,Limit}>-Mode
+slider4:r37_pct=50<0,100,0.1>-HF Emphasis / R37 (%)
+slider5:opto_cell=1<0,1,1{Classic,Fast}>-Opto Cell Speed
+slider6:active_on=1<0,1,1{Bypass,Active}>-Active
+slider7:ui_zoom=1.20<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+ext_gr_meter = 0.0;
+
+// Circular buffer for scrolling Gain Reduction history trace (128 points)
+GR_HIST_LEN = 128;
+gr_hist_buf = 2000;
+
+function DB_TO_K(x)
+(
+  10 ^ (x / 20)
+);
+
+function K_TO_DB(x)
+(
+  20 * log10(max(0.000001, x))
+);
+
+function getFilter1K(time_msec)
+(
+  1.0 - pow(0.05, 1.0 / max(1.0, srate * (time_msec / 1000.0)));
+);
+
+const_1Em10 = 10.0 ^ -10.0;
+
+/*
+ * Filter2 - digital second order filter (JClones MIT)
+ */
+
+function Filter2_Init(a0, a1, a2, b1, b2)
+(
+  this.a0 = a0;
+  this.a1 = a1;
+  this.a2 = a2;
+  this.b1 = b1;
+  this.b2 = b2;
+);
+
+function Filter2_reset()
+(
+  this.x1 = 0;
+  this.x2 = 0;
+  this.y1 = 0;
+  this.y2 = 0;
+);
+
+function Filter2_processSample(x0) local(y0)
+(
+  y0 = x0 * this.a0 + this.x1 * this.a1 + this.x2 * this.a2 +
+    this.y1 * this.b1 + this.y2 * this.b2;
+
+  this.x2 = this.x1;
+  this.x1 = x0;
+
+  this.y2 = this.y1;
+  this.y1 = y0;
+
+  y0;
+);
+
+function Filter2_generateLS(freq_k, gain_dB, Q) local(w0, sin_w0, cos_w0, gain_1, gain_0, gain_2, s_sin, x1, x2, x3, b1, b2, a0, a1, a2)
+(
+  w0 = freq_k * 2.0 * $pi;
+
+  sin_w0 = sin(w0);
+  cos_w0 = cos(w0);
+
+  gain_1 = DB_TO_K(gain_dB);
+
+  gain_0 = gain_1 - 1.0;
+  gain_2 = (gain_1 * gain_1 + 1.0) / Q - (gain_1 - 1.0) * (gain_1 - 1.0);
+
+  s_sin = sqrt(max(gain_2, 0.0)) * sin_w0;
+
+  x1 = gain_1 + 1.0 + gain_0 * cos_w0;
+  x2 = gain_1 + 1.0 - gain_0 * cos_w0;
+  x3 = gain_0 - (gain_1 + 1.0) * cos_w0;
+
+  b1 = ((gain_1 + 1.0) * cos_w0 + gain_0) * -2.0 / (s_sin + x1);
+  b2 = (x1 - s_sin) / (s_sin + x1);
+  a0 = (x2 + s_sin) * gain_1 / (s_sin + x1);
+  a1 = x3 * (gain_1 * 2.0) / (s_sin + x1);
+  a2 = (x2 - s_sin) * gain_1 / (s_sin + x1);
+
+  this.Filter2_Init(a0, a1, a2, -b1, -b2);
+);
+
+function Filter2_generateHS(freq_k, gain_dB, Q) local(w0, sin_w0, cos_w0, gain_1, gain_0, gain_2, s_sin, x1, x2, x3, b1, b2, a0, a1, a2)
+(
+  w0 = freq_k * 2.0 * $pi;
+
+  sin_w0 = sin(w0);
+  cos_w0 = cos(w0);
+
+  gain_1 = DB_TO_K(gain_dB);
+
+  gain_0 = gain_1 - 1.0;
+  gain_2 = (gain_1 * gain_1 + 1.0) / Q - (gain_1 - 1.0) * (gain_1 - 1.0);
+
+  s_sin = sqrt(max(gain_2, 0.0)) * sin_w0;
+
+  x1 = gain_1 + 1.0 - gain_0 * cos_w0;
+  x2 = gain_1 + 1.0 + gain_0 * cos_w0;
+  x3 = gain_0 + (gain_1 + 1.0) * cos_w0;
+
+  b1 = (gain_0 - (gain_1 + 1.0) * cos_w0) * 2.0 / (s_sin + x1);
+  b2 = (x1 - s_sin) / (s_sin + x1);
+  a0 = (x2 + s_sin) * gain_1 / (s_sin + x1);
+  a1 = x3 * (gain_1 * -2.0) / (s_sin + x1);
+  a2 = (x2 - s_sin) * gain_1 / (s_sin + x1);
+
+  this.Filter2_Init(a0, a1, a2, -b1, -b2);
+);
+
+function Filter2_generatePK(freq_k, gain_dB) local(w0, sin_w0, cos_w0, gain_1, x1, x2, x3, b1, b2, a0, a1, a2)
+(
+  w0 = freq_k * 2.0 * $pi;
+
+  sin_w0 = sin(w0);
+  cos_w0 = cos(w0);
+
+  gain_1 = DB_TO_K(gain_dB);
+
+  x1 = ((freq_k * 2.0 + 1.0) * 0.187 / (1.0 - freq_k * 2.0) + 0.81) * sin_w0 / 0.42;
+  x2 = x1 / gain_1;
+  x3 = x1 * gain_1;
+
+  b1 = cos_w0 * -2.0 / (x2 + 1.0);
+  b2 = (1.0 - x2) / (x2 + 1.0);
+  a0 = (x3 + 1.0) / (x2 + 1.0);
+  a1 = cos_w0 * -2.0 / (x2 + 1.0);
+  a2 = (1.0 - x3) / (x2 + 1.0);
+
+  this.Filter2_Init(a0, a1, a2, -b1, -b2);
+);
+
+/*
+ * LACompressor (JClones MIT)
+ */
+
+function LACompressor_setGain(gain_k)
+(
+  this.output_gain_k = pow((pow(24.0, gain_k) - 1.0) / 23.0, 1.35) * 24.0;
+);
+
+function LACompressor_refreshFilters()
+(
+  this.biquad1.Filter2_generateLS(10.0 / srate, -9.0, 0.5);
+  this.biquad3.Filter2_generateHS(17000.0 / srate, -6.0, 0.3);
+  this.biquad5.Filter2_generatePK(220.0 / srate, this.R47_param * -13.0 * 0.5);
+  this.biquad7.Filter2_generateLS(43.0 / srate, 30.0, 0.6);
+
+  this.biquad2.Filter2_Init(this.biquad1.a0, this.biquad1.a1, this.biquad1.a2, this.biquad1.b1, this.biquad1.b2);
+  this.biquad4.Filter2_Init(this.biquad3.a0, this.biquad3.a1, this.biquad3.a2, this.biquad3.b1, this.biquad3.b2);
+  this.biquad6.Filter2_Init(this.biquad5.a0, this.biquad5.a1, this.biquad5.a2, this.biquad5.b1, this.biquad5.b2);
+  this.biquad8.Filter2_Init(this.biquad7.a0, this.biquad7.a1, this.biquad7.a2, this.biquad7.b1, this.biquad7.b2);
+);
+
+function LACompressor_setPeakReduction(peak_reduction_k) local(a)
+(
+  this.gr_const_A = (peak_reduction_k * 1.03 - 0.03) * -49.0;
+  this.threshold_dB = this.gr_const_A + 47.0;
+  this.threshold_lin = DB_TO_K(this.threshold_dB);
+
+  a = pow(2.0, 1.0 - peak_reduction_k);
+
+  this.gr_const_B = a + 1.2;
+  this.gr_const_C = log10(this.gr_const_B);
+  this.gr_const_D = DB_TO_K(this.gr_const_A);
+  this.peak_reduction_k = peak_reduction_k;
+
+  this.LACompressor_refreshFilters();
+);
+
+function LACompressor_setLimitMode(is_limit)
+(
+  this.is_limit = is_limit;
+  this.12_or_13 = !is_limit ? 1.2 : 1.3;
+  this.log_12_or_13 = log10(this.12_or_13);
+);
+
+function LACompressor_setR37(r37_k)
+(
+  this.R47_param = r37_k;
+  this.LACompressor_refreshFilters();
+);
+
+function LACompressor_setOptoCell(is_classic)
+(
+  this.photocell_memory_classic = is_classic;
+);
+
+function LACompressor_getGainReduction(input) local(s, max_gr_lpf4, attack_msec, dynamic_gr_lpf4_attack)
+(
+  // gr_lpf1
+  (input < this.gr_lpf1_s) ? (
+    this.gr_lpf1_s += (input - this.gr_lpf1_s) * this.gr_lpf1_attack;
+  ) : (
+    this.gr_lpf1_s += (input - this.gr_lpf1_s) * this.gr_lpf1_release;
+  );
+
+  this.gr_lpf1_s = max(this.gr_lpf1_s, 0.7);
+
+  // gr_lpf2
+  (input < this.gr_lpf2_s) ? (
+    this.gr_lpf2_s += (input - this.gr_lpf2_s) * this.gr_lpf2_attack;
+  ) : (
+    this.gr_lpf2_s += (min(input, this.gr_lpf1_s) - this.gr_lpf2_s) * this.gr_lpf2_release;
+  );
+
+  this.gr_lpf2_s = max(this.gr_lpf2_s, 0.4);
+
+  // gr_lpf3
+  (input < this.gr_lpf4_s) ? (
+    this.gr_lpf3_s += (input - this.gr_lpf3_s) * this.gr_lpf3_attack;
+  ) : (
+    this.gr_lpf3_s += (input - this.gr_lpf3_s) * this.gr_lpf3_release;
+  );
+
+  s = (this.gr_lpf3_s - 0.5) * 2.0;
+
+  (this.photocell_memory_classic) ? (
+    max_gr_lpf4 = input * 12.0;
+  ) : (
+    s /= 5.5;
+    max_gr_lpf4 = input * 6.0;
+    this.dynamic_attack_s = 0.9;
+  );
+
+  attack_msec = 70.0 * max(0.3, s);
+  dynamic_gr_lpf4_attack = getFilter1K(attack_msec);
+
+  // gr_lpf4
+  (input < this.gr_lpf4_s) ? (
+    (input + 0.0001 < this.gr_lpf4_s) ? (
+      this.dynamic_attack_s += (1.0 - this.dynamic_attack_s) * this.dynamic_attack_attack;
+    );
+
+    this.gr_lpf4_s += (input - this.gr_lpf4_s) * dynamic_gr_lpf4_attack * this.dynamic_attack_s;
+
+    (this.gr_lpf4_s >= max_gr_lpf4) ? (
+      this.gr_lpf4_s = max_gr_lpf4;
+    );
+  ) : (
+    this.dynamic_attack_s += (0.0 - this.dynamic_attack_s) * this.dynamic_attack_release;
+    this.gr_lpf4_s += (min(input, this.gr_lpf2_s) - this.gr_lpf4_s) * this.gr_lpf4_release;
+  );
+
+  this.gr_lpf4_s;
+);
+
+function LACompressor_processSampleStereo(x1, x2) local(sc_left, sc_right,
+  level_left, level_right, level_max, level_max_dB, value_dB, value,
+  gr_level, k, b_left, b_right, level_sc, level_b, v1, v2, v3, v4, v5,
+  gain_reduction, sat_x1, delta_x1, sat_x2, delta_x2, gain_scale, y1, y2,
+  y1_sat, delta_y1, y2_sat, delta_y2, delta_gr)
+(
+  sc_left = x1;
+  sc_right = x2;
+
+  sc_left = this.biquad5.Filter2_processSample(this.biquad3.Filter2_processSample(this.biquad1.Filter2_processSample(sc_left)));
+  sc_right = this.biquad6.Filter2_processSample(this.biquad4.Filter2_processSample(this.biquad2.Filter2_processSample(sc_right)));
+
+  this.rms_s_left += (sc_left * sc_left - this.rms_s_left) * this.rms_lpf_k;
+  this.rms_s_right += (sc_right * sc_right - this.rms_s_right) * this.rms_lpf_k;
+
+  level_left = sqrt(this.rms_s_left) * 0.25 + abs(sc_left) * 0.75;
+  level_right = sqrt(this.rms_s_right) * 0.25 + abs(sc_right) * 0.75;
+
+  level_max = max(level_left, level_right);
+  level_max = max(level_max, const_1Em10);
+
+  level_max_dB = K_TO_DB(level_max);
+  level_max_dB -= this.gr_const_A;
+
+  value_dB = log10(pow(this.gr_const_B, level_max_dB) + 1) / this.gr_const_C + this.gr_const_A;
+  value = DB_TO_K(value_dB);
+
+  gr_level = (value - this.gr_const_D) / level_max;
+
+  k = (gr_level > this.gr_filter_s) ? this.attack_filter_k : this.release_filter_k;
+  this.gr_filter_s += (gr_level - this.gr_filter_s) * k;
+
+  sc_left *= this.gr_filter_s;
+  sc_right *= this.gr_filter_s;
+
+  b_left = this.biquad7.Filter2_processSample(sc_left);
+  b_right = this.biquad8.Filter2_processSample(sc_right);
+
+  level_sc = max(abs(sc_left), abs(sc_right));
+  level_b = max(abs(b_left), abs(b_right));
+
+  level_sc = max(level_sc, const_1Em10);
+  level_b = max(level_b, const_1Em10);
+
+  k = (level_sc > this.sc_level_s) ? this.level_attack : this.level_release;
+  this.sc_level_s += (level_sc - this.sc_level_s) * k;
+
+  k = (level_b > this.b_level_s) ? this.level_attack : this.level_release;
+  this.b_level_s += (level_b - this.b_level_s) * k;
+
+  v1 = K_TO_DB(this.b_level_s);
+  v2 = log10(pow(this.12_or_13, v1 - this.threshold_dB) + 1.0);
+  v3 = DB_TO_K(v2 / this.log_12_or_13 + this.threshold_dB);
+  v4 = this.threshold_lin / v3 * this.sc_level_s;
+  v5 = pow(this.gr_const_D / (this.gr_const_D + v4), !this.is_limit ? 0.79 : 0.94);
+
+  gain_reduction = this.LACompressor_getGainReduction(v5);
+  this.gr = gain_reduction;
+
+  // Input tube saturation
+  sat_x1 = (x1 >= 0.0) ?
+    x1 / (pow(x1 * 0.05, 1.3) + 1.0) :
+    x1 / (1.0 - x1 * 0.005);
+  delta_x1 = sat_x1 - x1;
+
+  sat_x2 = (x2 >= 0.0) ?
+    x2 / (pow(x2 * 0.05, 1.3) + 1.0) :
+    x2 / (1.0 - x2 * 0.005);
+  delta_x2 = sat_x2 - x2;
+
+  gain_scale = this.peak_reduction_k * this.peak_reduction_k * 14.0 + 1.0;
+
+  y1 = x1 * gain_reduction * gain_scale;
+  y2 = x2 * gain_reduction * gain_scale;
+
+  // Output tube saturation
+  y1_sat = (y1 >= 0.0) ?
+    y1 / (pow(y1 * 0.05, 1.3) + 1.0) :
+    y1 / (1.0 - y1 * 0.005);
+  delta_y1 = y1_sat - y1;
+
+  y2_sat = (y2 >= 0.0) ?
+    y2 / (pow(y2 * 0.05, 1.3) + 1.0) :
+    y2 / (1.0 - y2 * 0.005);
+  delta_y2 = y2_sat - y2;
+
+  delta_gr = max((1.0 - pow(gain_reduction * 0.98, 0.1)) * 18.0, 0.0);
+
+  this.y1 = ((delta_y1 * 0.5 + delta_x1 * 0.5) * delta_gr + x1) * gain_reduction * this.output_gain_k;
+  this.y2 = ((delta_y2 * 0.5 + delta_x2 * 0.5) * delta_gr + x2) * gain_reduction * this.output_gain_k;
+);
+
+function LACompressor_reset()
+(
+  this.biquad1.Filter2_reset();
+  this.biquad2.Filter2_reset();
+  this.biquad3.Filter2_reset();
+  this.biquad4.Filter2_reset();
+  this.biquad5.Filter2_reset();
+  this.biquad6.Filter2_reset();
+  this.biquad7.Filter2_reset();
+  this.biquad8.Filter2_reset();
+
+  this.rms_s_left = 0.0;
+  this.rms_s_right = 0.0;
+  this.gr_filter_s = 0.0;
+  this.sc_level_s = 0.0;
+  this.b_level_s = 0.0;
+
+  this.gr_lpf1_s = 1.0;
+  this.gr_lpf2_s = 1.0;
+  this.gr_lpf3_s = 1.0;
+  this.gr_lpf4_s = 1.0;
+  this.dynamic_attack_s = 0.0;
+  this.gr = 1.0;
+);
+
+function LACompressor_setSampleRate()
+(
+  this.rms_lpf_k = getFilter1K(36.0);
+  this.attack_filter_k = getFilter1K(0.0);
+  this.release_filter_k = getFilter1K(20.0);
+  this.level_attack = getFilter1K(0.0);
+  this.level_release = getFilter1K(20.0);
+
+  this.gr_lpf1_attack = getFilter1K(35000.0);
+  this.gr_lpf1_release = getFilter1K(9000.0);
+  this.gr_lpf2_attack = getFilter1K(1400.0);
+  this.gr_lpf2_release = getFilter1K(900.0);
+  this.gr_lpf3_attack = getFilter1K(1100.0);
+  this.gr_lpf3_release = getFilter1K(12000.0);
+  this.gr_lpf4_release = getFilter1K(70.0);
+
+  this.dynamic_attack_attack = getFilter1K(15.0);
+  this.dynamic_attack_release = getFilter1K(2.0);
+);
+
+function sync_dsp_params()
+(
+  peak_reduction = peak_red_pct / 100.0;
+  gain           = gain_pct / 100.0;
+  r37            = 1.0 - r37_pct / 100.0;
+
+  comp.LACompressor_setGain(gain);
+  comp.LACompressor_setPeakReduction(peak_reduction);
+  comp.LACompressor_setLimitMode(limit_mode);
+  comp.LACompressor_setR37(r37);
+  comp.LACompressor_setOptoCell(!opto_cell);
+
+  SAFE_SRATE  = max(8000.0, srate);
+  meter_decay = exp(-1.0 / (0.18 * SAFE_SRATE));
+  hold_decay  = exp(-1.0 / (1.20 * SAFE_SRATE));
+);
+
+(srate != sample_rate) || !init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.20;
+  active_on = 1;
+  comp.LACompressor_setSampleRate();
+  comp.LACompressor_reset();
+  hold_max_gr = 1.0;
+  sample_rate = srate;
+  init_done = 1;
+);
+
+sync_dsp_params();
+
+@slider
+sync_dsp_params();
+
+@block
+(srate != sample_rate) ? (
+  comp.LACompressor_setSampleRate();
+  sample_rate = srate;
+);
+sync_dsp_params();
+
+ext_gr_meter = active_on ? K_TO_DB(hold_max_gr) : 0.0;
+ui_block_gr_db = ext_gr_meter;
+hold_max_gr = 1.0;
+
+@sample
+in_l = spl0;
+in_r = spl1;
+
+active_on ? (
+  comp.LACompressor_processSampleStereo(in_l, in_r);
+  hold_max_gr = min(hold_max_gr, comp.gr);
+  out_l = comp.y1;
+  out_r = comp.y2;
+  inst_gr_db = K_TO_DB(comp.gr);
+) : (
+  out_l = in_l;
+  out_r = in_r;
+  inst_gr_db = 0.0;
+);
+
+spl0 = out_l;
+spl1 = out_r;
+
+abs_in_l  = abs(in_l);
+abs_in_r  = abs(in_r);
+abs_out_l = abs(out_l);
+abs_out_r = abs(out_r);
+
+env_in_l  = max(abs_in_l,  env_in_l  * meter_decay);
+env_in_r  = max(abs_in_r,  env_in_r  * meter_decay);
+env_out_l = max(abs_out_l, env_out_l * meter_decay);
+env_out_r = max(abs_out_r, env_out_r * meter_decay);
+
+hold_in_l  = max(abs_in_l,  hold_in_l  * hold_decay);
+hold_in_r  = max(abs_in_r,  hold_in_r  * hold_decay);
+hold_out_l = max(abs_out_l, hold_out_l * hold_decay);
+hold_out_r = max(abs_out_r, hold_out_r * hold_decay);
+
+// Track peak GR (most negative dB) with smooth decay
+abs_gr_db  = abs(min(0.0, inst_gr_db));
+env_gr_db  = max(abs_gr_db, env_gr_db  * meter_decay);
+hold_gr_db = max(abs_gr_db, hold_gr_db * hold_decay);
+
+(abs_in_l > 1.0 || abs_in_r > 1.0) ? clip_in_latched = 1;
+(abs_out_l > 1.0 || abs_out_r > 1.0) ? clip_out_latched = 1;
+
+@gfx 720 650
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(600, gfx_w);
+H = max(540, gfx_h);
+
+// Responsive geometry scale & Linux X11 font multiplier
+S  = min(W / 720.0, H / 650.0);
+TS = S * max(1.0, ui_zoom);
+
+f_title = max(18, floor(22 * TS));
+f_sec   = max(13, floor(14 * TS));
+f_val   = max(14, floor(15 * TS));
+f_btn   = max(12, floor(13 * TS));
+f_grid  = max(11, floor(12 * TS));
+f_big   = max(17, floor(20 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_grid,  0);
+gfx_setfont(6, "sans-serif", f_big,   'b');
+
+// Push latest smoothed GR into circular history buffer once per @gfx frame
+gr_hist_buf[gr_hist_head] = min(20.0, env_gr_db);
+gr_hist_head = (gr_hist_head + 1) % GR_HIST_LEN;
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Rotary Knob with Catppuccin Blue / Sapphire Accent & High-Contrast Pill Badge
+function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, is_hero)
+  local(norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 10)*(r + 10));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 550.0 : 160.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  // Soft outer drop shadow & Blue hover halo
+  gfx_set(0.05, 0.05, 0.09, 0.85);
+  gfx_circle(cx, cy + 3, r + 1, 1, 1);
+  hover ? (
+    gfx_set(0.54, 0.71, 0.98, 0.16);
+    gfx_circle(cx, cy, r + 6, 1, 1);
+  );
+
+  // Knob body (#181825 mantle, #313244 border)
+  gfx_set(0.11, 0.11, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(0.54, 0.71, 0.98, 0.95) : gfx_set(0.24, 0.25, 0.35, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+
+  // Value arc (3 radial passes for crisp visibility)
+  steps = 36;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    t1 <= norm ? (
+      is_hero ? gfx_set(0.45, 0.78, 0.98, 1.0) : gfx_set(0.54, 0.71, 0.98, 0.95);
+    ) : (
+      gfx_set(0.20, 0.21, 0.29, 0.9);
+    );
+
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    gfx_line(cx + sin(a0)*(r-6), cy - cos(a0)*(r-6), cx + sin(a1)*(r-6), cy - cos(a1)*(r-6), 1);
+    st += 1;
+  );
+
+  // Pointer indicator
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.25);
+  py0 = cy - cos(ang_val) * (r * 0.25);
+  px1 = cx + sin(ang_val) * (r - 8);
+  py1 = cy - cos(ang_val) * (r - 8);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
+  is_hero ? (
+    gfx_set(0.45, 0.78, 0.98, 1.0);
+    gfx_circle(px1, py1, 2.5, 1, 1);
+  );
+
+  // Label
+  gfx_setfont(2);
+  gfx_measurestr(label, lw, lh);
+  is_hero ? gfx_set(0.84, 0.90, 1.0, 1.0) : gfx_set(0.70, 0.75, 0.88, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(8 * S);
+  gfx_drawstr(label);
+
+  // Pill Value Readout
+  is_hero ? gfx_setfont(6) : gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(18 * S), floor(78 * S));
+  pill_h = vh + floor(8 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(11 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? 0.45 : 0.22, hover ? 0.78 : 0.24, hover ? 0.98 : 0.34);
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// Stereo Segmented Bar-Graph Meter (Catppuccin Blue / Sapphire / Yellow / Red)
+function draw_stereo_meter(mx, my, mw, mh, env_l, env_r, hold_l, hold_r, clip_latched, title_str)
+  local(bar_w, gap, l_x, r_x, db_l, db_r, hdb_l, hdb_r, norm_l, norm_r, hnorm_l, hnorm_r,
+        segs, s_idx, sy0, sy1, s_norm, r_c, g_c, b_c, lamp_h, tw, th, my_body, mh_body, hy_l, hy_r, max_db, pill_h, pill_y)
+(
+  lamp_h = floor(20 * S);
+
+  gfx_setfont(2);
+  gfx_measurestr(title_str, tw, th);
+  gfx_set(0.70, 0.75, 0.88, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my - th - floor(8 * S);
+  gfx_drawstr(title_str);
+
+  // OVER Clip Lamp
+  clip_latched ? (
+    draw_panel_box(mx, my, mw, lamp_h, 0.95, 0.35, 0.45, 1.0, 0.65, 0.70);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(mx, my, mw, lamp_h, 0.11, 0.11, 0.16, 0.22, 0.24, 0.34);
+    gfx_set(0.45, 0.48, 0.60, 1.0);
+  );
+  gfx_setfont(5);
+  gfx_measurestr("OVER", tw, th);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = my + (lamp_h - th) * 0.5;
+  gfx_drawstr("OVER");
+
+  my_body = my + lamp_h + 4;
+  mh_body = mh - lamp_h - 4;
+  draw_panel_box(mx, my_body, mw, mh_body, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
+
+  db_l  = K_TO_DB(env_l);
+  db_r  = K_TO_DB(env_r);
+  hdb_l = K_TO_DB(hold_l);
+  hdb_r = K_TO_DB(hold_r);
+
+  norm_l  = max(0.0, min(1.0, (db_l  + 48.0) / 51.0));
+  norm_r  = max(0.0, min(1.0, (db_r  + 48.0) / 51.0));
+  hnorm_l = max(0.0, min(1.0, (hdb_l + 48.0) / 51.0));
+  hnorm_r = max(0.0, min(1.0, (hdb_r + 48.0) / 51.0));
+
+  gap   = 4;
+  bar_w = floor((mw - 12 - gap) * 0.5);
+  l_x   = mx + 6;
+  r_x   = l_x + bar_w + gap;
+
+  segs = 32;
+  s_idx = 0;
+  loop(segs,
+    s_norm = (s_idx + 0.5) / segs;
+    sy1 = my_body + mh_body - 4 - (s_idx / segs) * (mh_body - 8);
+    sy0 = my_body + mh_body - 4 - ((s_idx + 0.78) / segs) * (mh_body - 8);
+
+    // Catppuccin Red (>0dB), Yellow (-6..0dB), Sapphire Blue (< -6dB)
+    s_norm > 0.94 ? (
+      r_c = 0.95; g_c = 0.55; b_c = 0.66; // Red (#F38BA8)
+    ) : s_norm > 0.80 ? (
+      r_c = 0.98; g_c = 0.89; b_c = 0.69; // Yellow (#F9E2AF)
+    ) : (
+      r_c = 0.45; g_c = 0.78; b_c = 0.98; // Sapphire (#74C7EC)
+    );
+
+    s_norm <= norm_l ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.20, g_c * 0.20, b_c * 0.25, 0.55);
+    );
+    gfx_rect(l_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    s_norm <= norm_r ? (
+      gfx_set(r_c, g_c, b_c, 0.95);
+    ) : (
+      gfx_set(r_c * 0.20, g_c * 0.20, b_c * 0.25, 0.55);
+    );
+    gfx_rect(r_x, sy0, bar_w, max(2, sy1 - sy0));
+
+    s_idx += 1;
+  );
+
+  // Peak Hold Markers
+  gfx_set(0.95, 0.97, 1.0, 0.95);
+  hy_l = my_body + mh_body - 4 - hnorm_l * (mh_body - 8);
+  hy_r = my_body + mh_body - 4 - hnorm_r * (mh_body - 8);
+  gfx_rect(l_x, hy_l - 1, bar_w, 2);
+  gfx_rect(r_x, hy_r - 1, bar_w, 2);
+
+  // Peak Readout Pill
+  max_db = max(hdb_l, hdb_r);
+  max_db < -47.5 ? strcpy(#m_str, "-inf") : sprintf(#m_str, "%+.1f", max_db);
+  gfx_setfont(3);
+  gfx_measurestr(#m_str, tw, th);
+  pill_h = th + floor(8 * S);
+  pill_y = my + mh + floor(10 * S);
+  draw_panel_box(mx - 4, pill_y, mw + 8, pill_h, 0.06, 0.06, 0.10, 0.22, 0.24, 0.34);
+  gfx_set(0.92, 0.95, 1.0, 1.0);
+  gfx_x = mx + (mw - tw) * 0.5;
+  gfx_y = pill_y + (pill_h - th) * 0.5;
+  gfx_drawstr(#m_str);
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.21, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+// OPTO2A Title with Catppuccin Blue Accent
+gfx_setfont(1);
+gfx_set(0.54, 0.71, 0.98, 1.0); // #89B4FA Blue
+gfx_x = floor(22 * S);
+gfx_measurestr("OPTO", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("OPTO");
+gfx_set(0.92, 0.94, 0.98, 1.0);
+gfx_drawstr("2A");
+
+// "?" Info Badge
+gfx_setfont(5);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(10 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 12, qh + 4);
+gfx_set(0.65, 0.72, 0.90, 1.0);
+gfx_x = q_x + 6; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+// UI Text Scale Toggle Button (TEXT: 100% / 120% / 140%)
+zm_w = floor(100 * S); zm_h = floor(30 * S);
+zm_x = W - floor(242 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 :
+  ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider7);
+);
+draw_panel_box(zm_x, zm_y, zm_w, zm_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+gfx_setfont(4);
+gfx_set(0.80, 0.84, 0.96, 1.0);
+ui_zoom < 1.1 ? strcpy(#z_lbl, "TEXT: 100%") :
+ui_zoom < 1.3 ? strcpy(#z_lbl, "TEXT: 120%") : strcpy(#z_lbl, "TEXT: 140%");
+gfx_measurestr(#z_lbl, zw, zh);
+gfx_x = zm_x + (zm_w - zw) * 0.5; gfx_y = zm_y + (zm_h - zh) * 0.5;
+gfx_drawstr(#z_lbl);
+
+// ACTIVE / BYPASS Button in Header
+act_w = floor(104 * S); act_h = floor(30 * S);
+act_x = W - act_w - floor(22 * S); act_y = (hdr_h - act_h) * 0.5;
+act_hit = mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= act_y && mouse_y <= act_y + act_h;
+(mouse_cap & 1) && !(last_mouse_cap & 1) && act_hit ? (
+  active_on = !active_on;
+  slider_automate(slider6);
+);
+active_on ? (
+  draw_panel_box(act_x, act_y, act_w, act_h, 0.22, 0.58, 0.92, 0.55, 0.82, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+  strcpy(#act_str, "ACTIVE");
+) : (
+  draw_panel_box(act_x, act_y, act_w, act_h, 0.15, 0.16, 0.23, 0.28, 0.30, 0.42);
+  gfx_set(0.65, 0.68, 0.78, 1.0);
+  strcpy(#act_str, "BYPASSED");
+);
+gfx_setfont(4);
+gfx_measurestr(#act_str, acw, ach);
+gfx_x = act_x + (act_w - acw) * 0.5; gfx_y = act_y + (act_h - ach) * 0.5;
+gfx_drawstr(#act_str);
+
+// =========================================================================
+// 2. LAYOUT GEOMETRY (LEFT/RIGHT METER TOWERS + CENTRAL OPTICAL DECK)
+// =========================================================================
+pad    = floor(18 * S);
+body_y = hdr_h + pad;
+body_h = H - hdr_h - (pad * 2);
+
+meter_col_w = floor(86 * S);
+left_x      = pad;
+right_x     = W - pad - meter_col_w;
+center_x    = left_x + meter_col_w + pad;
+center_w    = right_x - center_x - pad;
+
+draw_panel_box(left_x,  body_y, meter_col_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(right_x, body_y, meter_col_w, body_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+m_top = body_y + floor(38 * S);
+m_h   = body_h - floor(88 * S);
+m_w   = floor(48 * S);
+
+draw_stereo_meter(left_x + (meter_col_w - m_w)*0.5,  m_top, m_w, m_h, env_in_l,  env_in_r,  hold_in_l,  hold_in_r,  clip_in_latched,  "IN dB");
+draw_stereo_meter(right_x + (meter_col_w - m_w)*0.5, m_top, m_w, m_h, env_out_l, env_out_r, hold_out_l, hold_out_r, clip_out_latched, "OUT dB");
+
+// Click meters to clear OVER & Peak Hold
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  (mouse_x >= left_x && mouse_x <= left_x + meter_col_w && mouse_y >= body_y && mouse_y <= body_y + body_h) ? (
+    clip_in_latched = 0; hold_in_l = 0; hold_in_r = 0;
+  );
+  (mouse_x >= right_x && mouse_x <= right_x + meter_col_w && mouse_y >= body_y && mouse_y <= body_y + body_h) ? (
+    clip_out_latched = 0; hold_out_l = 0; hold_out_r = 0;
+  );
+);
+
+// Split Center Deck into 3 Stacked Cards:
+// [Top: Optical Gain Reduction Meter & History Scope]
+// [Middle: Dual Hero Knobs - Peak Reduction & Makeup Gain]
+// [Bottom: Sidechain Emphasis (R37), Compress/Limit Mode & Opto Cell Speed]
+gr_box_h = floor(body_h * 0.33);
+bot_h    = floor(body_h * 0.27);
+knobs_h  = body_h - gr_box_h - bot_h - (pad * 2);
+
+gr_box_y = body_y;
+knobs_y  = gr_box_y + gr_box_h + pad;
+bot_y    = knobs_y + knobs_h + pad;
+
+// =========================================================================
+// 3. TOP CENTER: OPTICAL GAIN REDUCTION METER & SCROLLING HISTORY TRACE
+// =========================================================================
+draw_panel_box(center_x, gr_box_y, center_w, gr_box_h, 0.065, 0.067, 0.106, 0.22, 0.24, 0.34);
+
+// Header Row inside GR Viewport
+gfx_setfont(5);
+gfx_set(0.62, 0.68, 0.84, 1.0);
+gfx_x = center_x + 12; gfx_y = gr_box_y + 8;
+gfx_drawstr("OPTICAL GAIN REDUCTION (dB)");
+
+sprintf(#gr_num_str, "-%.1f dB", env_gr_db);
+gfx_setfont(4);
+gfx_measurestr(#gr_num_str, grw, grh);
+gfx_set(0.54, 0.78, 1.0, 1.0);
+gfx_x = center_x + center_w - grw - 12;
+gfx_y = gr_box_y + 7;
+gfx_drawstr(#gr_num_str);
+
+// Horizontal Gain Reduction Bar (Right-to-Left from 0 dB to -20 dB)
+bar_mx = center_x + 12;
+bar_my = gr_box_y + floor(30 * S);
+bar_mw = center_w - 24;
+bar_mh = floor(22 * S);
+
+draw_panel_box(bar_mx, bar_my, bar_mw, bar_mh, 0.04, 0.04, 0.07, 0.18, 0.20, 0.28);
+
+gr_norm      = min(1.0, env_gr_db / 20.0);
+gr_hold_norm = min(1.0, hold_gr_db / 20.0);
+
+fill_w = floor(gr_norm * (bar_mw - 4));
+fill_w > 0 ? (
+  gfx_set(0.45, 0.78, 0.98, 0.92); // Catppuccin Sapphire
+  gfx_rect(bar_mx + bar_mw - 2 - fill_w, bar_my + 2, fill_w, bar_mh - 4);
+);
+
+// Peak-Hold Vertical Tick on GR Bar
+hold_px = bar_mx + bar_mw - 2 - floor(gr_hold_norm * (bar_mw - 4));
+gfx_set(0.95, 0.97, 1.0, 0.95);
+gfx_rect(hold_px - 1, bar_my + 2, 2, bar_mh - 4);
+
+// Scale ticks under Horizontal GR Bar (0, -3, -6, -10, -15, -20 dB)
+gfx_setfont(5);
+gfx_set(0.52, 0.56, 0.70, 1.0);
+t_i = 0;
+loop(6,
+  t_i == 0 ? db_m = 0 :
+  t_i == 1 ? db_m = 3 :
+  t_i == 2 ? db_m = 6 :
+  t_i == 3 ? db_m = 10 :
+  t_i == 4 ? db_m = 15 : db_m = 20;
+
+  tx_pos = bar_mx + bar_mw - (db_m / 20.0) * bar_mw;
+  gfx_line(tx_pos, bar_my + bar_mh, tx_pos, bar_my + bar_mh + 4);
+  db_m == 0 ? strcpy(#d_lbl, "0") : sprintf(#d_lbl, "-%d", db_m);
+  gfx_measurestr(#d_lbl, dlw, dlh);
+  gfx_x = min(bar_mx + bar_mw - dlw, max(bar_mx, tx_pos - dlw * 0.5));
+  gfx_y = bar_my + bar_mh + 5;
+  gfx_drawstr(#d_lbl);
+  t_i += 1;
+);
+
+// Scrolling Top-Down Gain Reduction Timeline Scope (Lower Half of GR Viewport)
+hist_x = bar_mx;
+hist_y = bar_my + bar_mh + floor(22 * S);
+hist_w = bar_mw;
+hist_h = (gr_box_y + gr_box_h) - hist_y - 10;
+
+hist_h > 20 ? (
+  draw_panel_box(hist_x, hist_y, hist_w, hist_h, 0.045, 0.047, 0.075, 0.16, 0.18, 0.26);
+
+  // Subtle -6 dB and -12 dB reference lines
+  gfx_set(0.13, 0.14, 0.21, 1.0);
+  y_6  = hist_y + (6.0 / 20.0) * hist_h;
+  y_12 = hist_y + (12.0 / 20.0) * hist_h;
+  gfx_line(hist_x + 1, y_6,  hist_x + hist_w - 1, y_6);
+  gfx_line(hist_x + 1, y_12, hist_x + hist_w - 1, y_12);
+
+  h_idx = 0;
+  loop(GR_HIST_LEN,
+    buf_i = (gr_hist_head + h_idx) % GR_HIST_LEN;
+    val_gr = gr_hist_buf[buf_i];
+    n_gr   = min(1.0, val_gr / 20.0);
+
+    hx = hist_x + 2 + (h_idx / (GR_HIST_LEN - 1)) * (hist_w - 4);
+    hy = hist_y + 2 + n_gr * (hist_h - 4);
+
+    // Subtle vertical sapphire fill from top down
+    n_gr > 0.005 ? (
+      gfx_set(0.35, 0.65, 0.98, 0.18);
+      gfx_line(hx, hist_y + 1, hx, hy);
+    );
+
+    h_idx > 0 ? (
+      gfx_set(0.54, 0.78, 1.0, 0.95);
+      gfx_line(prev_hx, prev_hy, hx, hy, 1);
+      gfx_line(prev_hx, prev_hy + 1, hx, hy + 1, 1);
+    );
+
+    prev_hx = hx;
+    prev_hy = hy;
+    h_idx += 1;
+  );
+);
+
+// Click GR Viewport to clear GR Peak Hold
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= center_x && mouse_x <= center_x + center_w && mouse_y >= gr_box_y && mouse_y <= gr_box_y + gr_box_h) ? (
+  hold_gr_db = 0.0;
+);
+
+// =========================================================================
+// 4. MIDDLE CENTER: DUAL HERO KNOBS (PEAK REDUCTION & MAKEUP GAIN)
+// =========================================================================
+draw_panel_box(center_x, knobs_y, center_w, knobs_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+knob_cy = knobs_y + knobs_h * 0.37;
+r_hero  = min(floor(54 * S), floor(knobs_h * 0.29));
+
+// Peak Reduction Knob (0 to 100)
+sprintf(#pr_str, "%.1f", peak_red_pct);
+new_pr = draw_rotary_knob(1, center_x + center_w * 0.29, knob_cy, r_hero, peak_red_pct, 0.0, 100.0, 50.0, "PEAK REDUCTION", #pr_str, 1);
+abs(new_pr - peak_red_pct) > 0.001 ? (
+  peak_red_pct = new_pr;
+  sync_dsp_params();
+  slider_automate(slider1);
+);
+
+// Makeup Gain Knob (0 to 100)
+sprintf(#gn_str, "%.1f", gain_pct);
+new_gn = draw_rotary_knob(2, center_x + center_w * 0.71, knob_cy, r_hero, gain_pct, 0.0, 100.0, 40.0, "MAKEUP GAIN", #gn_str, 1);
+abs(new_gn - gain_pct) > 0.001 ? (
+  gain_pct = new_gn;
+  sync_dsp_params();
+  slider_automate(slider2);
+);
+
+// Subtle center divider line between Peak Reduction & Makeup Gain
+gfx_set(0.18, 0.20, 0.28, 1.0);
+gfx_line(center_x + center_w * 0.5, knobs_y + floor(18 * S), center_x + center_w * 0.5, knobs_y + knobs_h - floor(18 * S));
+
+// =========================================================================
+// 5. BOTTOM CENTER: R37 HF EMPHASIS KNOB, MODE (COMP/LIMIT) & OPTO CELL
+// =========================================================================
+draw_panel_box(center_x, bot_y, center_w, bot_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+// Left side of Bottom Deck: R37 Sidechain Emphasis Knob
+r_r37  = min(floor(28 * S), floor(bot_h * 0.21));
+r37_cx = center_x + floor(center_w * 0.20);
+r37_cy = bot_y + floor(bot_h * 0.36);
+
+sprintf(#r37_str, "%.1f %%", r37_pct);
+new_r37 = draw_rotary_knob(3, r37_cx, r37_cy, r_r37, r37_pct, 0.0, 100.0, 50.0, "HF EMPHASIS (R37)", #r37_str, 0);
+abs(new_r37 - r37_pct) > 0.001 ? (
+  r37_pct = new_r37;
+  sync_dsp_params();
+  slider_automate(slider4);
+);
+
+// Right side of Bottom Deck: Two Segmented Selector Rows (MODE & OPTO CELL)
+sel_x = center_x + floor(center_w * 0.42);
+sel_w = (center_x + center_w) - sel_x - floor(16 * S);
+seg_gap = floor(8 * S);
+seg_w   = floor((sel_w - seg_gap) * 0.5);
+seg_h   = floor(bot_h * 0.26);
+
+// Row 1: MODE (COMPRESS vs LIMIT)
+gfx_setfont(5);
+gfx_set(0.68, 0.72, 0.84, 1.0);
+mode_lbl_y = bot_y + floor(10 * S);
+gfx_x = sel_x; gfx_y = mode_lbl_y;
+gfx_drawstr("COMPRESSION RATIO MODE");
+
+mode_btn_y = mode_lbl_y + floor(16 * S);
+
+// COMPRESS Button
+c_hit = (mouse_x >= sel_x && mouse_x <= sel_x + seg_w && mouse_y >= mode_btn_y && mouse_y <= mode_btn_y + seg_h);
+// LIMIT Button
+l_x   = sel_x + seg_w + seg_gap;
+l_hit = (mouse_x >= l_x && mouse_x <= l_x + seg_w && mouse_y >= mode_btn_y && mouse_y <= mode_btn_y + seg_h);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  c_hit ? ( limit_mode = 0; sync_dsp_params(); slider_automate(slider3); );
+  l_hit ? ( limit_mode = 1; sync_dsp_params(); slider_automate(slider3); );
+);
+
+limit_mode == 0 ? (
+  draw_panel_box(sel_x, mode_btn_y, seg_w, seg_h, 0.20, 0.50, 0.86, 0.54, 0.80, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(sel_x, mode_btn_y, seg_w, seg_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+  gfx_set(0.76, 0.80, 0.90, 1.0);
+);
+gfx_setfont(4);
+gfx_measurestr("COMPRESS", cw, ch);
+gfx_x = sel_x + (seg_w - cw) * 0.5; gfx_y = mode_btn_y + (seg_h - ch) * 0.5;
+gfx_drawstr("COMPRESS");
+
+limit_mode == 1 ? (
+  draw_panel_box(l_x, mode_btn_y, seg_w, seg_h, 0.20, 0.50, 0.86, 0.54, 0.80, 1.0);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(l_x, mode_btn_y, seg_w, seg_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+  gfx_set(0.76, 0.80, 0.90, 1.0);
+);
+gfx_measurestr("LIMIT", lw2, lh2);
+gfx_x = l_x + (seg_w - lw2) * 0.5; gfx_y = mode_btn_y + (seg_h - lh2) * 0.5;
+gfx_drawstr("LIMIT");
+
+// Row 2: OPTO CELL (CLASSIC vs FAST)
+gfx_setfont(5);
+gfx_set(0.68, 0.72, 0.84, 1.0);
+cell_lbl_y = mode_btn_y + seg_h + floor(10 * S);
+gfx_x = sel_x; gfx_y = cell_lbl_y;
+gfx_drawstr("OPTO ATTENUATOR RESPONSE");
+
+cell_btn_y = cell_lbl_y + floor(16 * S);
+
+cl_hit = (mouse_x >= sel_x && mouse_x <= sel_x + seg_w && mouse_y >= cell_btn_y && mouse_y <= cell_btn_y + seg_h);
+fa_hit = (mouse_x >= l_x && mouse_x <= l_x + seg_w && mouse_y >= cell_btn_y && mouse_y <= cell_btn_y + seg_h);
+
+(mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+  cl_hit ? ( opto_cell = 0; sync_dsp_params(); slider_automate(slider5); );
+  fa_hit ? ( opto_cell = 1; sync_dsp_params(); slider_automate(slider5); );
+);
+
+opto_cell == 0 ? (
+  draw_panel_box(sel_x, cell_btn_y, seg_w, seg_h, 0.18, 0.54, 0.78, 0.45, 0.82, 0.98);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(sel_x, cell_btn_y, seg_w, seg_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+  gfx_set(0.76, 0.80, 0.90, 1.0);
+);
+gfx_setfont(4);
+gfx_measurestr("CLASSIC", clw, clh);
+gfx_x = sel_x + (seg_w - clw) * 0.5; gfx_y = cell_btn_y + (seg_h - clh) * 0.5;
+gfx_drawstr("CLASSIC");
+
+opto_cell == 1 ? (
+  draw_panel_box(l_x, cell_btn_y, seg_w, seg_h, 0.18, 0.54, 0.78, 0.45, 0.82, 0.98);
+  gfx_set(1.0, 1.0, 1.0, 1.0);
+) : (
+  draw_panel_box(l_x, cell_btn_y, seg_w, seg_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.38);
+  gfx_set(0.76, 0.80, 0.90, 1.0);
+);
+gfx_measurestr("FAST", faw, fah);
+gfx_x = l_x + (seg_w - faw) * 0.5; gfx_y = cell_btn_y + (seg_h - fah) * 0.5;
+gfx_drawstr("FAST");
+
+// =========================================================================
+// 6. INFO OVERLAY MODAL (Click OPTO2A Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.74);
+  mh = floor(280 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.54, 0.71, 0.98);
+
+  gfx_setfont(1);
+  gfx_set(0.54, 0.71, 0.98, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("Opto2A v1.2 (Optical Tube Compressor)");
+
+  gfx_setfont(3);
+  gfx_set(0.90, 0.93, 0.98, 1.0);
+  lh_step = floor(27 * S);
+  ty = my + 62;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• Program-dependent optical attenuation with tube stage saturation");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• HF Emphasis (R37) adjusts sidechain sensitivity to high frequencies");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Classic & Fast photocell release memory modes");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Click any meter to reset Peak Hold & OVER indicators");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• DSP by JClones (github.com/JClones/JSFXClones) | MIT License");
+
+  gfx_set(0.58, 0.64, 0.78, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 34;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;
