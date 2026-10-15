@@ -1,8 +1,8 @@
 desc:SpectralCarver (32-Band Dynamic Spectral Ducker)
 // @description SpectralCarver (32-Band Dynamic Spectral Ducker)
-// @author Custom DSP
-// @version 1.2
-// @changelog Redesigned UI with DPI text zoom, animated drawer, and hover halos
+// @author MemoryAPI
+// @version 1.2.1
+// @changelog Unified repository author metadata to MemoryAPI
 // @about
 //   # SpectralCarver
 //   32-Band Dynamic Spectral Ducker using Cytomic SVF filters.

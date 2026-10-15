@@ -1,8 +1,8 @@
 desc:OInflator (Harmonic Waveshaper & Enhancer)
 // @description OInflator (Harmonic Waveshaper & Enhancer)
-// @author JClones / Custom DSP
-// @version 1.2.0
-// @changelog Cleaned up UI, removed trademark references, credited original JClones repository
+// @author MemoryAPI
+// @version 1.2.1
+// @changelog Unified repository author metadata to MemoryAPI
 // @link Original DSP repository https://github.com/JClones/JSFXClones
 // @about
 //   # OInflator
