@@ -1,0 +1,1223 @@
+desc:AetherVerb (8-Mode Algorithmic, Shimmer & FDN Reverb)
+// @description AetherVerb (8-Mode Algorithmic, Shimmer & FDN Reverb)
+// @author MemoryAPI
+// @version 1.1.0
+// @changelog Initial release in repository
+// @about
+//   # AetherVerb
+//   8-Mode Algorithmic, Shimmer & FDN Reverb workstation with auto-decay ducking, analog preamps, era conversion, hold/freeze, and post parametric EQ.
+//
+//   ### Features
+//   - 8 Distinct Reverb Algorithms: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network)
+//   - Shimmer Engine: Multi-voice pitch shifting with selectable intervals (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct)
+//   - Chorale Resonators: Formant vowel filtering (AH, OH, OO, Morph) for ethereal vocal-like resonance
+//   - Auto-Decay (SuperPlate Style): Dynamic envelope follower that ducks reverb decay or wet level during active playing to prevent mix clutter
+//   - Preamps & Converter Eras: Clean, Tube V54, Solid State 162 preamps with Modern HiFi, 70s 12-Bit, and 80s Dark converter modeling
+//   - Infinite & Freeze: Instant hold modes for endless ambient sustain drones
+//   - Tone & Equalization: Pre Low/High Cut filters plus a 2-band parametric post-EQ
+//   - Scalable HiDPI Interface: Vector UI with text zoom (100% - 150%) and collapsible tweak drawer
+// @provides
+//   [effect] AetherVerb.jsfx
+
+options:maxmem=8388608
+
+// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
+slider1:rev_mode=0<0,7,1{Plate 140,Concert Hall,Cloud,Shimmer,Bloom,Chorale,Non-Linear,SuperFDN}>-Reverb Machine
+slider2:decay_sec=3.2<0.2,60.0,0.1>-Decay Time (s)
+slider3:predelay_ms=18<0,500,1>-Pre-Delay (ms)
+slider4:size_pct=70<10,100,0.1>-Size / Warp (%)
+slider5:diff_pct=75<0,100,0.1>-Diffusion / Density (%)
+slider6:tone_pct=55<0,100,0.1>-Tone / High Damp (%)
+slider7:lowend_val=0<-10,10,0.1>-Low End Decay
+slider8:mod_depth_pct=30<0,100,0.1>-Mod Depth (%)
+slider9:mod_rate_hz=0.85<0.1,8.0,0.05>-Mod Rate (Hz)
+slider10:early_late_pct=35<0,100,0.1>-Early / Late Balance (%)
+slider11:mix_pct=35<0,100,0.1>-Wet/Dry Mix (%)
+slider12:width_pct=100<-100,200,1>-Stereo Width (%)
+
+// Preamp, Era, Hold & Freeze
+slider13:preamp_style=0<0,2,1{Clean,Tube V54,Solid State 162}>-Preamp Style
+slider14:era_color=0<0,2,1{Modern HiFi,70s 12-Bit,80s Dark}>-Converter Era
+slider15:hold_on=0<0,1,1{Off,Hold}>-Hold Active
+slider16:hold_mode=0<0,1,1{Freeze,Infinite}>-Hold Mode
+
+// Machine-Specific & Shimmer / Chorale Controls
+slider17:shim_amt_pct=35<0,100,0.1>-Shimmer / Special Amount (%)
+slider18:shim_v1_idx=4<0,5,1{-1 Oct,-5th,Detune,+5th,+1 Oct,+2 Oct}>-Shimmer Voice 1
+slider19:shim_v2_idx=5<0,6,1{Off,-1 Oct,-5th,Detune,+5th,+1 Oct,+2 Oct}>-Shimmer Voice 2
+slider20:vowel_idx=0<0,3,1{AH,OH,OO,Morph}>-Chorale Vowel / NonLin Shape
+
+// Auto-Decay (SuperPlate Style)
+slider21:autodec_on=0<0,1,1{Off,On}>-Auto-Decay Enable
+slider22:autodec_thr_db=-18<-48,0,0.5>-Auto-Decay Threshold (dB)
+slider23:autodec_Ratio_pct=65<0,90,1>-Auto-Decay Reduction (%)
+slider24:autodec_rec_ms=180<10,500,1>-Auto-Decay Recovery (ms)
+
+// Pre-Cut Filters & Post 2-Band Parametric EQ
+slider25:locut_hz=60<20,1000,1>-Pre Low-Cut (Hz)
+slider26:hicut_hz=12000<1000,20000,10>-Pre High-Cut (Hz)
+slider27:post_eq_on=1<0,1,1{Off,On}>-Post-EQ Enable
+slider28:eq1_freq_hz=280<40,2000,1>-Post-EQ 1 Freq (Hz)
+slider29:eq1_gain_db=0<-15,15,0.1>-Post-EQ 1 Gain (dB)
+slider30:eq2_freq_hz=3800<500,16000,10>-Post-EQ 2 Freq (Hz)
+slider31:eq2_gain_db=0<-15,15,0.1>-Post-EQ 2 Gain (dB)
+
+slider32:in_gain_db=0<-24,24,0.1>-Input Level (dB)
+slider33:out_gain_db=0<-24,24,0.1>-Output Level (dB)
+slider34:tweak_open=0<0,1,1{Closed,Open}>-Tweak Drawer
+slider35:active_on=1<0,1,1{Bypass,Active}>-Active
+slider36:ui_zoom=1.25<1.0,1.5,0.25>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+MIN_FREQ = 20.0;
+MAX_FREQ = 20000.0;
+LOG_MIN  = log(MIN_FREQ);
+LOG_MAX  = log(MAX_FREQ);
+
+function DB_TO_K(x) ( 10 ^ (x / 20.0) );
+function K_TO_DB(lin) ( 8.685889638 * log(max(0.0000001, lin)) );
+
+// Pitch ratios for Shimmer Voices (-1 Oct, -5th, Detune +8c, +5th, +1 Oct, +2 Oct)
+pitch_ratio_tbl = 80;
+pitch_ratio_tbl[0] = 0.500000; // -1 Oct
+pitch_ratio_tbl[1] = 0.667420; // -5th (-7 st)
+pitch_ratio_tbl[2] = 1.004632; // Detune
+pitch_ratio_tbl[3] = 1.498307; // +5th (+7 st)
+pitch_ratio_tbl[4] = 2.000000; // +1 Oct
+pitch_ratio_tbl[5] = 4.000000; // +2 Oct
+
+// Memory Map for Delay Lines, Diffusers, Shimmer Grains & 8-Delay FDN Tank
+PD_FRAMES = 65536;
+PD_MASK   = PD_FRAMES - 1;
+PD_BASE   = 4096;
+
+AP_FRAMES = 16384;
+AP_MASK   = AP_FRAMES - 1;
+AP_L1 = PD_BASE + (PD_FRAMES * 2);
+AP_L2 = AP_L1 + AP_FRAMES;
+AP_L3 = AP_L2 + AP_FRAMES;
+AP_L4 = AP_L3 + AP_FRAMES;
+AP_R1 = AP_L4 + AP_FRAMES;
+AP_R2 = AP_R1 + AP_FRAMES;
+AP_R3 = AP_R2 + AP_FRAMES;
+AP_R4 = AP_R3 + AP_FRAMES;
+
+FDN_FRAMES = 32768;
+FDN_MASK   = FDN_FRAMES - 1;
+FDN_0 = AP_R4 + AP_FRAMES;
+FDN_1 = FDN_0 + FDN_FRAMES;
+FDN_2 = FDN_1 + FDN_FRAMES;
+FDN_3 = FDN_2 + FDN_FRAMES;
+FDN_4 = FDN_3 + FDN_FRAMES;
+FDN_5 = FDN_4 + FDN_FRAMES;
+FDN_6 = FDN_5 + FDN_FRAMES;
+FDN_7 = FDN_6 + FDN_FRAMES;
+
+SHIM_FRAMES = 16384;
+SHIM_MASK   = SHIM_FRAMES - 1;
+SHIM_BASE   = FDN_7 + FDN_FRAMES;
+
+fdn_base_len = 120;
+fdn_base_len[0] = 1493; fdn_base_len[1] = 1787; fdn_base_len[2] = 2111; fdn_base_len[3] = 2477;
+fdn_base_len[4] = 2897; fdn_base_len[5] = 3371; fdn_base_len[6] = 3917; fdn_base_len[7] = 4519;
+
+fdn_lp_state = 140;
+fdn_hp_state = 160;
+fdn_tap_len  = 180;
+fdn_out_arr  = 200;
+
+C_PRE_HP  = 300; C_PRE_LP  = 310;
+C_EQ1     = 320; C_EQ2     = 330;
+C_FORM1   = 340; C_FORM2   = 350;
+
+ST_L = 400; ST_R = 450;
+
+function svf_design(ptr, type, fc, gain_db, Q, srate_val)
+  local(fc_s, g, A, k, a1, a2, a3, m0, m1, m2)
+(
+  fc_s = max(18.0, min(srate_val * 0.45, fc));
+  g = tan($pi * fc_s / srate_val);
+  A = 1.0;
+  k = 1.0 / max(0.25, Q);
+
+  type == 0 ? (
+    A  = pow(10.0, gain_db / 40.0);
+    k  = 1.0 / max(0.2, Q * A);
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = k * (A * A - 1.0); m2 = 0.0;
+  ) : type == 3 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = -k; m2 = -1.0;
+  ) : type == 4 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 0.0; m1 = 0.0; m2 = 1.0;
+  ) : (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 0.0; m1 = k; m2 = 0.0;
+  );
+
+  ptr[0]=a1; ptr[1]=a2; ptr[2]=a3; ptr[3]=m0; ptr[4]=m1; ptr[5]=m2;
+  ptr[6]=type; ptr[7]=g; ptr[8]=k; ptr[9]=A;
+);
+
+function svf_exact_mag_db(ptr, tan_f)
+  local(type, g, k, A, w, w2, den, num, mag_sq)
+(
+  type = ptr[6]; g = max(0.000001, ptr[7]); k = ptr[8]; A = ptr[9];
+  w  = tan_f / g;
+  w2 = w * w;
+  den = (1.0 - w2)*(1.0 - w2) + (k * w)*(k * w);
+  type == 0 ? num = (1.0 - w2)*(1.0 - w2) + (k * A * A * w)*(k * A * A * w) :
+  type == 3 ? num = w2 * w2 :
+              num = 1.0;
+  mag_sq = num / max(0.0000000001, den);
+  4.342944819 * log(max(0.00000001, mag_sq));
+);
+
+function process_svf(x, coeff_ptr, state_ptr)
+  local(ic1, ic2, v1, v2, v3)
+(
+  ic1 = state_ptr[0]; ic2 = state_ptr[1];
+  v3  = x - ic2;
+  v1  = coeff_ptr[0] * ic1 + coeff_ptr[1] * v3;
+  v2  = ic2 + coeff_ptr[1] * ic1 + coeff_ptr[2] * v3;
+  state_ptr[0] = 2.0 * v1 - ic1;
+  state_ptr[1] = 2.0 * v2 - ic2;
+  coeff_ptr[3] * x + coeff_ptr[4] * v1 + coeff_ptr[5] * v2;
+);
+
+function proc_allpass(x, base_ptr, d_len, g)
+  local(w_i, r_i, y, v)
+(
+  w_i = tank_w_pos & AP_MASK;
+  r_i = (tank_w_pos - d_len) & AP_MASK;
+  y = base_ptr[r_i];
+  v = x - g * y;
+  base_ptr[w_i] = v;
+  y + g * v;
+);
+
+function read_shimmer_voice(ratio, ph_state)
+  local(g_len, ph1, ph2, w1, w2, d1, d2, r1, r2, i1, i2, f1, f2, idx1_a, idx1_b, idx2_a, idx2_b, s1_l, s1_r, s2_l, s2_r)
+(
+  g_len = 2048.0;
+  ph1 = ph_state - floor(ph_state);
+  ph2 = (ph1 + 0.5) - floor(ph1 + 0.5);
+  w1  = 0.5 - 0.5 * cos(2.0 * $pi * ph1);
+  w2  = 0.5 - 0.5 * cos(2.0 * $pi * ph2);
+
+  ratio >= 1.0 ? (
+    d1 = (1.0 - ph1) * g_len + 64.0;
+    d2 = (1.0 - ph2) * g_len + 64.0;
+  ) : (
+    d1 = ph1 * g_len + 64.0;
+    d2 = ph2 * g_len + 64.0;
+  );
+
+  r1 = shim_w_pos - d1; i1 = floor(r1); f1 = r1 - i1;
+  r2 = shim_w_pos - d2; i2 = floor(r2); f2 = r2 - i2;
+
+  idx1_a = (i1 & SHIM_MASK)*2; idx1_b = ((i1+1) & SHIM_MASK)*2;
+  idx2_a = (i2 & SHIM_MASK)*2; idx2_b = ((i2+1) & SHIM_MASK)*2;
+
+  s1_l = SHIM_BASE[idx1_a]*(1.0-f1) + SHIM_BASE[idx1_b]*f1;
+  s1_r = SHIM_BASE[idx1_a+1]*(1.0-f1) + SHIM_BASE[idx1_b+1]*f1;
+  s2_l = SHIM_BASE[idx2_a]*(1.0-f2) + SHIM_BASE[idx2_b]*f2;
+  s2_r = SHIM_BASE[idx2_a+1]*(1.0-f2) + SHIM_BASE[idx2_b+1]*f2;
+
+  shim_out_l = s1_l * w1 + s2_l * w2;
+  shim_out_r = s1_r * w1 + s2_r * w2;
+);
+
+function update_parameters()
+  local(SAFE_SRATE, sr_scale, sz_scale, i, f1_hz, f2_hz, q_vow)
+(
+  SAFE_SRATE = max(8000.0, srate);
+  sr_scale   = SAFE_SRATE / 44100.0;
+
+  in_lin  = DB_TO_K(in_gain_db);
+  out_lin = DB_TO_K(out_gain_db);
+
+  locut_hz > hicut_hz - 100.0 ? locut_hz = max(20.0, hicut_hz - 100.0);
+  svf_design(C_PRE_HP, 3, locut_hz, 0.0, 0.7071, SAFE_SRATE);
+  svf_design(C_PRE_LP, 4, era_color == 1 ? min(10000.0, hicut_hz) : hicut_hz, 0.0, 0.7071, SAFE_SRATE);
+
+  svf_design(C_EQ1, 0, eq1_freq_hz, eq1_gain_db, 0.85, SAFE_SRATE);
+  svf_design(C_EQ2, 0, eq2_freq_hz, eq2_gain_db, 0.85, SAFE_SRATE);
+
+  vowel_idx == 0 ? ( f1_hz = 730.0; f2_hz = 1090.0; ) :
+  vowel_idx == 1 ? ( f1_hz = 570.0; f2_hz = 840.0;  ) :
+                   ( f1_hz = 320.0; f2_hz = 870.0;  );
+  q_vow = 3.5 + (shim_amt_pct * 0.01) * 6.5;
+  svf_design(C_FORM1, 5, f1_hz, 0.0, q_vow, SAFE_SRATE);
+  svf_design(C_FORM2, 5, f2_hz, 0.0, q_vow, SAFE_SRATE);
+
+  predel_samps = min(PD_FRAMES - 16, floor((predelay_ms * 0.001) * SAFE_SRATE));
+
+  mode_size_mult = (rev_mode == 0) ? 0.65 :
+                   (rev_mode == 2 || rev_mode == 7) ? 1.55 :
+                   (rev_mode == 4) ? 1.35 : 1.0;
+  sz_scale = (0.25 + (size_pct * 0.01) * 0.95) * mode_size_mult * sr_scale;
+
+  i = 0;
+  loop(8,
+    fdn_tap_len[i] = max(64, min(FDN_FRAMES - 256, floor(fdn_base_len[i] * sz_scale)));
+    i += 1;
+  );
+
+  ap_l1_len = max(23, floor(142 * sr_scale * (0.4 + 0.8 * (size_pct * 0.01))));
+  ap_l2_len = max(31, floor(277 * sr_scale * (0.4 + 0.8 * (size_pct * 0.01))));
+  ap_l3_len = max(43, floor(461 * sr_scale * (0.4 + 0.8 * (size_pct * 0.01))));
+  ap_l4_len = max(59, floor(733 * sr_scale * (0.4 + 0.8 * (size_pct * 0.01))));
+
+  ap_r1_len = ap_l1_len + 19;
+  ap_r2_len = ap_l2_len + 29;
+  ap_r3_len = ap_l3_len + 37;
+  ap_r4_len = ap_l4_len + 47;
+
+  ap_gain = (diff_pct * 0.01) * 0.68;
+
+  era_damp_offset = (era_color == 2) ? 0.22 : (era_color == 1) ? 0.12 : 0.0;
+  tank_damp = max(0.05, min(0.92, (1.0 - (tone_pct * 0.01) * 0.82) + era_damp_offset));
+
+  low_cut_tank_hz = exp(log(140.0) - ((lowend_val + 10.0) / 20.0) * (log(140.0) - log(18.0)));
+  tank_hp_coeff   = 1.0 - exp(-2.0 * $pi * low_cut_tank_hz / SAFE_SRATE);
+
+  autodec_thr_lin = DB_TO_K(autodec_thr_db);
+  autodec_rec_coeff = exp(-1.0 / max(1.0, (autodec_rec_ms * 0.001) * SAFE_SRATE));
+
+  r_v1 = pitch_ratio_tbl[shim_v1_idx];
+  shim_inc1 = abs(1.0 - r_v1) / 2048.0;
+  shim_v2_idx > 0 ? (
+    r_v2 = pitch_ratio_tbl[shim_v2_idx - 1];
+    shim_inc2 = abs(1.0 - r_v2) / 2048.0;
+  ) : (
+    shim_inc2 = 0.0;
+  );
+
+  meter_decay = exp(-1.0 / (0.12 * SAFE_SRATE));
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.25;
+  active_on = 1;
+  post_eq_on = 1;
+  tank_w_pos = 4096;
+  shim_w_pos = 4096;
+  bloom_env  = 1.0;
+  update_parameters();
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+SAFE_SRATE = max(8000.0, srate);
+lfo_inc = (2.0 * $pi * mod_rate_hz) / SAFE_SRATE;
+
+@sample
+raw_l = spl0;
+raw_r = spl1;
+
+in_l = raw_l * in_lin;
+in_r = raw_r * in_lin;
+
+in_pk = max(abs(in_l), abs(in_r));
+env_in = max(in_pk, env_in * meter_decay);
+in_pk > 1.0 ? clip_in_led = 1;
+
+// 1. Input Preamp Drive
+preamp_style == 1 ? (
+  in_l = (in_l + 0.06 * in_l * in_l) / (1.0 + 0.25 * abs(in_l));
+  in_r = (in_r + 0.06 * in_r * in_r) / (1.0 + 0.25 * abs(in_r));
+) : preamp_style == 2 ? (
+  ss_env = in_pk > ss_env ? (ss_env * 0.98 + in_pk * 0.02) : (ss_env * 0.9992 + in_pk * 0.0008);
+  ss_gain = ss_env > 0.35 ? (0.35 / pow(ss_env, 0.65)) : 1.0;
+  in_l = max(-0.95, min(0.95, in_l * ss_gain * 1.15));
+  in_r = max(-0.95, min(0.95, in_r * ss_gain * 1.15));
+);
+
+// 2. Auto-Decay Detector
+autodec_on ? (
+  in_pk > autodec_thr_lin ? (
+    over_ratio = min(1.0, (in_pk - autodec_thr_lin) / max(0.05, 1.0 - autodec_thr_lin));
+    target_red = over_ratio * (autodec_Ratio_pct * 0.01);
+    autodec_env = max(target_red, autodec_env);
+  ) : (
+    autodec_env *= autodec_rec_coeff;
+  );
+  eff_decay_sec = max(0.15, decay_sec * (1.0 - autodec_env));
+) : (
+  autodec_env = 0.0;
+  eff_decay_sec = decay_sec;
+);
+
+avg_loop_sec = (fdn_tap_len[3] / SAFE_SRATE);
+hold_on ? (
+  tank_fb_gain = 0.9998;
+) : (
+  tank_fb_gain = pow(10.0, (-3.0 * avg_loop_sec) / max(0.15, eff_decay_sec));
+  tank_fb_gain = min(0.9985, tank_fb_gain);
+);
+
+// 3. Pre-Reverb Filters + Pre-Delay + Diffusers
+send_l = (hold_on && hold_mode == 0) ? 0.0 : in_l;
+send_r = (hold_on && hold_mode == 0) ? 0.0 : in_r;
+
+send_l = process_svf(send_l, C_PRE_HP, ST_L + 0);
+send_r = process_svf(send_r, C_PRE_HP, ST_R + 0);
+send_l = process_svf(send_l, C_PRE_LP, ST_L + 2);
+send_r = process_svf(send_r, C_PRE_LP, ST_R + 2);
+
+tank_w_pos += 1;
+pd_w_idx = (tank_w_pos & PD_MASK) * 2;
+PD_BASE[pd_w_idx]     = send_l;
+PD_BASE[pd_w_idx + 1] = send_r;
+
+pd_r_idx = ((tank_w_pos - predel_samps) & PD_MASK) * 2;
+pd_l = PD_BASE[pd_r_idx];
+pd_r = PD_BASE[pd_r_idx + 1];
+
+df_l = proc_allpass(pd_l, AP_L1, ap_l1_len, ap_gain);
+df_r = proc_allpass(pd_r, AP_R1, ap_r1_len, ap_gain);
+df_l = proc_allpass(df_l, AP_L2, ap_l2_len, ap_gain);
+df_r = proc_allpass(df_r, AP_R2, ap_r2_len, ap_gain);
+
+early_l = df_l;
+early_r = df_r;
+
+df_l = proc_allpass(df_l, AP_L3, ap_l3_len, ap_gain);
+df_r = proc_allpass(df_r, AP_R3, ap_r3_len, ap_gain);
+df_l = proc_allpass(df_l, AP_L4, ap_l4_len, ap_gain);
+df_r = proc_allpass(df_r, AP_R4, ap_r4_len, ap_gain);
+
+// 4. 8-Channel FDN Tank
+lfo_ph += lfo_inc;
+lfo_ph >= 2.0 * $pi ? lfo_ph -= 2.0 * $pi;
+mod_samps = (mod_depth_pct * 0.01) * 28.0 * (SAFE_SRATE / 44100.0);
+
+sum_fdn = 0.0;
+b_idx = 0;
+loop(8,
+  base_p = FDN_0 + b_idx * FDN_FRAMES;
+  m_off  = sin(lfo_ph + b_idx * 0.785398) * mod_samps;
+  r_pos  = tank_w_pos - (fdn_tap_len[b_idx] + m_off);
+  i0     = floor(r_pos);
+  frac   = r_pos - i0;
+  y_raw  = base_p[i0 & FDN_MASK] * (1.0 - frac) + base_p[(i0 + 1) & FDN_MASK] * frac;
+
+  lp_s = y_raw * (1.0 - tank_damp) + fdn_lp_state[b_idx] * tank_damp;
+  fdn_lp_state[b_idx] = lp_s;
+
+  hp_s = fdn_hp_state[b_idx] + tank_hp_coeff * (lp_s - fdn_hp_state[b_idx]);
+  fdn_hp_state[b_idx] = hp_s;
+  y_damped = lp_s - hp_s;
+
+  fdn_out_arr[b_idx] = y_damped;
+  sum_fdn += y_damped;
+  b_idx += 1;
+);
+
+house_term = sum_fdn * 0.25;
+
+late_l = (fdn_out_arr[0] - fdn_out_arr[2] + fdn_out_arr[4] - fdn_out_arr[6]) * 0.35;
+late_r = (fdn_out_arr[1] - fdn_out_arr[3] + fdn_out_arr[5] - fdn_out_arr[7]) * 0.35;
+
+// 5. Machine-Specific Processing
+shim_w_pos += 1;
+sh_w_idx = (shim_w_pos & SHIM_MASK) * 2;
+SHIM_BASE[sh_w_idx]     = late_l;
+SHIM_BASE[sh_w_idx + 1] = late_r;
+
+shim_inj_l = 0.0; shim_inj_r = 0.0;
+
+rev_mode == 3 ? (
+  shim_ph1 += shim_inc1;
+  read_shimmer_voice(pitch_ratio_tbl[shim_v1_idx], shim_ph1);
+  sh1_l = shim_out_l; sh1_r = shim_out_r;
+
+  shim_v2_idx > 0 ? (
+    shim_ph2 += shim_inc2;
+    read_shimmer_voice(pitch_ratio_tbl[shim_v2_idx - 1], shim_ph2);
+    sh1_l = (sh1_l + shim_out_l) * 0.65;
+    sh1_r = (sh1_r + shim_out_r) * 0.65;
+  );
+
+  sh_gain = (shim_amt_pct * 0.01) * 0.55;
+  shim_inj_l = sh1_l * sh_gain;
+  shim_inj_r = sh1_r * sh_gain;
+  late_l += shim_inj_l;
+  late_r += shim_inj_r;
+) : rev_mode == 4 ? (
+  in_pk > 0.08 ? bloom_env = max(0.05, bloom_env * 0.9985) : (bloom_env = min(1.0, bloom_env + 0.00015));
+  late_l *= (0.35 + 0.65 * bloom_env);
+  late_r *= (0.35 + 0.65 * bloom_env);
+) : rev_mode == 5 ? (
+  f_l = process_svf(late_l, C_FORM1, ST_L + 10) + process_svf(late_l, C_FORM2, ST_L + 12);
+  f_r = process_svf(late_r, C_FORM1, ST_R + 10) + process_svf(late_r, C_FORM2, ST_R + 12);
+  ch_mix = 0.35 + (shim_amt_pct * 0.01) * 0.65;
+  late_l = late_l * (1.0 - ch_mix) + f_l * ch_mix * 1.8;
+  late_r = late_r * (1.0 - ch_mix) + f_r * ch_mix * 1.8;
+) : rev_mode == 6 ? (
+  in_pk > 0.05 ? nonlin_phase = 0.0;
+  nonlin_phase = min(1.0, nonlin_phase + 1.0 / max(1000.0, eff_decay_sec * 0.25 * SAFE_SRATE));
+  nl_env = nonlin_phase < 0.88 ? pow(nonlin_phase / 0.88, 1.8) : max(0.0, 1.0 - (nonlin_phase - 0.88) / 0.12);
+  late_l = (early_l * 0.6 + late_l * 0.6) * nl_env;
+  late_r = (early_r * 0.6 + late_r * 0.6) * nl_env;
+);
+
+era_color == 1 ? (
+  late_l = floor(late_l * 1024.0 + 0.5) / 1024.0;
+  late_r = floor(late_r * 1024.0 + 0.5) / 1024.0;
+);
+
+w_f_idx = tank_w_pos & FDN_MASK;
+in_tank_l = (df_l + shim_inj_l) * 0.35;
+in_tank_r = (df_r + shim_inj_r) * 0.35;
+
+FDN_0[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[0] - house_term) * tank_fb_gain + in_tank_l));
+FDN_1[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[1] - house_term) * tank_fb_gain + in_tank_r));
+FDN_2[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[2] - house_term) * tank_fb_gain + in_tank_l));
+FDN_3[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[3] - house_term) * tank_fb_gain + in_tank_r));
+FDN_4[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[4] - house_term) * tank_fb_gain - in_tank_l));
+FDN_5[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[5] - house_term) * tank_fb_gain - in_tank_r));
+FDN_6[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[6] - house_term) * tank_fb_gain - in_tank_l));
+FDN_7[w_f_idx] = max(-2.0, min(2.0, (fdn_out_arr[7] - house_term) * tank_fb_gain - in_tank_r));
+
+// 6. Early/Late Blend, Post-EQ, Width & Mix
+el_bal = early_late_pct * 0.01;
+wet_l = early_l * (1.0 - el_bal * 0.75) + late_l * (0.35 + el_bal * 0.65);
+wet_r = early_r * (1.0 - el_bal * 0.75) + late_r * (0.35 + el_bal * 0.65);
+
+dc_wl = wet_l - dc_prev_l + 0.9985 * dc_wl; dc_prev_l = wet_l; wet_l = dc_wl;
+dc_wr = wet_r - dc_prev_r + 0.9985 * dc_wr; dc_prev_r = wet_r; wet_r = dc_wr;
+
+post_eq_on ? (
+  abs(eq1_gain_db) > 0.05 ? (
+    wet_l = process_svf(wet_l, C_EQ1, ST_L + 4);
+    wet_r = process_svf(wet_r, C_EQ1, ST_R + 4);
+  );
+  abs(eq2_gain_db) > 0.05 ? (
+    wet_l = process_svf(wet_l, C_EQ2, ST_L + 6);
+    wet_r = process_svf(wet_r, C_EQ2, ST_R + 6);
+  );
+);
+
+w_k = width_pct * 0.01;
+mid_w  = (wet_l + wet_r) * 0.5;
+side_w = (wet_l - wet_r) * 0.5 * w_k;
+wet_l  = mid_w + side_w;
+wet_r  = mid_w - side_w;
+
+active_on ? (
+  mx = mix_pct * 0.01;
+  dry_g = mx <= 0.65 ? 1.0 : ((1.0 - mx) / 0.35);
+  wet_g = sin(mx * $pi * 0.5);
+  out_l = (raw_l * dry_g + wet_l * wet_g) * out_lin;
+  out_r = (raw_r * dry_g + wet_r * wet_g) * out_lin;
+) : (
+  out_l = raw_l;
+  out_r = raw_r;
+);
+
+(out_l != out_l || abs(out_l) > 4.0) ? out_l = max(-4.0, min(4.0, out_l));
+(out_r != out_r || abs(out_r) > 4.0) ? out_r = max(-4.0, min(4.0, out_r));
+
+spl0 = out_l;
+spl1 = out_r;
+
+out_pk = max(abs(out_l), abs(out_r));
+env_out = max(out_pk, env_out * meter_decay);
+out_pk > 1.0 ? clip_out_led = 1;
+
+@gfx 940 700
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(780, gfx_w);
+H = max(600, gfx_h);
+
+ui_zoom < 1.0 ? ui_zoom = 1.25;
+S  = min(W / 940.0, H / 700.0);
+TS = S * ui_zoom;
+
+// Boosted base typography for crisp Linux X11/Wayland legibility
+f_title = max(20, floor(24 * TS));
+f_sec   = max(14, floor(15 * TS));
+f_val   = max(14, floor(15 * TS));
+f_btn   = max(13, floor(14 * TS));
+f_sub   = max(13, floor(14 * TS));
+f_hero  = max(17, floor(20 * TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_sub,   'b');
+gfx_setfont(6, "sans-serif", f_hero,  'b');
+
+function freq_to_x(f, x0, xw) local(c) (
+  c = max(MIN_FREQ, min(MAX_FREQ, f));
+  x0 + ((log(c) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * xw;
+);
+
+function x_to_freq(px, x0, xw) local(n) (
+  n = max(0.0, min(1.0, (px - x0) / xw));
+  exp(LOG_MIN + n * (LOG_MAX - LOG_MIN));
+);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+// Large, High-Contrast Rotary Knob with Thick 4px Arc, Center Cap & Wide Pill Readout
+function draw_av_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh,
+        pill_w, pill_h, pill_x, pill_y, ang_red, is_big)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  is_big = (r >= floor(48 * S));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 10)*(r + 10));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 520.0 : 145.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  // Outer drop shadow & hover halo
+  gfx_set(0.04, 0.04, 0.08, 0.88);
+  gfx_circle(cx, cy + 3, r + 2, 1, 1);
+  hover ? (
+    gfx_set(rc, gc, bc, 0.18);
+    gfx_circle(cx, cy, r + 6, 1, 1);
+  );
+
+  // Knob body
+  gfx_set(0.11, 0.12, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.25, 0.27, 0.37, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  // Bold 4-pass value arc so large knobs look substantial
+  steps = 36;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? (
+      gfx_set(rc, gc, bc, 0.98);
+    ) : (
+      gfx_set(0.19, 0.20, 0.28, 0.88);
+    );
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    gfx_line(cx + sin(a0)*(r-6), cy - cos(a0)*(r-6), cx + sin(a1)*(r-6), cy - cos(a1)*(r-6), 1);
+    st += 1;
+  );
+
+  // Auto-Decay live reduction ring on Hero DECAY knob
+  (id == 1 && autodec_on && autodec_env > 0.01) ? (
+    ang_red = ang_val - autodec_env * (ang_val - ang_start);
+    gfx_set(0.98, 0.55, 0.45, 0.95);
+    gfx_arc(cx, cy, r + 3, ang_red, ang_val, 1);
+    gfx_arc(cx, cy, r + 4, ang_red, ang_val, 1);
+    gfx_arc(cx, cy, r + 5, ang_red, ang_val, 1);
+  );
+
+  // Inner cap & thick pointer needle
+  gfx_set(0.16, 0.18, 0.25, 1.0);
+  gfx_circle(cx, cy, floor(r * 0.26), 1, 1);
+  gfx_set(0.96, 0.98, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.22);
+  py0 = cy - cos(ang_val) * (r * 0.22);
+  px1 = cx + sin(ang_val) * (r - 7);
+  py1 = cy - cos(ang_val) * (r - 7);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.7, py0, px1 + 0.7, py1, 1);
+  gfx_line(px0 - 0.7, py0, px1 - 0.7, py1, 1);
+
+  // Label directly below knob
+  gfx_setfont(5);
+  gfx_measurestr(label, lw, lh);
+  is_big ? gfx_set(0.86, 0.94, 0.98, 1.0) : gfx_set(0.76, 0.80, 0.90, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(5 * S);
+  gfx_drawstr(label);
+
+  // High-Contrast Pill Readout
+  is_big ? gfx_setfont(6) : gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(16 * S), is_big ? floor(96 * S) : floor(74 * S));
+  pill_h = vh + floor(6 * S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(7 * S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.22, hover ? gc : 0.24, hover ? bc : 0.34);
+  gfx_set(0.96, 0.98, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(48 * S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.22, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+gfx_setfont(1);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = floor(16 * S);
+gfx_measurestr("AETHER", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("AETHER");
+gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_drawstr("VERB");
+
+gfx_setfont(4);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(8 * S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 10, qh + 4);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 14 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+hb_h = floor(28 * S);
+hb_y = (hdr_h - hb_h) * 0.5;
+
+// 1. Preamp Style Button
+pr_w = floor(112 * S);
+pr_x = floor(205 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= pr_x && mouse_x <= pr_x + pr_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  preamp_style = (preamp_style + 1) % 3;
+  slider_automate(slider13);
+);
+preamp_style == 0 ? (
+  draw_panel_box(pr_x, hb_y, pr_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#pr_s, "PRE: CLEAN");
+) : preamp_style == 1 ? (
+  draw_panel_box(pr_x, hb_y, pr_w, hb_h, 0.48, 0.32, 0.20, 0.98, 0.70, 0.53);
+  strcpy(#pr_s, "PRE: TUBE V54");
+) : (
+  draw_panel_box(pr_x, hb_y, pr_w, hb_h, 0.16, 0.38, 0.58, 0.45, 0.78, 0.98);
+  strcpy(#pr_s, "PRE: SOLID 162");
+);
+gfx_setfont(4); gfx_set(0.95, 0.97, 1.0, 1.0);
+gfx_measurestr(#pr_s, tw, th); gfx_x = pr_x + (pr_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#pr_s);
+
+// 2. Era Color Mode
+er_w = floor(112 * S);
+er_x = pr_x + pr_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= er_x && mouse_x <= er_x + er_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  era_color = (era_color + 1) % 3;
+  update_parameters();
+  slider_automate(slider14);
+);
+era_color == 0 ? (
+  draw_panel_box(er_x, hb_y, er_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#er_s, "ERA: MODERN");
+) : era_color == 1 ? (
+  draw_panel_box(er_x, hb_y, er_w, hb_h, 0.38, 0.26, 0.54, 0.80, 0.65, 0.97);
+  strcpy(#er_s, "ERA: 70s 12-BIT");
+) : (
+  draw_panel_box(er_x, hb_y, er_w, hb_h, 0.16, 0.38, 0.42, 0.58, 0.89, 0.84);
+  strcpy(#er_s, "ERA: 80s DARK");
+);
+gfx_measurestr(#er_s, tw, th); gfx_x = er_x + (er_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#er_s);
+
+// 3. HOLD Button
+hl_w = floor(102 * S);
+hl_x = er_x + er_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= hl_x && mouse_x <= hl_x + hl_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  hold_on = !hold_on;
+  slider_automate(slider15);
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+(mouse_x >= hl_x && mouse_x <= hl_x + hl_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  hold_mode = !hold_mode;
+  slider_automate(slider16);
+);
+hold_on ? (
+  draw_panel_box(hl_x, hb_y, hl_w, hb_h, 0.20, 0.54, 0.68, 0.58, 0.89, 0.84);
+  hold_mode == 0 ? strcpy(#hl_s, "HOLD: FREEZE") : strcpy(#hl_s, "HOLD: INF");
+) : (
+  draw_panel_box(hl_x, hb_y, hl_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  hold_mode == 0 ? strcpy(#hl_s, "FREEZE (OFF)") : strcpy(#hl_s, "INFINITE (OFF)");
+);
+gfx_measurestr(#hl_s, tw, th); gfx_x = hl_x + (hl_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#hl_s);
+
+// 4. TWEAK Drawer Toggle
+twk_w = floor(88 * S);
+twk_x = hl_x + hl_w + floor(6 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= twk_x && mouse_x <= twk_x + twk_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  tweak_open = !tweak_open;
+  slider_automate(slider34);
+);
+tweak_open ? (
+  draw_panel_box(twk_x, hb_y, twk_w, hb_h, 0.16, 0.46, 0.44, 0.58, 0.89, 0.84);
+  strcpy(#tw_s, "TWEAK: ON");
+) : (
+  draw_panel_box(twk_x, hb_y, twk_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#tw_s, "TWEAK");
+);
+gfx_measurestr(#tw_s, tw, th); gfx_x = twk_x + (twk_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#tw_s);
+
+// 5. Text Scaling Button (100% / 125% / 150%)
+zm_w = floor(76 * S);
+zm_x = W - floor(172 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.25 : ui_zoom < 1.38 ? ui_zoom = 1.50 : ui_zoom = 1.0;
+  slider_automate(slider36);
+);
+draw_panel_box(zm_x, hb_y, zm_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+ui_zoom < 1.1 ? strcpy(#z_s, "100%") : ui_zoom < 1.38 ? strcpy(#z_s, "125%") : strcpy(#z_s, "150%");
+gfx_measurestr(#z_s, tw, th); gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#z_s);
+
+// 6. Master Active Button
+act_w = floor(80 * S);
+act_x = W - act_w - floor(10 * S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  active_on = !active_on;
+  slider_automate(slider35);
+);
+active_on ? (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.18, 0.52, 0.48, 0.58, 0.89, 0.84);
+  strcpy(#ac_s, "ACTIVE");
+) : (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#ac_s, "BYP");
+);
+gfx_measurestr(#ac_s, tw, th); gfx_x = act_x + (act_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#ac_s);
+
+// =========================================================================
+// 2. ROW 1: 8 REVERB MACHINE SELECTOR BAR
+// =========================================================================
+pad    = floor(8 * S);
+full_w = W - (pad * 2);
+
+mode_bar_y = hdr_h + pad;
+mode_bar_h = floor(46 * S);
+draw_panel_box(pad, mode_bar_y, full_w, mode_bar_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+mb_pad = floor(6 * S);
+mb_gap = floor(5 * S);
+mb_w   = floor((full_w - mb_pad * 2 - mb_gap * 7) / 8.0);
+mb_h   = mode_bar_h - floor(12 * S);
+mb_y   = mode_bar_y + floor(6 * S);
+
+mi = 0;
+loop(8,
+  mx_b = pad + mb_pad + mi * (mb_w + mb_gap);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx_b && mouse_x <= mx_b + mb_w && mouse_y >= mb_y && mouse_y <= mb_y + mb_h) ? (
+    rev_mode = mi;
+    update_parameters();
+    slider_automate(slider1);
+  );
+
+  rev_mode == mi ? (
+    draw_panel_box(mx_b, mb_y, mb_w, mb_h, 0.16, 0.46, 0.44, 0.58, 0.89, 0.84);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(mx_b, mb_y, mb_w, mb_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+    gfx_set(0.74, 0.78, 0.88, 1.0);
+  );
+
+  mi == 0 ? strcpy(#m_lbl, "PLATE 140") :
+  mi == 1 ? strcpy(#m_lbl, "HALL")      :
+  mi == 2 ? strcpy(#m_lbl, "CLOUD")     :
+  mi == 3 ? strcpy(#m_lbl, "SHIMMER")   :
+  mi == 4 ? strcpy(#m_lbl, "BLOOM")     :
+  mi == 5 ? strcpy(#m_lbl, "CHORALE")   :
+  mi == 6 ? strcpy(#m_lbl, "NON-LIN")   :
+            strcpy(#m_lbl, "SUPER FDN");
+
+  gfx_setfont(4);
+  gfx_measurestr(#m_lbl, tw, th);
+  gfx_x = mx_b + (mb_w - tw) * 0.5;
+  gfx_y = mb_y + (mb_h - th) * 0.5;
+  gfx_drawstr(#m_lbl);
+  mi += 1;
+);
+
+// =========================================================================
+// 3. MAIN WORKSPACE: LARGE KNOBS FILLING AVAILABLE SPACE
+// =========================================================================
+target_twk = tweak_open ? 1.0 : 0.0;
+twk_anim = twk_anim + (target_twk - twk_anim) * 0.35;
+abs(target_twk - twk_anim) < 0.005 ? twk_anim = target_twk;
+
+body_top = mode_bar_y + mode_bar_h + pad;
+avail_body_h = H - body_top - pad;
+
+twk_full_h  = floor(avail_body_h * 0.37);
+cur_twk_h   = floor(twk_full_h * twk_anim);
+cur_twk_gap = floor(pad * twk_anim);
+
+main_deck_h = avail_body_h - cur_twk_h - cur_twk_gap;
+
+hero_w = floor(full_w * 0.24);
+grid_w = full_w - hero_w - pad;
+hero_x = pad;
+grid_x = hero_x + hero_w + pad;
+
+draw_panel_box(hero_x, body_top, hero_w, main_deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(grid_x, body_top, grid_w, main_deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+// Substantially larger Hero DECAY & PRE-DELAY knobs filling the left panel
+r_hero = min(floor(64 * S), floor(main_deck_h * 0.22));
+r_pd   = min(floor(39 * S), floor(main_deck_h * 0.14));
+
+sprintf(#dec_s, "%.2f s", eff_decay_sec);
+new_dec = draw_av_knob(1, hero_x + hero_w * 0.50, body_top + main_deck_h * 0.28, r_hero, decay_sec, 0.2, 60.0, 3.2, "DECAY (RT60)", #dec_s, 0, 0.58, 0.89, 0.84);
+abs(new_dec - decay_sec) > 0.01 ? ( decay_sec = new_dec; update_parameters(); slider_automate(slider2); );
+
+sprintf(#pd_s, "%d ms", predelay_ms);
+new_pd = draw_av_knob(2, hero_x + hero_w * 0.50, body_top + main_deck_h * 0.74, r_pd, predelay_ms, 0.0, 500.0, 18.0, "PRE-DELAY", #pd_s, 0, 0.45, 0.78, 0.98);
+abs(new_pd - predelay_ms) > 0.5 ? ( predelay_ms = new_pd; update_parameters(); slider_automate(slider3); );
+
+// Substantially larger 2x5 Grid Knobs (41px radius when Tweak closed, 32px when open)
+cell_w = grid_w / 5.0;
+r_grid = min(floor(cell_w * 0.31), floor(main_deck_h * 0.165));
+g_row1_cy = body_top + main_deck_h * 0.25;
+g_row2_cy = body_top + main_deck_h * 0.73;
+
+// Subtle horizontal divider between Row 1 and Row 2 inside Right Card
+gfx_set(0.16, 0.18, 0.25, 1.0);
+gfx_line(grid_x + 12, body_top + main_deck_h * 0.50, grid_x + grid_w - 12, body_top + main_deck_h * 0.50);
+
+// Row 1: SIZE / WARP, DIFFUSION, TONE, LOW END, EARLY / LATE
+sprintf(#v_s, "%.0f %%", size_pct);
+new_v = draw_av_knob(3, grid_x + cell_w * 0.5, g_row1_cy, r_grid, size_pct, 10, 100, 70, "SIZE / WARP", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - size_pct) > 0.1 ? ( size_pct = new_v; update_parameters(); slider_automate(slider4); );
+
+sprintf(#v_s, "%.0f %%", diff_pct);
+new_v = draw_av_knob(4, grid_x + cell_w * 1.5, g_row1_cy, r_grid, diff_pct, 0, 100, 75, "DIFFUSION", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - diff_pct) > 0.1 ? ( diff_pct = new_v; update_parameters(); slider_automate(slider5); );
+
+sprintf(#v_s, "%.0f %%", tone_pct);
+new_v = draw_av_knob(5, grid_x + cell_w * 2.5, g_row1_cy, r_grid, tone_pct, 0, 100, 55, "TONE", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - tone_pct) > 0.1 ? ( tone_pct = new_v; update_parameters(); slider_automate(slider6); );
+
+sprintf(#v_s, "%+.1f", lowend_val);
+new_v = draw_av_knob(6, grid_x + cell_w * 3.5, g_row1_cy, r_grid, lowend_val, -10, 10, 0, "LOW END", #v_s, 1, 0.58, 0.89, 0.84);
+abs(new_v - lowend_val) > 0.05 ? ( lowend_val = new_v; update_parameters(); slider_automate(slider7); );
+
+sprintf(#v_s, "%.0f %%", early_late_pct);
+new_v = draw_av_knob(7, grid_x + cell_w * 4.5, g_row1_cy, r_grid, early_late_pct, 0, 100, 35, "EARLY / LATE", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - early_late_pct) > 0.1 ? ( early_late_pct = new_v; slider_automate(slider10); );
+
+// Row 2: MOD DEPTH, MOD RATE, SHIMMER / SPECIAL, WIDTH, MIX
+sprintf(#v_s, "%.0f %%", mod_depth_pct);
+new_v = draw_av_knob(8, grid_x + cell_w * 0.5, g_row2_cy, r_grid, mod_depth_pct, 0, 100, 30, "MOD DEPTH", #v_s, 0, 0.80, 0.65, 0.97);
+abs(new_v - mod_depth_pct) > 0.1 ? ( mod_depth_pct = new_v; slider_automate(slider8); );
+
+sprintf(#v_s, "%.2f Hz", mod_rate_hz);
+new_v = draw_av_knob(9, grid_x + cell_w * 1.5, g_row2_cy, r_grid, mod_rate_hz, 0.1, 8.0, 0.85, "MOD RATE", #v_s, 0, 0.80, 0.65, 0.97);
+abs(new_v - mod_rate_hz) > 0.01 ? ( mod_rate_hz = new_v; slider_automate(slider9); );
+
+rev_mode == 3 ? strcpy(#sp_lbl, "SHIMMER") : rev_mode == 5 ? strcpy(#sp_lbl, "FORMANT Q") : strcpy(#sp_lbl, "CHARACTER");
+sprintf(#v_s, "%.0f %%", shim_amt_pct);
+new_v = draw_av_knob(10, grid_x + cell_w * 2.5, g_row2_cy, r_grid, shim_amt_pct, 0, 100, 35, #sp_lbl, #v_s, 0, 0.80, 0.65, 0.97);
+abs(new_v - shim_amt_pct) > 0.1 ? ( shim_amt_pct = new_v; update_parameters(); slider_automate(slider17); );
+
+sprintf(#v_s, "%d %%", width_pct);
+new_v = draw_av_knob(11, grid_x + cell_w * 3.5, g_row2_cy, r_grid, width_pct, -100, 200, 100, "WIDTH", #v_s, 1, 0.45, 0.78, 0.98);
+abs(new_v - width_pct) > 0.5 ? ( width_pct = new_v; slider_automate(slider12); );
+
+sprintf(#v_s, "%.0f %%", mix_pct);
+new_v = draw_av_knob(12, grid_x + cell_w * 4.5, g_row2_cy, r_grid + floor(3 * S), mix_pct, 0, 100, 35, "WET / DRY MIX", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - mix_pct) > 0.1 ? ( mix_pct = new_v; slider_automate(slider11); );
+
+// =========================================================================
+// 4. COLLAPSIBLE TWEAK DRAWER (AUTO-DECAY | SHIMMER/VOWEL | POST-EQ GRAPH)
+// =========================================================================
+twk_anim > 0.45 ? (
+  twk_y = body_top + main_deck_h + cur_twk_gap;
+
+  t1_w = floor((full_w - pad * 2) * 0.34);
+  t2_w = floor((full_w - pad * 2) * 0.23);
+  t3_w = full_w - (pad * 2) - t1_w - t2_w;
+
+  t1_x = pad;
+  t2_x = t1_x + t1_w + pad;
+  t3_x = t2_x + t2_w + pad;
+
+  draw_panel_box(t1_x, twk_y, t1_w, cur_twk_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+  draw_panel_box(t2_x, twk_y, t2_w, cur_twk_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+  draw_panel_box(t3_x, twk_y, t3_w, cur_twk_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+  r_twk  = min(floor(29 * S), floor(cur_twk_h * 0.21));
+  twk_cy = twk_y + cur_twk_h * 0.46;
+
+  // --- TWEAK CARD 1: AUTO-DECAY ---
+  gfx_setfont(2); gfx_set(0.58, 0.89, 0.84, 1.0);
+  gfx_x = t1_x + floor(10 * S); gfx_y = twk_y + floor(7 * S);
+  gfx_drawstr("AUTO-DECAY");
+
+  ad_btn_w = floor(58 * S); ad_btn_h = floor(22 * S);
+  ad_btn_x = t1_x + t1_w - ad_btn_w - floor(8 * S);
+  ad_btn_y = twk_y + floor(5 * S);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= ad_btn_x && mouse_x <= ad_btn_x + ad_btn_w && mouse_y >= ad_btn_y && mouse_y <= ad_btn_y + ad_btn_h) ? (
+    autodec_on = !autodec_on; slider_automate(slider21);
+  );
+  draw_panel_box(ad_btn_x, ad_btn_y, ad_btn_w, ad_btn_h, autodec_on ? 0.78 : 0.14, autodec_on ? 0.42 : 0.15, autodec_on ? 0.24 : 0.22, 0.98, 0.70, 0.53);
+  gfx_setfont(4); gfx_set(1,1,1,1);
+  autodec_on ? strcpy(#ad_s, "ON") : strcpy(#ad_s, "OFF");
+  gfx_measurestr(#ad_s, tw, th); gfx_x = ad_btn_x + (ad_btn_w - tw)*0.5; gfx_y = ad_btn_y + (ad_btn_h - th)*0.5; gfx_drawstr(#ad_s);
+
+  sprintf(#v_s, "%.1fdB", autodec_thr_db);
+  new_v = draw_av_knob(101, t1_x + t1_w * 0.18, twk_cy, r_twk, autodec_thr_db, -48, 0, -18, "THRESH", #v_s, 0, 0.98, 0.70, 0.53);
+  abs(new_v - autodec_thr_db) > 0.1 ? ( autodec_thr_db = new_v; update_parameters(); slider_automate(slider22); );
+
+  sprintf(#v_s, "%.0f%%", autodec_Ratio_pct);
+  new_v = draw_av_knob(102, t1_x + t1_w * 0.50, twk_cy, r_twk, autodec_Ratio_pct, 0, 90, 65, "TARGET", #v_s, 0, 0.98, 0.70, 0.53);
+  abs(new_v - autodec_Ratio_pct) > 0.5 ? ( autodec_Ratio_pct = new_v; slider_automate(slider23); );
+
+  sprintf(#v_s, "%dms", autodec_rec_ms);
+  new_v = draw_av_knob(103, t1_x + t1_w * 0.82, twk_cy, r_twk, autodec_rec_ms, 10, 500, 180, "RECOVERY", #v_s, 0, 0.98, 0.70, 0.53);
+  abs(new_v - autodec_rec_ms) > 1.0 ? ( autodec_rec_ms = new_v; update_parameters(); slider_automate(slider24); );
+
+  // --- TWEAK CARD 2: SHIMMER VOICES & VOWEL ---
+  gfx_setfont(2); gfx_set(0.80, 0.65, 0.97, 1.0);
+  gfx_x = t2_x + floor(10 * S); gfx_y = twk_y + floor(7 * S);
+  gfx_drawstr("VOICES & VOWEL");
+
+  vb_x = t2_x + floor(10 * S);
+  vb_w = t2_w - floor(20 * S);
+  vb_h = floor((cur_twk_h - floor(42 * S)) / 3.0);
+  vb_y1 = twk_y + floor(30 * S);
+  vb_y2 = vb_y1 + vb_h + 4;
+  vb_y3 = vb_y2 + vb_h + 4;
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) ? (
+    (mouse_x >= vb_x && mouse_x <= vb_x + vb_w && mouse_y >= vb_y1 && mouse_y <= vb_y1 + vb_h) ? (
+      shim_v1_idx = (shim_v1_idx + 1) % 6; update_parameters(); slider_automate(slider18);
+    );
+    (mouse_x >= vb_x && mouse_x <= vb_x + vb_w && mouse_y >= vb_y2 && mouse_y <= vb_y2 + vb_h) ? (
+      shim_v2_idx = (shim_v2_idx + 1) % 7; update_parameters(); slider_automate(slider19);
+    );
+    (mouse_x >= vb_x && mouse_x <= vb_x + vb_w && mouse_y >= vb_y3 && mouse_y <= vb_y3 + vb_h) ? (
+      vowel_idx = (vowel_idx + 1) % 3; update_parameters(); slider_automate(slider20);
+    );
+  );
+
+  draw_panel_box(vb_x, vb_y1, vb_w, vb_h, 0.14, 0.15, 0.22, 0.32, 0.35, 0.48);
+  shim_v1_idx == 0 ? strcpy(#v1_s, "SHIM 1: -1 OCT") : shim_v1_idx == 1 ? strcpy(#v1_s, "SHIM 1: -5TH") :
+  shim_v1_idx == 2 ? strcpy(#v1_s, "SHIM 1: DETUNE") : shim_v1_idx == 3 ? strcpy(#v1_s, "SHIM 1: +5TH") :
+  shim_v1_idx == 4 ? strcpy(#v1_s, "SHIM 1: +1 OCT") :                    strcpy(#v1_s, "SHIM 1: +2 OCT");
+  gfx_setfont(4); gfx_set(0.92, 0.94, 1.0, 1.0);
+  gfx_measurestr(#v1_s, tw, th); gfx_x = vb_x + (vb_w - tw)*0.5; gfx_y = vb_y1 + (vb_h - th)*0.5; gfx_drawstr(#v1_s);
+
+  draw_panel_box(vb_x, vb_y2, vb_w, vb_h, 0.14, 0.15, 0.22, 0.32, 0.35, 0.48);
+  shim_v2_idx == 0 ? strcpy(#v2_s, "SHIM 2: OFF")    : shim_v2_idx == 1 ? strcpy(#v2_s, "SHIM 2: -1 OCT") :
+  shim_v2_idx == 2 ? strcpy(#v2_s, "SHIM 2: -5TH")   : shim_v2_idx == 3 ? strcpy(#v2_s, "SHIM 2: DETUNE") :
+  shim_v2_idx == 4 ? strcpy(#v2_s, "SHIM 2: +5TH")   : shim_v2_idx == 5 ? strcpy(#v2_s, "SHIM 2: +1 OCT") :
+                                                                          strcpy(#v2_s, "SHIM 2: +2 OCT");
+  gfx_measurestr(#v2_s, tw, th); gfx_x = vb_x + (vb_w - tw)*0.5; gfx_y = vb_y2 + (vb_h - th)*0.5; gfx_drawstr(#v2_s);
+
+  draw_panel_box(vb_x, vb_y3, vb_w, vb_h, 0.14, 0.15, 0.22, 0.32, 0.35, 0.48);
+  vowel_idx == 0 ? strcpy(#vw_s, "VOWEL: AH") : vowel_idx == 1 ? strcpy(#vw_s, "VOWEL: OH") : strcpy(#vw_s, "VOWEL: OO");
+  gfx_measurestr(#vw_s, tw, th); gfx_x = vb_x + (vb_w - tw)*0.5; gfx_y = vb_y3 + (vb_h - th)*0.5; gfx_drawstr(#vw_s);
+
+  // --- TWEAK CARD 3: PRE-CUTS & POST-EQ GRAPH ---
+  gfx_setfont(2); gfx_set(0.58, 0.89, 0.84, 1.0);
+  gfx_x = t3_x + floor(10 * S); gfx_y = twk_y + floor(7 * S);
+  gfx_drawstr("PRE-CUTS & POST-EQ (DRAG NODES)");
+
+  eq_gx = t3_x + floor(10 * S);
+  eq_gy = twk_y + floor(28 * S);
+  eq_gw = t3_w - floor(20 * S);
+  eq_gh = cur_twk_h - floor(36 * S);
+
+  draw_panel_box(eq_gx, eq_gy, eq_gw, eq_gh, 0.055, 0.058, 0.092, 0.20, 0.22, 0.32);
+
+  zero_ey = eq_gy + eq_gh * 0.5;
+  gfx_set(0.20, 0.22, 0.32, 1.0);
+  gfx_line(eq_gx + 1, zero_ey, eq_gx + eq_gw - 1, zero_ey);
+
+  sr_v = max(8000.0, srate);
+  pts = 80; pi = 0;
+  loop(pts + 1,
+    t_n   = pi / pts;
+    f_ev  = exp(LOG_MIN + t_n * (LOG_MAX - LOG_MIN));
+    tan_f = tan($pi * min(sr_v * 0.48, f_ev) / sr_v);
+    tot_db = svf_exact_mag_db(C_PRE_HP, tan_f) + svf_exact_mag_db(C_PRE_LP, tan_f);
+    post_eq_on ? (
+      tot_db += svf_exact_mag_db(C_EQ1, tan_f) + svf_exact_mag_db(C_EQ2, tan_f);
+    );
+    clamped_db = max(-18.0, min(18.0, tot_db));
+    px_e = eq_gx + t_n * eq_gw;
+    py_e = zero_ey - (clamped_db / 18.0) * (eq_gh * 0.44);
+
+    gfx_set(0.58, 0.89, 0.84, 0.14);
+    gfx_line(px_e, zero_ey, px_e, py_e);
+
+    pi > 0 ? (
+      gfx_set(0.58, 0.89, 0.84, 0.95);
+      gfx_line(prev_px_e, prev_py_e, px_e, py_e, 1);
+      gfx_line(prev_px_e, prev_py_e + 1, px_e, py_e + 1, 1);
+    );
+    prev_px_e = px_e; prev_py_e = py_e;
+    pi += 1;
+  );
+
+  lc_nx = freq_to_x(locut_hz,    eq_gx, eq_gw); lc_ny = zero_ey;
+  e1_nx = freq_to_x(eq1_freq_hz, eq_gx, eq_gw); e1_ny = zero_ey - (eq1_gain_db / 18.0) * (eq_gh * 0.44);
+  e2_nx = freq_to_x(eq2_freq_hz, eq_gx, eq_gw); e2_ny = zero_ey - (eq2_gain_db / 18.0) * (eq_gh * 0.44);
+  hc_nx = freq_to_x(hicut_hz,    eq_gx, eq_gw); hc_ny = zero_ey;
+
+  gfx_set(0.98, 0.70, 0.53, 1.0);
+  gfx_circle(lc_nx, lc_ny, floor(6 * S), 1, 1);
+  gfx_circle(hc_nx, hc_ny, floor(6 * S), 1, 1);
+
+  gfx_set(0.45, 0.78, 0.98, 1.0);
+  gfx_circle(e1_nx, e1_ny, floor(6 * S), 1, 1);
+  gfx_circle(e2_nx, e2_ny, floor(6 * S), 1, 1);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && (drag_id == 0) &&
+  (mouse_x >= eq_gx && mouse_x <= eq_gx + eq_gw && mouse_y >= eq_gy && mouse_y <= eq_gy + eq_gh) ? (
+    ((mouse_x - e1_nx)^2 + (mouse_y - e1_ny)^2) < 120 ? drag_id = 301 :
+    ((mouse_x - e2_nx)^2 + (mouse_y - e2_ny)^2) < 120 ? drag_id = 302 :
+    ((mouse_x - lc_nx)^2 + (mouse_y - lc_ny)^2) < 120 ? drag_id = 303 :
+    ((mouse_x - hc_nx)^2 + (mouse_y - hc_ny)^2) < 120 ? drag_id = 304;
+  );
+
+  drag_id == 301 ? (
+    (mouse_cap & 1) ? (
+      eq1_freq_hz = max(40.0, min(2000.0, x_to_freq(mouse_x, eq_gx, eq_gw)));
+      eq1_gain_db = max(-15.0, min(15.0, ((zero_ey - mouse_y) / (eq_gh * 0.44)) * 18.0));
+      update_parameters(); slider_automate(slider28); slider_automate(slider29);
+    ) : drag_id = 0;
+  );
+  drag_id == 302 ? (
+    (mouse_cap & 1) ? (
+      eq2_freq_hz = max(500.0, min(16000.0, x_to_freq(mouse_x, eq_gx, eq_gw)));
+      eq2_gain_db = max(-15.0, min(15.0, ((zero_ey - mouse_y) / (eq_gh * 0.44)) * 18.0));
+      update_parameters(); slider_automate(slider30); slider_automate(slider31);
+    ) : drag_id = 0;
+  );
+  drag_id == 303 ? (
+    (mouse_cap & 1) ? (
+      locut_hz = max(20.0, min(1000.0, x_to_freq(mouse_x, eq_gx, eq_gw)));
+      update_parameters(); slider_automate(slider25);
+    ) : drag_id = 0;
+  );
+  drag_id == 304 ? (
+    (mouse_cap & 1) ? (
+      hicut_hz = max(1000.0, min(20000.0, x_to_freq(mouse_x, eq_gx, eq_gw)));
+      update_parameters(); slider_automate(slider26);
+    ) : drag_id = 0;
+  );
+);
+
+// =========================================================================
+// 5. INFO OVERLAY MODAL (Click AETHERVERB Logo to Toggle)
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.76);
+  mh = floor(300 * S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.58, 0.89, 0.84);
+
+  gfx_setfont(1);
+  gfx_set(0.58, 0.89, 0.84, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("AetherVerb v1.1 (8-Mode Algorithmic, Shimmer & FDN Reverb)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.94, 0.98, 1.0);
+  lh_step = floor(27 * S);
+  ty = my + 62;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 8 Reverb Machines: Plate 140, Hall, Cloud, Shimmer, Bloom, Chorale, Non-Lin, SuperFDN");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• 3 Preamp Styles (Clean, Tube V54, Solid 162) & 3 Converter Eras (Modern, 70s, 80s)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Left-click HOLD to Freeze/Sustain; Right-click HOLD to switch Freeze vs Infinite mode");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Click TWEAK to open Auto-Decay, Shimmer Voices 1 & 2, Vowel, and Post-EQ Graph");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Drag the 4 nodes inside the Tweak EQ Graph to adjust Low/High Cuts & Post-EQ");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment, double-click to reset)");
+
+  gfx_set(0.58, 0.72, 0.70, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 32;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;

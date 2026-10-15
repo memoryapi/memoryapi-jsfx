@@ -211,6 +211,22 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Interactive GUI**: Marquee multi-node selection, piano roll scale display, and smart context-aware band creation.
   * **Credits**: Original DSP & core architecture by [Justin Johnson (ReJJ)](https://github.com/Justin-Johnson/ReEQ).
 
+### 13. Reverb / AetherVerb
+**Path**: `Reverb/AetherVerb.jsfx`  
+**Description**: 8-Mode Algorithmic, Shimmer & FDN Reverb
+
+![AetherVerb](screenshots/aetherverb.webp)
+
+* **Key Features**:
+  * **8 Reverb Topologies**: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network).
+  * **Multi-Voice Pitch Shimmer**: Two independent shimmer voices with octave and musical interval transpositions (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct).
+  * **Formant Chorale Resonators**: Morphing vowel filtering (AH, OH, OO) for vocal resonances and synthetic choir pads.
+  * **Dynamic Auto-Decay**: Built-in envelope follower ducks the reverb tail during active performance to preserve clarity and prevent muddy buildups.
+  * **Analog Preamp & Converter Modeling**: Clean, Tube V54, and Solid State 162 preamps paired with Modern HiFi, 70s 12-Bit, and 80s Dark digital converter flavors.
+  * **Infinite & Freeze**: Instant hold modes for endless ambient sustain drones and atmospheric backdrops.
+  * **Integrated Tone & Post-EQ**: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.
+  * **Modern Vector Interface**: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.
+
 ---
 
 ## 📂 Repository Structure
@@ -245,6 +261,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   ├── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
 │   ├── PocketQ.jsfx            # JSFX plugin with ReaPack metadata header
 │   └── ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header
+├── Reverb/                     # ReaPack Category: Reverb
+│   └── AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
     └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
