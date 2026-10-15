@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="aa4e695e5f9bf8cb0d9aa419f28b8ee5d0c49fe7">
+<index version="1" name="MemoryAPI JSFX" commit="cb85e04ca50225adeda90753a8bde762d9198f80">
   <category name="Dynamics">
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
       <metadata>
@@ -58,6 +58,32 @@
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/aa4e695e5f9bf8cb0d9aa419f28b8ee5d0c49fe7/Saturation/OInflator.jsfx</source>
       </version>
     </reapack>
+    <reapack name="Phoenix.jsfx" type="effect" desc="Phoenix (Analog Tape Saturator)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Phoenix\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Analog Tape Saturator with 5 selectable tape saturation topologies and 3 high-frequency flux responses.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 5 selectable tape saturation topologies: Luminescent, Iridescent, Radiant, Luster, and Dark Essence\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3 high-frequency flux responses: Opal (Neutral), Gold (Warm), and Sapphire (Bright)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Input trim, process, and output trim controls\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Auto-gain compensation mode\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Calibrated studio peak and RMS metering with clip indicators\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Credits\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.\sa180\par}
+}
+]]></description>
+        <link rel="website" href="https://github.com/JClones/JSFXClones">Original DSP repository</link>
+      </metadata>
+      <version name="1.2.0" author="JClones / Custom DSP" time="2026-10-15T10:30:41Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cb85e04ca50225adeda90753a8bde762d9198f80/Saturation/Phoenix.jsfx</source>
+      </version>
+    </reapack>
   </category>
   <metadata>
     <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
@@ -109,6 +135,17 @@ reapack.com
 JClones
 }}}
 , licensed under MIT.\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Saturation / Phoenix\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Brightness Curves}: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Input & Output Trims with Auto-Gain}: Input Trim (-10 to +10 dB), Process amount (0 to 100%), Output Trim (-6 to +6 dB), and optional automatic gain compensation.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Studio Metering & HiDPI Zoom}: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
+JClones
+}}}
+, licensed under MIT.\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -123,7 +160,8 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
 \u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
-    \u9492 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\par}
+    \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
+    \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u57056 ? Adding New Plugins & Maintaining with {\f1 jj} (Jujutsu)\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 This repository uses {\b {\f1 jj}} (Jujutsu) for source control.\par}
