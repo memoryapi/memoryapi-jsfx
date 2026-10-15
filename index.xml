@@ -339,6 +339,7 @@ reapack.com
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55356 ?\u57243 ? Included Plugins\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 1. Dynamics / SpectralCarver\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/SpectralCarver.jsfx}\line {\b Description}: 32-Band Dynamic Spectral Ducker with Cytomic State Variable Filters (SVF)\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/spectralcarver.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 32-Band SVF Dynamic Carving}: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Routing}: Route your kick, vocals, or sidechain trigger audio to {\b Channels 3/4} of the track.\par}
@@ -349,6 +350,7 @@ reapack.com
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 2. Dynamics / Opto2A\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/Opto2A.jsfx}\line {\b Description}: Optical Tube Compressor\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/opto2a.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b T4 Optical Attenuator Modeling}: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Compress / Limit Modes}: Switchable knee characteristics from gentle musical leveling to peak limiting.\par}
@@ -362,6 +364,7 @@ JClones
 , licensed under MIT.\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Dynamics / OverTop\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/OverTop.jsfx}\line {\b Description}: 3-Band Upward/Downward Multiband Compressor (OTT Style)\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/overtop.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3-Band Upward & Downward Dynamics}: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Threshold Bars}: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.\par}
@@ -371,6 +374,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector UI}: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Dynamics / PulseDuck\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/PulseDuck.jsfx}\line {\b Description}: Multiband Sidechain & Envelope Shaper\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/pulseduck.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 16 Instant Curve Presets}: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Trigger Modes}: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input.\par}
@@ -381,6 +385,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Saturation / OInflator\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/oinflator.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-time Harmonic Transfer Viewport}: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.\par}
@@ -394,6 +399,7 @@ JClones
 , licensed under MIT.\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 6. Saturation / Phoenix\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/phoenix.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Brightness Curves}: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).\par}
@@ -405,6 +411,7 @@ JClones
 , licensed under MIT.\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 7. Creative / ChronoWarp\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/ChronoWarp.jsfx}\line {\b Description}: Creative Half-Time & Varispeed Engine\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/chronowarp.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Speed Modes}: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Continuous Ring-Buffer DSP}: 4-point Hermite cubic interpolation over an ~87-second continuous ring buffer for artifact-free, clickless time transformation.\par}
@@ -416,6 +423,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Modern UI}: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 8. Creative / VintageFlux\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/VintageFlux.jsfx}\line {\b Description}: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/vintageflux.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 6 Dedicated Vintage FX Modules}:\par}
 {\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Noise}: Vinyl, Cassette, VHS, and White noise with envelope following and ducking.\par}
@@ -430,6 +438,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 9. Delay / EchoForge\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Delay/EchoForge.jsfx}\line {\b Description}: Analog Tape, Lo-Fi & Diffused Delay Workstation\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/echoforge.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Delay Models}: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo Sync & Free Milliseconds}: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.\par}
@@ -443,6 +452,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive UI}: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 10. EQ / ConsoleQ\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ConsoleQ.jsfx}\line {\b Description}: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/consoleq.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Band Console EQ}: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Cut Filters}: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.\par}
@@ -456,6 +466,7 @@ JClones
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 11. EQ / PocketQ\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/PocketQ.jsfx}\line {\b Description}: Compact Console & Air Channel Strip EQ\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/pocketq.webp]\cf0}\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Fixed Musical Frequency Bands}: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Air Band}: Selectable ultra-high frequencies (2.5k, 5k, 10k, 20k, 40 kHz) with up to +20 dB boost.\par}
@@ -476,6 +487,7 @@ JClones
 \u9500 ?\u9472 ?\u9472 ? .reapack-index.conf         # reapack-index options\line
 \u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
+\u9500 ?\u9472 ?\u9472 ? screenshots/                # Plugin screenshot previews (WebP)\line
 \u9500 ?\u9472 ?\u9472 ? Creative/                   # ReaPack Category: Creative\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header\line
