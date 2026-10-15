@@ -1,8 +1,8 @@
 desc:ChronoWarp (Creative Half-Time & Varispeed Engine)
 // @description ChronoWarp (Creative Half-Time & Varispeed Engine)
 // @author MemoryAPI
-// @version 1.1.0
-// @changelog Initial release in repository
+// @version 1.2.0
+// @changelog Symmetrical 30/40/30 layout, centered Hero Power button with radial fade ring, larger knobs
 // @about
 //   # ChronoWarp
 //   Creative Half-Time and Varispeed Engine with continuous ring-buffer time stretching, smooth windowing, dual bandpass filtering, and shimmer pitch layering.
@@ -82,13 +82,11 @@ fade_beats_tbl[5] = 8.0;       // 2 Bars
 fade_beats_tbl[6] = 16.0;      // 4 Bars
 
 // 4-point Hermite Cubic Interpolation on the Continuous Ring Buffer
-// Guarantees causal reading (never reads ahead of the current write head w_pos)
 function read_ring_hermite(r_pos, max_valid_pos)
   local(safe_pos, i0, frac, idx_m1, idx_0, idx_p1, idx_p2,
         y0_l, y1_l, y2_l, y3_l, c0_l, c1_l, c2_l, c3_l,
         y0_r, y1_r, y2_r, y3_r, c0_r, c1_r, c2_r, c3_r)
 (
-  // Keep interpolation kernel strictly at or behind max_valid_pos so it never reads future samples
   safe_pos = min(r_pos, max_valid_pos - 1.0);
   i0   = floor(safe_pos);
   frac = safe_pos - i0;
@@ -96,7 +94,6 @@ function read_ring_hermite(r_pos, max_valid_pos)
   idx_m1 = ((i0 - 1) & RING_MASK) * 2;
   idx_0  = (i0       & RING_MASK) * 2;
   idx_p1 = ((i0 + 1) & RING_MASK) * 2;
-  // Clamp +2 tap to max_valid_pos if right at the live write edge
   idx_p2 = (min(max_valid_pos, i0 + 2) & RING_MASK) * 2;
 
   y0_l = RING_BASE[idx_m1];     y0_r = RING_BASE[idx_m1 + 1];
@@ -126,12 +123,10 @@ function update_parameters()
     band_low_hz = max(20.0, band_high_hz - 40.0);
   );
 
-  // Speed Ratio: 1.5x -> 2/3 (0.6667), 2x -> 0.5, 4x -> 0.25
   speed_mode == 0 ? speed_ratio = 0.6666666667 :
   speed_mode == 1 ? speed_ratio = 0.5 :
                     speed_ratio = 0.25;
 
-  // Cytomic SVF Crossover Filters for Band Split (Butterworth 12dB/oct)
   k_sub = 1.41421356;
 
   g_hp = tan($pi * max(20.0, min(band_low_hz, SAFE_SRATE * 0.45)) / SAFE_SRATE);
@@ -170,14 +165,12 @@ SAFE_SRATE = max(8000.0, srate);
 SAFE_TEMPO = max(30.0, tempo > 0 ? tempo : 120.0);
 samples_per_beat = (60.0 / SAFE_TEMPO) * SAFE_SRATE;
 
-// Scale 1/2, 1, 2, 4, 8 Bar presets proportionally to host time signature numerator
 ts_scale  = (ts_num > 0) ? (ts_num / 4.0) : 1.0;
 raw_beats = loop_beats_tbl[loop_idx];
 loop_idx >= 5 ? raw_beats *= ts_scale;
 
 loop_samples = floor(max(256.0, min(RING_FRAMES * 0.40, raw_beats * samples_per_beat)));
 
-// Calculate Fade-In and Fade-Out increments per sample
 fi_beats = fade_beats_tbl[fade_in_idx];
 fi_beats == 0.0 ? fade_in_step = 1.0 :
 fi_beats < 0.0  ? fade_in_step = 1.0 / (0.012 * SAFE_SRATE) :
@@ -188,8 +181,6 @@ fo_beats == 0.0 ? fade_out_step = 1.0 :
 fo_beats < 0.0  ? fade_out_step = 1.0 / (0.012 * SAFE_SRATE) :
                   fade_out_step = 1.0 / max(1.0, fo_beats * samples_per_beat);
 
-// Jitter-free Host Transport Sync:
-// Only re-anchor phase if transport just started or user seeked/looped in timeline (> 64 samples drift)
 is_playing = (play_state & 1);
 is_playing ? (
   host_abs = floor(beat_position * samples_per_beat + 0.5);
@@ -205,22 +196,17 @@ is_playing ? (
 in_l = spl0;
 in_r = spl1;
 
-// Advance monotonic write head & phase-locked musical counter by exactly 1 sample
 write_abs += 1;
 tracked_host_abs += 1;
 
-// Update Power Fade-In / Fade-Out envelope
 power_on ? (
   power_env < 1.0 ? power_env = min(1.0, power_env + fade_in_step);
 ) : (
   power_env > 0.0 ? power_env = max(0.0, power_env - fade_out_step);
 );
 
-// -------------------------------------------------------------------------
-// 1. 3-BAND CROSSOVER SPLIT (LOW / BAND / HIGH)
-// -------------------------------------------------------------------------
+// 1. 3-Band Crossover Split
 band_low_hz > 21.0 ? (
-  // Left
   v3 = in_l - hp_l_ic2;
   v1 = hp_a1 * hp_l_ic1 + hp_a2 * v3;
   v2 = hp_l_ic2 + hp_a2 * hp_l_ic1 + hp_a3 * v3;
@@ -229,7 +215,6 @@ band_low_hz > 21.0 ? (
   low_l  = v2;
   band_l = in_l - hp_k * v1 - v2;
 
-  // Right
   v3 = in_r - hp_r_ic2;
   v1 = hp_a1 * hp_r_ic1 + hp_a2 * v3;
   v2 = hp_r_ic2 + hp_a2 * hp_r_ic1 + hp_a3 * v3;
@@ -243,7 +228,6 @@ band_low_hz > 21.0 ? (
 );
 
 band_high_hz < 19900.0 ? (
-  // Left
   v3 = band_l - lp_l_ic2;
   v1 = lp_a1 * lp_l_ic1 + lp_a2 * v3;
   v2 = lp_l_ic2 + lp_a2 * lp_l_ic1 + lp_a3 * v3;
@@ -252,7 +236,6 @@ band_high_hz < 19900.0 ? (
   high_l = band_l - lp_k * v1 - v2;
   band_l = v2;
 
-  // Right
   v3 = band_r - lp_r_ic2;
   v1 = lp_a1 * lp_r_ic1 + lp_a2 * v3;
   v2 = lp_r_ic2 + lp_a2 * lp_r_ic1 + lp_a3 * v3;
@@ -267,30 +250,24 @@ band_high_hz < 19900.0 ? (
 unprocessed_outside_l = low_l + high_l;
 unprocessed_outside_r = low_r + high_r;
 
-// -------------------------------------------------------------------------
-// 2. CONTINUOUS RING BUFFER WRITE & SEAMLESS VARISPEED READ
-// -------------------------------------------------------------------------
+// 2. Continuous Ring Buffer Write & Varispeed Read
 w_ring_idx = (write_abs & RING_MASK) * 2;
 RING_BASE[w_ring_idx]     = band_l;
 RING_BASE[w_ring_idx + 1] = band_r;
 
-// Compute musical cycle index and sample offset within current loop
 cycle_id = floor(tracked_host_abs / loop_samples);
 pos_in_loop = tracked_host_abs - (cycle_id * loop_samples);
 pos_in_loop < 0 ? pos_in_loop += loop_samples;
 
-// When crossing into a new loop cycle, latch the previous read head for click-free crossfading
 (cycle_id != prev_cycle_id) || (abs((write_abs - pos_in_loop) - cycle_start_abs) > 8) ? (
   old_read_anchor = cur_read_abs;
   cycle_start_abs = write_abs - pos_in_loop;
   prev_cycle_id   = cycle_id;
 );
 
-// Primary Read Head Position in continuous ring buffer
 !rev_on ? (
   cur_read_abs = cycle_start_abs + (pos_in_loop * speed_ratio);
 ) : (
-  // Reverse Mode plays backward across the previously captured slice
   cur_read_abs = cycle_start_abs - (pos_in_loop * speed_ratio);
 );
 
@@ -298,12 +275,8 @@ read_ring_hermite(cur_read_abs, write_abs);
 wet_l = out_herm_l;
 wet_r = out_herm_r;
 
-// -------------------------------------------------------------------------
-// 3. BIPOLAR SMOOTHING (SUSTAIN/SWELL CROSSFADE vs PERCUSSIVE/FX TRANSIENT)
-// -------------------------------------------------------------------------
+// 3. Bipolar Smoothing
 smooth_pct >= 0.0 ? (
-  // Clockwise (0..+100%): Crossfade from the continuing old read head at the start of every loop
-  // Even at 0%, a tiny 64-sample (~1.3ms) de-click ramp prevents waveform step discontinuities
   xfade_frac = (smooth_pct * 0.01) * 0.45;
   xfade_samples = max(64.0, loop_samples * xfade_frac);
 
@@ -323,7 +296,6 @@ smooth_pct >= 0.0 ? (
     wet_r = wet_r * w_new + out_herm_r * w_old;
   );
 ) : (
-  // Counter-Clockwise (-100..0%): Percussive / FX blends live dry signal around the loop point
   perc_frac = abs(smooth_pct * 0.01) * 0.45;
   perc_samples = max(96.0, loop_samples * perc_frac);
   dist_to_end  = loop_samples - pos_in_loop;
@@ -342,7 +314,7 @@ smooth_pct >= 0.0 ? (
   );
 );
 
-// Optional Octave-Up Shimmer Grain (dual-grain Hanning pitch doubler behind main read head)
+// Octave-Up Shimmer Grain
 shimmer_pct > 0.1 ? (
   shim_gain = (shimmer_pct * 0.01) * 0.40;
   grain_len = 2048.0;
@@ -363,9 +335,7 @@ shimmer_pct > 0.1 ? (
   wet_r += (sh1_r * win1 + sh2_r * win2) * shim_gain;
 );
 
-// -------------------------------------------------------------------------
-// 4. BAND RECOMBINATION, SOLO, MIX & POWER FADE ENVELOPE
-// -------------------------------------------------------------------------
+// 4. Band Recombination, Solo, Mix & Power Fade Envelope
 band_solo ? (
   proc_full_l = wet_l;
   proc_full_r = wet_r;
@@ -381,7 +351,6 @@ out_r = in_r * (1.0 - eff_mix) + proc_full_r * eff_mix;
 spl0 = out_l;
 spl1 = out_r;
 
-// Store normalized progress & waveform bins for the @gfx scope
 loop_progress_norm = max(0.0, min(1.0, pos_in_loop / loop_samples));
 !rev_on ? (
   read_progress_norm = loop_progress_norm * speed_ratio;
@@ -395,15 +364,15 @@ out_peak = max(abs(wet_l),  abs(wet_r));
 wave_in_buf[bin_idx]  = wave_in_buf[bin_idx]  * 0.90 + in_peak  * 0.10;
 wave_out_buf[bin_idx] = wave_out_buf[bin_idx] * 0.90 + out_peak * 0.10;
 
-@gfx 740 670
+@gfx 760 680
 // Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
 gfx_clear = 30 + (30 * 256) + (46 * 65536);
 
-W = max(620, gfx_w);
+W = max(640, gfx_w);
 H = max(560, gfx_h);
 
 // Responsive geometry scale & Linux X11 font multiplier
-S  = min(W / 740.0, H / 670.0);
+S  = min(W / 760.0, H / 680.0);
 TS = S * max(1.0, ui_zoom);
 
 f_title = max(18, floor(22 * TS));
@@ -527,12 +496,14 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
     st += 1;
   );
 
-  // Pointer indicator
+  // Inner cap & pointer indicator
+  gfx_set(0.16, 0.17, 0.24, 1.0);
+  gfx_circle(cx, cy, floor(r * 0.26), 1, 1);
   gfx_set(0.96, 0.95, 1.0, 1.0);
-  px0 = cx + sin(ang_val) * (r * 0.25);
-  py0 = cy - cos(ang_val) * (r * 0.25);
-  px1 = cx + sin(ang_val) * (r - 8);
-  py1 = cy - cos(ang_val) * (r - 8);
+  px0 = cx + sin(ang_val) * (r * 0.24);
+  py0 = cy - cos(ang_val) * (r * 0.24);
+  px1 = cx + sin(ang_val) * (r - 7);
+  py1 = cy - cos(ang_val) * (r - 7);
   gfx_line(px0, py0, px1, py1, 1);
   gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
 
@@ -541,16 +512,16 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
   gfx_measurestr(label, lw, lh);
   gfx_set(0.76, 0.78, 0.90, 1.0);
   gfx_x = cx - lw * 0.5;
-  gfx_y = cy + r + floor(8 * S);
+  gfx_y = cy + r + floor(6 * S);
   gfx_drawstr(label);
 
   // Pill Value Readout
   is_hero ? gfx_setfont(6) : gfx_setfont(3);
   gfx_measurestr(val_str, vw, vh);
-  pill_w = max(vw + floor(18 * S), floor(82 * S));
-  pill_h = vh + floor(8 * S);
+  pill_w = max(vw + floor(16 * S), floor(78 * S));
+  pill_h = vh + floor(6 * S);
   pill_x = cx - pill_w * 0.5;
-  pill_y = cy + r + lh + floor(11 * S);
+  pill_y = cy + r + lh + floor(9 * S);
 
   draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? 0.80 : 0.22, hover ? 0.65 : 0.24, hover ? 0.97 : 0.34);
   gfx_set(0.96, 0.95, 1.0, 1.0);
@@ -564,7 +535,7 @@ function draw_rotary_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, 
 // =========================================================================
 // 1. TOP HEADER BAR
 // =========================================================================
-hdr_h = floor(52 * S);
+hdr_h = floor(50 * S);
 gfx_set(0.09, 0.09, 0.15, 1.0);
 gfx_rect(0, 0, W, hdr_h);
 gfx_set(0.22, 0.20, 0.30, 1.0);
@@ -573,7 +544,7 @@ gfx_line(0, hdr_h, W, hdr_h);
 // Brand Title: CHRONOWARP in Catppuccin Mauve (#CBA6F7)
 gfx_setfont(1);
 gfx_set(0.80, 0.65, 0.97, 1.0);
-gfx_x = floor(22 * S);
+gfx_x = floor(20 * S);
 gfx_measurestr("CHRONO", tw1, th1);
 gfx_y = (hdr_h - th1) * 0.5;
 gfx_drawstr("CHRONO");
@@ -597,8 +568,8 @@ title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse
 );
 
 // REVERSE Toggle Button in Header
-rev_w = floor(102 * S); rev_h = floor(30 * S);
-rev_x = W - floor(242 * S); rev_y = (hdr_h - rev_h) * 0.5;
+rev_w = floor(106 * S); rev_h = floor(28 * S);
+rev_x = W - floor(238 * S); rev_y = (hdr_h - rev_h) * 0.5;
 rev_hit = mouse_x >= rev_x && mouse_x <= rev_x + rev_w && mouse_y >= rev_y && mouse_y <= rev_y + rev_h;
 (mouse_cap & 1) && !(last_mouse_cap & 1) && rev_hit ? (
   rev_on = !rev_on;
@@ -619,8 +590,8 @@ gfx_x = rev_x + (rev_w - rvw) * 0.5; gfx_y = rev_y + (rev_h - rvh) * 0.5;
 gfx_drawstr(#rv_str);
 
 // UI Text Scale Toggle Button (TEXT: 100% / 120% / 140%)
-zm_w = floor(102 * S); zm_h = floor(30 * S);
-zm_x = W - zm_w - floor(22 * S); zm_y = (hdr_h - zm_h) * 0.5;
+zm_w = floor(102 * S); zm_h = floor(28 * S);
+zm_x = W - zm_w - floor(18 * S); zm_y = (hdr_h - zm_h) * 0.5;
 zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
 (mouse_cap & 1) && !(last_mouse_cap & 1) && zm_hit ? (
   ui_zoom < 1.1 ? ui_zoom = 1.20 :
@@ -639,18 +610,18 @@ gfx_drawstr(#z_lbl);
 // =========================================================================
 // 2. ROW 1: 10-BUTTON MUSICAL LOOP LENGTH SELECTOR BAR
 // =========================================================================
-pad    = floor(16 * S);
+pad    = floor(14 * S);
 full_w = W - (pad * 2);
 
 loop_bar_y = hdr_h + pad;
-loop_bar_h = floor(54 * S);
+loop_bar_h = floor(50 * S);
 draw_panel_box(pad, loop_bar_y, full_w, loop_bar_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
 
-lb_pad = floor(10 * S);
+lb_pad = floor(8 * S);
 lb_gap = floor(5 * S);
 lb_w   = floor((full_w - lb_pad * 2 - lb_gap * 9) / 10.0);
-lb_h   = loop_bar_h - floor(16 * S);
-lb_y   = loop_bar_y + floor(8 * S);
+lb_h   = loop_bar_h - floor(14 * S);
+lb_y   = loop_bar_y + floor(7 * S);
 
 li = 0;
 loop(10,
@@ -692,19 +663,17 @@ loop(10,
 // 3. ROW 2: REAL-TIME TIME-WARP WAVEFORM & DUAL PLAYHEAD SCOPE
 // =========================================================================
 scope_y = loop_bar_y + loop_bar_h + pad;
-scope_h = floor((H - scope_y) * 0.28);
+scope_h = floor((H - scope_y) * 0.27);
 draw_panel_box(pad, scope_y, full_w, scope_h, 0.060, 0.062, 0.098, 0.22, 0.24, 0.35);
 
-// Highlight the active Capture Fraction (1/2 of loop for 2x, 2/3 for 1.5x, 1/4 for 4x)
+// Highlight the active Capture Fraction
 cap_w = floor(full_w * speed_ratio);
 gfx_set(0.80, 0.65, 0.97, 0.07 * power_env);
 gfx_rect(pad + 1, scope_y + 1, cap_w, scope_h - 2);
 
-// Boundary line showing where captured phrase ends
 gfx_set(0.80, 0.65, 0.97, 0.45);
 gfx_line(pad + cap_w, scope_y + 1, pad + cap_w, scope_y + scope_h - 2);
 
-// Quarter-loop vertical grid lines
 gi = 1;
 loop(3,
   gx = pad + (gi * 0.25) * full_w;
@@ -713,7 +682,6 @@ loop(3,
   gi += 1;
 );
 
-// Render Input Envelope (dim Lavender) & Stretched Output Waveform (Mauve/Pink)
 mid_sy = scope_y + scope_h * 0.5;
 col_w  = max(2.0, (full_w - 8) / WAVE_BINS);
 wi = 0;
@@ -730,7 +698,6 @@ loop(WAVE_BINS,
   wi += 1;
 );
 
-// Input Write Playhead (White/Lavender) & Varispeed Read Playhead (Bright Pink/Mauve)
 write_px = pad + 2 + loop_progress_norm * (full_w - 4);
 read_px  = pad + 2 + read_progress_norm * (full_w - 4);
 
@@ -742,7 +709,6 @@ gfx_line(read_px, scope_y + 2, read_px, scope_y + scope_h - 2);
 gfx_line(read_px + 1, scope_y + 2, read_px + 1, scope_y + scope_h - 2);
 gfx_circle(read_px, mid_sy, floor(4 * S), 1, 1);
 
-// Scope Status Readouts
 gfx_setfont(5);
 gfx_set(0.80, 0.65, 0.97, 1.0);
 speed_mode == 0 ? strcpy(#sp_info, "CAPTURE: 2/3 LOOP (-5 SEMITONES / TRIPLET)") :
@@ -758,37 +724,49 @@ gfx_x = pad + full_w - syw - 10; gfx_y = scope_y + 8;
 gfx_drawstr(#sync_str);
 
 // =========================================================================
-// 4. ROW 3: MAIN CONTROL DECK (SPEED MODE | CENTRAL POWER & FADES | SMOOTH, SHIMMER & MIX)
+// 4. ROW 3: SYMMETRICAL 3-COLUMN DECK (33% LEFT | 34% CENTER | 33% RIGHT)
+// Locks the Hero Power Button to the exact horizontal center of the window!
 // =========================================================================
 deck_y = scope_y + scope_h + pad;
-bot_bar_h = floor(74 * S);
+bot_bar_h = floor(70 * S);
 deck_h = H - deck_y - bot_bar_h - (pad * 2);
 
-col1_w = floor(full_w * 0.23);
-col2_w = floor(full_w * 0.30);
-col3_w = full_w - col1_w - col2_w - (pad * 2);
+side_w = floor((full_w - pad * 2) * 0.34);
+mid_w  = full_w - (side_w * 2) - (pad * 2);
 
 col1_x = pad;
-col2_x = col1_x + col1_w + pad;
-col3_x = col2_x + col2_w + pad;
+col2_x = col1_x + side_w + pad;
+col3_x = col2_x + mid_w + pad;
 
-draw_panel_box(col1_x, deck_y, col1_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
-draw_panel_box(col2_x, deck_y, col2_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
-draw_panel_box(col3_x, deck_y, col3_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(col1_x, deck_y, side_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(col2_x, deck_y, mid_w,  deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(col3_x, deck_y, side_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
 
-// --- COLUMN 1: SPEED MODE (1.5x, 2x, 4x) ---
+// Section Headers across all 3 Cards
 gfx_setfont(2);
 gfx_set(0.75, 0.78, 0.90, 1.0);
-gfx_measurestr("SPEED MODE", smw, smh);
-gfx_x = col1_x + (col1_w - smw) * 0.5;
-gfx_y = deck_y + floor(12 * S);
-gfx_drawstr("SPEED MODE");
 
-m_pad = floor(14 * S);
-m_gap = floor(10 * S);
-m_top = deck_y + floor(38 * S);
-m_btn_h = floor((deck_h - floor(52 * S) - m_gap * 2) / 3.0);
-m_btn_w = col1_w - m_pad * 2;
+gfx_measurestr("SPEED & PITCH", smw, smh);
+gfx_x = col1_x + (side_w - smw) * 0.5;
+gfx_y = deck_y + floor(10 * S);
+gfx_drawstr("SPEED & PITCH");
+
+gfx_measurestr("WARP POWER & FADE", pmw, pmh);
+gfx_x = col2_x + (mid_w - pmw) * 0.5;
+gfx_y = deck_y + floor(10 * S);
+gfx_drawstr("WARP POWER & FADE");
+
+gfx_measurestr("CONTOUR & MIX", cmw, cmh);
+gfx_x = col3_x + (side_w - cmw) * 0.5;
+gfx_y = deck_y + floor(10 * S);
+gfx_drawstr("CONTOUR & MIX");
+
+// --- LEFT CARD (COLUMN 1): SPEED MODE BUTTONS (LEFT) + SHIMMER KNOB (RIGHT) ---
+m_pad = floor(12 * S);
+m_gap = floor(8 * S);
+m_top = deck_y + floor(36 * S);
+m_btn_h = floor((deck_h - floor(48 * S) - m_gap * 2) / 3.0);
+m_btn_w = floor(side_w * 0.50) - m_pad;
 
 mi = 0;
 loop(3,
@@ -809,9 +787,9 @@ loop(3,
     gfx_set(0.76, 0.79, 0.90, 1.0);
   );
 
-  mi == 0 ? strcpy(#mlbl, "1.5x  (-5 ST)") :
-  mi == 1 ? strcpy(#mlbl, "2x  (-1 OCT)")  :
-            strcpy(#mlbl, "4x  (-2 OCT)");
+  mi == 0 ? strcpy(#mlbl, "1.5x (-5 ST)") :
+  mi == 1 ? strcpy(#mlbl, "2x (-1 OCT)")  :
+            strcpy(#mlbl, "4x (-2 OCT)");
 
   gfx_setfont(4);
   gfx_measurestr(#mlbl, mlw, mlh);
@@ -821,48 +799,86 @@ loop(3,
   mi += 1;
 );
 
-// --- COLUMN 2: HERO POWER BUTTON & FADE-IN / FADE-OUT RAMPS ---
-pwr_cx = col2_x + col2_w * 0.5;
-pwr_cy = deck_y + deck_h * 0.38;
-pwr_r  = min(floor(46 * S), floor(deck_h * 0.23));
+// Octave Shimmer Knob on the right half of Left Card
+r_k  = min(floor(39 * S), floor(deck_h * 0.21));
+k_cy = deck_y + deck_h * 0.44;
 
-pwr_hit = ((mouse_x - pwr_cx)*(mouse_x - pwr_cx) + (mouse_y - pwr_cy)*(mouse_y - pwr_cy)) <= ((pwr_r + 8)*(pwr_r + 8));
+sprintf(#sh_str, "%.0f %%", shimmer_pct);
+new_sh = draw_rotary_knob(2, col1_x + side_w * 0.74, k_cy, r_k, shimmer_pct, 0.0, 100.0, 0.0, "SHIMMER", #sh_str, 0, 0);
+abs(new_sh - shimmer_pct) > 0.01 ? (
+  shimmer_pct = new_sh;
+  slider_automate(slider12);
+);
+
+// --- CENTER CARD (COLUMN 2): PERFECTLY CENTERED HERO POWER BUTTON & RADIAL FADE RING ---
+pwr_cx = W * 0.5;
+pwr_cy = deck_y + deck_h * 0.43;
+pwr_r  = min(floor(46 * S), floor(deck_h * 0.22));
+
+pwr_hit = ((mouse_x - pwr_cx)*(mouse_x - pwr_cx) + (mouse_y - pwr_cy)*(mouse_y - pwr_cy)) <= ((pwr_r + 10)*(pwr_r + 10));
 (mouse_cap & 1) && !(last_mouse_cap & 1) && pwr_hit ? (
   power_on = !power_on;
   slider_automate(slider1);
 );
 
+// Soft radial glow behind Power Button
 power_env > 0.01 ? (
-  gfx_set(0.80, 0.65, 0.97, 0.24 * power_env);
-  gfx_circle(pwr_cx, pwr_cy, pwr_r + floor(8 * S), 1, 1);
+  gfx_set(0.80, 0.65, 0.97, 0.20 * power_env);
+  gfx_circle(pwr_cx, pwr_cy, pwr_r + floor(10 * S), 1, 1);
 );
 
+// Button inner body
 gfx_set(0.11, 0.11, 0.17, 1.0);
 gfx_circle(pwr_cx, pwr_cy, pwr_r, 1, 1);
 
-gfx_set(0.28 + 0.56 * power_env, 0.30 + 0.38 * power_env, 0.40 + 0.58 * power_env, 1.0);
+// Background ring track
+gfx_set(0.22, 0.24, 0.33, 1.0);
 gfx_circle(pwr_cx, pwr_cy, pwr_r, 0, 1);
 gfx_circle(pwr_cx, pwr_cy, pwr_r - 1, 0, 1);
 
-icon_r = floor(pwr_r * 0.42);
-gfx_arc(pwr_cx, pwr_cy + 2, icon_r, -2.5, 2.5, 1);
-gfx_arc(pwr_cx, pwr_cy + 2, icon_r - 1, -2.5, 2.5, 1);
+// Integrated 360-degree Radial Fade Progress Ring around the Power Button
+// Replaces the old awkward horizontal bar underneath the button!
+power_env > 0.005 ? (
+  fade_ang = -3.14159 + power_env * 6.283185;
+  gfx_set(0.80, 0.65, 0.97, 1.0);
+  gfx_arc(pwr_cx, pwr_cy, pwr_r,     -3.14159, fade_ang, 1);
+  gfx_arc(pwr_cx, pwr_cy, pwr_r - 1, -3.14159, fade_ang, 1);
+  gfx_arc(pwr_cx, pwr_cy, pwr_r - 2, -3.14159, fade_ang, 1);
+);
+
+// Power Icon inside Button
+icon_r = floor(pwr_r * 0.40);
+gfx_set(0.45 + 0.51 * power_env, 0.48 + 0.47 * power_env, 0.60 + 0.40 * power_env, 1.0);
+gfx_arc(pwr_cx, pwr_cy + 2, icon_r, -2.4, 2.4, 1);
+gfx_arc(pwr_cx, pwr_cy + 2, icon_r - 1, -2.4, 2.4, 1);
 gfx_line(pwr_cx, pwr_cy - icon_r - 3, pwr_cx, pwr_cy + 2, 1);
 gfx_line(pwr_cx + 1, pwr_cy - icon_r - 3, pwr_cx + 1, pwr_cy + 2, 1);
 
-fade_bar_w = col2_w - floor(28 * S);
-fade_bar_h = floor(8 * S);
-fade_bar_x = col2_x + floor(14 * S);
-fade_bar_y = pwr_cy + pwr_r + floor(12 * S);
-draw_panel_box(fade_bar_x, fade_bar_y, fade_bar_w, fade_bar_h, 0.05, 0.05, 0.08, 0.22, 0.24, 0.34);
-gfx_set(0.80, 0.65, 0.97, 0.95);
-gfx_rect(fade_bar_x + 1, fade_bar_y + 1, (fade_bar_w - 2) * power_env, fade_bar_h - 2);
+// Clean Status Text Label below Power Button (ACTIVE / FADING / BYPASSED)
+gfx_setfont(4);
+power_env > 0.99 ? (
+  gfx_set(0.84, 0.72, 1.0, 1.0);
+  strcpy(#p_stat, "WARP ACTIVE");
+) : power_env < 0.01 ? (
+  gfx_set(0.50, 0.53, 0.65, 1.0);
+  strcpy(#p_stat, "BYPASSED");
+) : (
+  gfx_set(0.96, 0.76, 0.91, 1.0);
+  sprintf(#p_stat, "FADING: %.0f%%", power_env * 100.0);
+);
+gfx_measurestr(#p_stat, psw, psh);
+gfx_x = pwr_cx - psw * 0.5;
+gfx_y = pwr_cy + pwr_r + floor(8 * S);
+gfx_drawstr(#p_stat);
 
-f_btn_w = floor((fade_bar_w - floor(8 * S)) * 0.5);
-f_btn_h = floor(32 * S);
-f_btn_y = deck_y + deck_h - f_btn_h - floor(12 * S);
-fi_x = fade_bar_x;
-fo_x = fade_bar_x + f_btn_w + floor(8 * S);
+// Symmetrical Fade-In & Fade-Out Selector Buttons at Bottom of Center Card
+fade_pad = floor(14 * S);
+fade_gap = floor(8 * S);
+f_btn_w  = floor((mid_w - fade_pad * 2 - fade_gap) * 0.5);
+f_btn_h  = floor(30 * S);
+f_btn_y  = deck_y + deck_h - f_btn_h - floor(10 * S);
+fi_x = col2_x + fade_pad;
+fo_x = fi_x + f_btn_w + fade_gap;
 
 fi_hit = (mouse_x >= fi_x && mouse_x <= fi_x + f_btn_w && mouse_y >= f_btn_y && mouse_y <= f_btn_y + f_btn_h);
 fo_hit = (mouse_x >= fo_x && mouse_x <= fo_x + f_btn_w && mouse_y >= f_btn_y && mouse_y <= f_btn_y + f_btn_h);
@@ -901,10 +917,7 @@ gfx_measurestr(#fo_s, fow, foh);
 gfx_x = fo_x + (f_btn_w - fow) * 0.5; gfx_y = f_btn_y + (f_btn_h - foh) * 0.5;
 gfx_drawstr(#fo_s);
 
-// --- COLUMN 3: SMOOTH (PERC/FX <-> SUST/SWELL), SHIMMER & MIX KNOBS ---
-k_cy = deck_y + deck_h * 0.38;
-r_k  = min(floor(36 * S), floor(deck_h * 0.21));
-
+// --- RIGHT CARD (COLUMN 3): BALANCED PAIR OF LARGE KNOBS (SMOOTH & MIX) ---
 abs(smooth_pct) < 1.0 ? strcpy(#sm_str, "OFF") :
 smooth_pct > 0.0 ? (
   smooth_pct < 35.0 ? sprintf(#sm_str, "Sust %.0f%%", smooth_pct) : sprintf(#sm_str, "Swell %.0f%%", smooth_pct);
@@ -912,21 +925,14 @@ smooth_pct > 0.0 ? (
   smooth_pct > -35.0 ? sprintf(#sm_str, "Perc %.0f%%", abs(smooth_pct)) : sprintf(#sm_str, "FX %.0f%%", abs(smooth_pct));
 );
 
-new_sm = draw_rotary_knob(1, col3_x + col3_w * 0.19, k_cy, r_k, smooth_pct, -100.0, 100.0, 15.0, "SMOOTH", #sm_str, 0, 1);
+new_sm = draw_rotary_knob(1, col3_x + side_w * 0.28, k_cy, r_k, smooth_pct, -100.0, 100.0, 15.0, "SMOOTH", #sm_str, 0, 1);
 abs(new_sm - smooth_pct) > 0.01 ? (
   smooth_pct = new_sm;
   slider_automate(slider4);
 );
 
-sprintf(#sh_str, "%.0f %%", shimmer_pct);
-new_sh = draw_rotary_knob(2, col3_x + col3_w * 0.50, k_cy, r_k, shimmer_pct, 0.0, 100.0, 0.0, "SHIMMER", #sh_str, 0, 0);
-abs(new_sh - shimmer_pct) > 0.01 ? (
-  shimmer_pct = new_sh;
-  slider_automate(slider12);
-);
-
 sprintf(#mx_str, "%.0f %%", mix_pct);
-new_mx = draw_rotary_knob(3, col3_x + col3_w * 0.81, k_cy, r_k, mix_pct, 0.0, 100.0, 100.0, "MIX", #mx_str, 1, 0);
+new_mx = draw_rotary_knob(3, col3_x + side_w * 0.72, k_cy, r_k, mix_pct, 0.0, 100.0, 100.0, "MIX", #mx_str, 1, 0);
 abs(new_mx - mix_pct) > 0.01 ? (
   mix_pct = new_mx;
   slider_automate(slider10);
@@ -941,7 +947,7 @@ draw_panel_box(pad, band_y, full_w, bot_bar_h, 0.095, 0.098, 0.145, 0.20, 0.22, 
 gfx_setfont(2);
 gfx_set(0.76, 0.79, 0.90, 1.0);
 gfx_x = pad + floor(16 * S);
-gfx_y = band_y + floor(10 * S);
+gfx_y = band_y + floor(9 * S);
 gfx_drawstr("FREQUENCY BAND SPLIT");
 
 band_low_hz >= 1000 ? sprintf(#bl_s, "%.2f kHz", band_low_hz * 0.001) : sprintf(#bl_s, "%d Hz", band_low_hz);
@@ -951,12 +957,12 @@ sprintf(#brange_str, "%s  —  %s", #bl_s, #bh_s);
 gfx_setfont(3);
 gfx_set(0.92, 0.84, 1.0, 1.0);
 gfx_x = pad + floor(215 * S);
-gfx_y = band_y + floor(10 * S);
+gfx_y = band_y + floor(9 * S);
 gfx_drawstr(#brange_str);
 
 bs_x = pad + floor(16 * S);
-bs_y = band_y + floor(36 * S);
-solo_w = floor(118 * S);
+bs_y = band_y + floor(34 * S);
+solo_w = floor(124 * S);
 bs_w = full_w - floor(32 * S) - solo_w - floor(14 * S);
 bs_h = floor(24 * S);
 
@@ -1023,7 +1029,7 @@ drag_id == 203 ? (
 );
 
 solo_x = bs_x + bs_w + floor(14 * S);
-solo_y = band_y + floor(22 * S);
+solo_y = band_y + floor(20 * S);
 solo_h = floor(38 * S);
 solo_hit = (mouse_x >= solo_x && mouse_x <= solo_x + solo_w && mouse_y >= solo_y && mouse_y <= solo_y + solo_h);
 (mouse_cap & 1) && !(last_mouse_cap & 1) && solo_hit ? (
@@ -1060,7 +1066,7 @@ info_open ? (
   gfx_setfont(1);
   gfx_set(0.80, 0.65, 0.97, 1.0);
   gfx_x = mx + 24; gfx_y = my + 20;
-  gfx_drawstr("ChronoWarp v1.1 (Creative Varispeed Engine)");
+  gfx_drawstr("ChronoWarp v1.2 (Creative Varispeed Engine)");
 
   gfx_setfont(3);
   gfx_set(0.92, 0.93, 0.98, 1.0);
