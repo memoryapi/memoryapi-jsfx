@@ -48,7 +48,19 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 3. Saturation / OInflator
+### 3. Dynamics / OverTop
+**Path**: `Dynamics/OverTop.jsfx`  
+**Description**: 3-Band Upward/Downward Multiband Compressor (OTT Style)
+
+* **Key Features**:
+  * **3-Band Upward & Downward Dynamics**: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).
+  * **Interactive Threshold Bars**: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.
+  * **Per-Band Gain & Bypass**: Dedicated bypass toggle and +/-24 dB output gain control for Low (<88 Hz), Mid, and High (>2.5 kHz) bands.
+  * **Global Controls**: Depth percentage (dry/wet scaling), Time scaling (1% to 1000%), and Master Input/Output gain trims.
+  * **Dedicated Upward % & Downward %**: Balance upward vs downward compression intensity from 0% to 200%.
+  * **Modern Vector UI**: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).
+
+### 4. Saturation / OInflator
 **Path**: `Saturation/OInflator.jsfx`  
 **Description**: Harmonic Waveshaper & Loudness Enhancer
 
@@ -61,7 +73,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 4. Saturation / Phoenix
+### 5. Saturation / Phoenix
 **Path**: `Saturation/Phoenix.jsfx`  
 **Description**: Analog Tape Saturator
 
@@ -72,7 +84,7 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Studio Metering & HiDPI Zoom**: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.
   * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
 
-### 5. Creative / ChronoWarp
+### 6. Creative / ChronoWarp
 **Path**: `Creative/ChronoWarp.jsfx`  
 **Description**: Creative Half-Time & Varispeed Engine
 
@@ -105,6 +117,7 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   └── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
 ├── Dynamics/                   # ReaPack Category: Dynamics
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
+│   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
 │   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
 └── Saturation/                 # ReaPack Category: Saturation
     ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
