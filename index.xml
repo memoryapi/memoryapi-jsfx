@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="d1b16fe535b8df503097044b82946c359ed2e4c4">
+<index version="1" name="MemoryAPI JSFX" commit="aa4e695e5f9bf8cb0d9aa419f28b8ee5d0c49fe7">
   <category name="Dynamics">
     <reapack name="SpectralCarver.jsfx" type="effect" desc="SpectralCarver (32-Band Dynamic Spectral Ducker)">
       <metadata>
@@ -28,6 +28,34 @@
       <version name="1.2" author="Custom DSP" time="2026-10-15T01:02:51Z">
         <changelog><![CDATA[Redesigned UI with DPI text zoom, animated drawer, and hover halos]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/d1b16fe535b8df503097044b82946c359ed2e4c4/Dynamics/SpectralCarver.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Saturation">
+    <reapack name="OInflator.jsfx" type="effect" desc="OInflator (Harmonic Waveshaper &amp; Enhancer)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 OInflator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A high-precision polynomial waveshaper and harmonic loudness enhancer with multiband split processing.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Authentic polynomial transfer curve shaping\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Phase-compensated 3-band split processing (240 Hz / 2.4 kHz crossovers)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Curve control (-50 to +50) for fine harmonic balance\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Clip 0dB ceiling protection\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Calibrated studio peak and RMS metering with clip indicators\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI text zoom\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Credits\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Core DSP algorithms by JClones (https://github.com/JClones/JSFXClones), licensed under MIT.\sa180\par}
+}
+]]></description>
+        <link rel="website" href="https://github.com/JClones/JSFXClones">Original DSP repository</link>
+      </metadata>
+      <version name="1.2.0" author="JClones / Custom DSP" time="2026-10-15T03:23:48Z">
+        <changelog><![CDATA[Cleaned up UI, removed trademark references, credited original JClones repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/aa4e695e5f9bf8cb0d9aa419f28b8ee5d0c49fe7/Saturation/OInflator.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -68,6 +96,19 @@ reapack.com
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo & Mid/Side Processing}: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Freeze & Audition}: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 2. Saturation / OInflator\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-time Harmonic Transfer Viewport}: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Phase-Compensated Band Split}: Switchable 3-band split mode with 240 Hz and 2.4 kHz crossovers for independent multiband harmonic excitement.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Clip 0dB Protection}: Prevents signals from exceeding 0 dBFS ceiling when active.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Calibrated Studio Metering}: High-resolution input/output peak and RMS bar meters with hold decay and clip latches.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HiDPI Text Scaling}: Quick toggle for 100%, 120%, and 140% UI text zoom.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
+JClones
+}}}
+, licensed under MIT.\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -79,8 +120,10 @@ reapack.com
 \u9500 ?\u9472 ?\u9472 ? .reapack-index.conf         # reapack-index options\line
 \u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
 \u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
-\u9492 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
-    \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\par}
+\u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
+\u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
+    \u9492 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u57056 ? Adding New Plugins & Maintaining with {\f1 jj} (Jujutsu)\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 This repository uses {\b {\f1 jj}} (Jujutsu) for source control.\par}
