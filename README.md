@@ -1,343 +1,250 @@
-# MemoryAPI JSFX Repository
+# MemoryAPI JSFX Suite
 
-A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](https://www.reaper.fm/), packaged for seamless installation and automatic updates via [ReaPack](https://reapack.com/).
+A cross-platform collection of 15 studio mixing, mastering, and synthesis JSFX plugins for [Cockos REAPER](https://www.reaper.fm/), featuring custom hardware-accelerated vector UIs styled in the **Catppuccin Mocha** palette.
 
----
+## Installation (ReaPack)
 
-## 📦 How to Install via ReaPack
-
-1. Ensure **ReaPack** is installed in REAPER (included by default in many setups, or downloadable from [reapack.com](https://reapack.com)).
-2. In REAPER's top menu, go to:
-   **Extensions** > **ReaPack** > **Import repositories...**
-3. Paste your repository URL:
+1. In REAPER, navigate to **Extensions → ReaPack → Import repositories...**
+2. Paste the repository index URL and click **OK**:
    ```text
    https://raw.githubusercontent.com/memoryapi/memoryapi-jsfx/master/index.xml
    ```
-4. Click **OK**. ReaPack will fetch the repository index.
-5. In REAPER, go to:
-   **Extensions** > **ReaPack** > **Browse packages...**
-6. Search for `SpectralCarver` (or any plugin from this repo), right-click the package, select **Install**, and click **Apply**.
+3. Open **Extensions → ReaPack → Browse packages...**, search for `memoryapi` (or any plugin below), right-click to **Install**, and click **Apply**.
 
 ---
 
-## 🎛 Included Plugins
+## Suite Architecture
 
-### 1. Dynamics / SpectralCarver
-**Path**: `Dynamics/SpectralCarver.jsfx`  
-**Description**: 32-Band Dynamic Spectral Ducker with Cytomic State Variable Filters (SVF)
-
-![SpectralCarver](screenshots/spectralcarver.webp)
-
-* **Key Features**:
-  * **32-Band SVF Dynamic Carving**: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.
-  * **Routing**: Route your kick, vocals, or sidechain trigger audio to **Channels 3/4** of the track.
-  * **Interactive Spectrum Display**: Visual real-time sidechain energy and gain reduction meters with draggable Low-Cut and High-Cut filter boundary curtains.
-  * **Redesigned Animated UI**: Modern design with hover halos, animated collapsible drawer, and selectable UI Text Zoom (100%/120%/140%) for HiDPI displays.
-  * **Stereo & Mid/Side Processing**: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).
-  * **Freeze & Audition**: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.
-  * **Safe DSP Ceiling**: Hard NaN/Inf protection and anti-explosion audio ceilings.
-
-### 2. Dynamics / Opto2A
-**Path**: `Dynamics/Opto2A.jsfx`  
-**Description**: Optical Tube Compressor
-
-![Opto2A](screenshots/opto2a.webp)
-
-* **Key Features**:
-  * **T4 Optical Attenuator Modeling**: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.
-  * **Compress / Limit Modes**: Switchable knee characteristics from gentle musical leveling to peak limiting.
-  * **HF Emphasis (R37)**: Dedicated sidechain high-pass emphasis control for frequency-conscious vocal leveling and de-essing.
-  * **Classic vs. Fast Photocell Speed**: Switch between vintage relaxed optical response and modern fast response.
-  * **Dual Display Metering**: Illuminated vintage VU meter with real-time scrolling Gain Reduction trace graph.
-  * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
-  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
-
-### 3. Dynamics / OverTop
-**Path**: `Dynamics/OverTop.jsfx`  
-**Description**: 3-Band Upward/Downward Multiband Compressor (OTT Style)
-
-![OverTop](screenshots/overtop.webp)
-
-* **Key Features**:
-  * **3-Band Upward & Downward Dynamics**: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).
-  * **Interactive Threshold Bars**: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.
-  * **Per-Band Gain & Bypass**: Dedicated bypass toggle and +/-24 dB output gain control for Low (<88 Hz), Mid, and High (>2.5 kHz) bands.
-  * **Global Controls**: Depth percentage (dry/wet scaling), Time scaling (1% to 1000%), and Master Input/Output gain trims.
-  * **Dedicated Upward % & Downward %**: Balance upward vs downward compression intensity from 0% to 200%.
-  * **Modern Vector UI**: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).
-
-### 4. Dynamics / PulseDuck
-**Path**: `Dynamics/PulseDuck.jsfx`  
-**Description**: Multiband Sidechain & Envelope Shaper
-
-![PulseDuck](screenshots/pulseduck.webp)
-
-* **Key Features**:
-  * **16 Instant Curve Presets**: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.
-  * **4 Trigger Modes**: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input.
-  * **Multiband Crossover**: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo.
-  * **Dual Real-Time Scope**: Overlay ducked bass audio (white) directly over incoming sidechain trigger kick (yellow).
-  * **One-Click Trace SC**: Automatically detects and fits the ducking curve around your incoming kick transient.
-  * **Groove Shaping**: Variable curve slope, timing offset, and phase shift controls (<< < > >>) to lock the pocket.
-  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
-
-### 5. Saturation / OInflator
-**Path**: `Saturation/OInflator.jsfx`  
-**Description**: Harmonic Waveshaper & Loudness Enhancer
-
-![OInflator](screenshots/oinflator.webp)
-
-* **Key Features**:
-  * **Authentic Transfer Curve Waveshaping**: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.
-  * **Real-time Harmonic Transfer Viewport**: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.
-  * **Phase-Compensated Band Split**: Switchable 3-band split mode with 240 Hz and 2.4 kHz crossovers for independent multiband harmonic excitement.
-  * **Clip 0dB Protection**: Prevents signals from exceeding 0 dBFS ceiling when active.
-  * **Calibrated Studio Metering**: High-resolution input/output peak and RMS bar meters with hold decay and clip latches.
-  * **HiDPI Text Scaling**: Quick toggle for 100%, 120%, and 140% UI text zoom.
-  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
-
-### 6. Saturation / Phoenix
-**Path**: `Saturation/Phoenix.jsfx`  
-**Description**: Analog Tape Saturator
-
-![Phoenix](screenshots/phoenix.webp)
-
-* **Key Features**:
-  * **5 Tape Topologies**: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).
-  * **3 Brightness Curves**: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).
-  * **Input & Output Trims with Auto-Gain**: Input Trim (-10 to +10 dB), Process amount (0 to 100%), Output Trim (-6 to +6 dB), and optional automatic gain compensation.
-  * **Studio Metering & HiDPI Zoom**: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.
-  * **Credits**: DSP algorithms by [JClones](https://github.com/JClones/JSFXClones), licensed under MIT.
-
-### 7. Creative / ChronoWarp
-**Path**: `Creative/ChronoWarp.jsfx`  
-**Description**: Creative Half-Time & Varispeed Engine
-
-![ChronoWarp](screenshots/chronowarp.webp)
-
-* **Key Features**:
-  * **3 Speed Modes**: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).
-  * **Continuous Ring-Buffer DSP**: 4-point Hermite cubic interpolation over an ~87-second continuous ring buffer for artifact-free, clickless time transformation.
-  * **Synchronized Loop Lengths**: Quantized to project tempo from 1/16 beat up to 8 full bars.
-  * **Bipolar Smooth Windowing**: Smooth contour shape transitions between transient-preserving percussion/FX mode and seamless sustain/swell mode.
-  * **Dual Bandpass Crossover**: Draggable low-cut and high-cut frequency filters with dedicated Band Solo auditioning.
-  * **Upper-Octave Shimmer & Reverse**: Layer an octave-up granular sheen or flip slice playback direction.
-  * **Tempo-Synced Fade In/Out**: Cleanly eliminates edge transients or creates musical fade swells.
-  * **Interactive Modern UI**: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).
-
-### 8. Creative / VintageFlux
-**Path**: `Creative/VintageFlux.jsfx`  
-**Description**: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation
-
-![VintageFlux](screenshots/vintageflux.webp)
-
-* **Key Features**:
-  * **6 Dedicated Vintage FX Modules**:
-    * **Noise**: Vinyl, Cassette, VHS, and White noise with envelope following and ducking.
-    * **Wobble**: Pitch wow & flutter with rate and stereo drift.
-    * **Distort**: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover.
-    * **Digital**: Sample rate downsampling and bitcrushing with smoothing and pass/cut modes.
-    * **Space**: Ambient algorithmic reverb with pre-delay, decay, and damping controls.
-    * **Magnetic**: Vintage tape wear, dropouts, and flutter imperfections.
-  * **Global Magnitude Slider**: Scales all module intensities and master character simultaneously.
-  * **Dedicated Flux Controls**: Organic, non-repeating random analog drift on every module.
-  * **Master Tone & Filters**: 12/24 dB Low/High cuts, Tilt/Smile tone EQ, M/S width, and output trim.
-  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
-
-### 9. Delay / EchoForge
-**Path**: `Delay/EchoForge.jsfx`  
-**Description**: Analog Tape, Lo-Fi & Diffused Delay Workstation
-
-![EchoForge](screenshots/echoforge.webp)
-
-* **Key Features**:
-  * **4 Delay Models**: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).
-  * **Tempo Sync & Free Milliseconds**: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.
-  * **Tape Pitch Glide vs Keep Pitch**: Switch between classic tape-style Doppler pitch slewing or clickless crossfaded time changes.
-  * **Self-Oscillation & Analog Distortion**: Feedback up to 150% with tape-modeled saturation and soft limiter protection.
-  * **Resonant Multi-Mode Filter**: Low-Pass, High-Pass, and Band-Pass filter in the feedback path with adjustable resonance.
-  * **4-Stage Stereo All-Pass Diffuser**: Smears delay repeats into expansive, lush ambient reverb washes.
-  * **Lo-Fi Degradation Engine**: Continuous sample rate downsampling (down to 1 kHz) and bitcrushing (down to 2 bits).
-  * **Multi-Destination Modulation**: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.
-  * **Tone Tilt, Spread & Mix**: Output tone shaping, stereo width spread, and independent dry/wet controls.
-  * **Interactive UI**: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).
-
-### 10. EQ / ConsoleQ
-**Path**: `EQ/ConsoleQ.jsfx`  
-**Description**: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer
-
-![ConsoleQ](screenshots/consoleq.webp)
-
-* **Key Features**:
-  * **4-Band Console EQ**: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.
-  * **Console Cut Filters**: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.
-  * **High-Headroom Air Band & Sub Weight**: Dedicated Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz) up to +20 dB boost, plus a Sub 10Hz resonance weight bell.
-  * **Dual Console Topologies**: Switchable E-Series (Constant Q) and G-Series (Proportional Q) response curves.
-  * **Analog Character Coloring**: Clean, Subtle, and Warm analog harmonic drive modes.
-  * **Interactive Graph Nodes**: Drag band frequency and gain handles directly on the live EQ response curve.
-  * **Real-time 2048-Point FFT Analyzer**: High-resolution spectrum visualizer switchable between Post-EQ, Pre-EQ, and Off.
-  * **Momentary Band Solo**: Hold the [S] audition button on any frequency band column to isolate its processing range.
-  * **Output Section**: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.
-  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
-
-### 11. EQ / PocketQ
-**Path**: `EQ/PocketQ.jsfx`  
-**Description**: Compact Console & Air Channel Strip EQ
-
-![PocketQ](screenshots/pocketq.webp)
-
-* **Key Features**:
-  * **Fixed Musical Frequency Bands**: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).
-  * **Air Band**: Selectable ultra-high frequencies (2.5k, 5k, 10k, 20k, 40 kHz) with up to +20 dB boost.
-  * **Console Cut Filters**: 18 dB/oct HPF (20 - 500 Hz) and 12 dB/oct LPF (3k - 22 kHz).
-  * **E-Series & G-Series Modes**: Switch between tight constant Q and smooth proportional Q response.
-  * **Console Drive**: Clean vs. Warm analog harmonic drive.
-  * **Auto Gain & Phase Invert**: Output level compensation and quick polarity toggle.
-  * **Ultra-Lightweight CPU Footprint**: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.
-  * **Scalable UI**: HiDPI text zoom presets (100% - 140%).
-
-### 12. EQ / ReEQ Studio
-**Path**: `EQ/ReEQ_Studio.jsfx`  
-**Description**: Polished 16-Band Parametric Equalizer
-
-![ReEQ Studio](screenshots/reeq_studio.webp)
-
-* **Key Features**:
-  * **16 Fully Parametric Bands**: Individual solo, gain, Q, frequency, and slope controls across all 16 bands.
-  * **Extended Filter Topologies**: Peak, Low/High Cut (including Butterworth and Analog models), Low/High Shelf, Notch, Band Pass, Tilt Shelf, Pultec Low Shelf, and All Pass.
-  * **Stereo, Mid/Side & Left/Right**: Independent processing modes per band.
-  * **Real-Time FFT Analyzer**: High-resolution spectrum visualizer with Pre-EQ, Post-EQ, Mid/Side, and L/R visualization.
-  * **HQ Oversampling**: High-Quality mode with linear-phase FIR half-band filtering.
-  * **Interactive GUI**: Marquee multi-node selection, piano roll scale display, and smart context-aware band creation.
-  * **Credits**: Original DSP & core architecture by [Justin Johnson (ReJJ)](https://github.com/Justin-Johnson/ReEQ).
-
-### 13. Reverb / AetherVerb
-**Path**: `Reverb/AetherVerb.jsfx`  
-**Description**: 8-Mode Algorithmic, Shimmer & FDN Reverb
-
-![AetherVerb](screenshots/aetherverb.webp)
-
-* **Key Features**:
-  * **8 Reverb Topologies**: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network).
-  * **Multi-Voice Pitch Shimmer**: Two independent shimmer voices with octave and musical interval transpositions (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct).
-  * **Formant Chorale Resonators**: Morphing vowel filtering (AH, OH, OO) for vocal resonances and synthetic choir pads.
-  * **Dynamic Auto-Decay**: Built-in envelope follower ducks the reverb tail during active performance to preserve clarity and prevent muddy buildups.
-  * **Analog Preamp & Converter Modeling**: Clean, Tube V54, and Solid State 162 preamps paired with Modern HiFi, 70s 12-Bit, and 80s Dark digital converter flavors.
-  * **Infinite & Freeze**: Instant hold modes for endless ambient sustain drones and atmospheric backdrops.
-  * **Integrated Tone & Post-EQ**: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.
-  * **Modern Vector Interface**: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.
-
-### 14. Dynamics / VelvetClip
-**Path**: `Dynamics/VelvetClip.jsfx`  
-**Description**: Transparent Threshold-Linear Soft Clipper
-
-![VelvetClip](screenshots/velvetclip.webp)
-
-* **Key Features**:
-  * **100% Bit-Identical Pass-Through**: Absolutely linear (y = x) below threshold with 0% harmonic distortion until peaks cross into the clipping region.
-  * **Interactive Transfer Graph**: Drag vertically directly on the response curve to offset clipping threshold with live numerical feedback.
-  * **3 Clipper Topologies**:
-    * **Fruity Soft**: Asymptotic rational curve that smoothly limits transients without folding or harsh odd-harmonic distortion.
-    * **Cubic Knee**: Punchy polynomial knee that transitions smoothly into a rigid 0 dBFS brickwall ceiling.
-    * **Bass Shaper**: Logarithmic knee curve specifically tuned to saturate high peaks while preserving low-end definition.
-  * **808 Sub Safe**: Internal crossover filter that isolates low frequencies (<95 Hz) around the clipper so sub bass notes never buzz or lose energy.
-  * **HQ 2x Oversampling**: Zero-latency linear phase half-band filtering to suppress digital aliasing on aggressive transients.
-  * **Dual History Scope**: Real-time scrolling visualizer displaying output waveform alongside shaved peak reductions.
-  * **Precision Metering**: Calibrated stereo output level bar and shaved dB clip amount indicator.
-  * **Scalable UI**: HiDPI text zoom presets (100% - 150%).
-
-### 15. Synth / AetherSynth
-**Path**: `Synth/AetherSynth.jsfx`  
-**Description**: 8-Voice Polyphonic Unison & ZDF Analog Synthesizer
-
-![AetherSynth](screenshots/aethersynth.webp)
-
-* **Key Features**:
-  * **8-Voice Polyphony & Modes**: Polyphonic (8-voice), Mono, and Legato voice allocation with portamento glide and organic analog slop/drift.
-  * **Dual Multi-Wave Oscillators**:
-    * **Oscillator 1 (Unison Stack)**: Saw, Pulse, Triangle, Sine, and TriWrap waveforms with stepped octave selector (-2 to +2), 1 to 7 unison voices, detune, and stereo spread.
-    * **Oscillator 2 & Sub/Noise**: Hard sync, linear FM, ring modulation, pulse width modulation, dedicated sub-oscillator (-1 / -2 octaves), and analog white noise generator.
-  * **3 Zero-Delay Feedback (ZDF) Filter Topologies**:
-    * **Ladder 24dB**: Rich Moog-style transistor ladder with non-linear saturation drive.
-    * **Bite Screamer**: Aggressive MS-20 style resonant filter with screaming feedback.
-    * **Uhbie Morph**: Continuous 12dB multi-mode filter smoothly morphing between Low-Pass, Band-Pass, and High-Pass.
-  * **Interactive Filter Display**: Real-time frequency response visualization with live cutoff and resonance plotting.
-  * **Dual Modulation Envelopes**: Amp ADSR and Mod ADSR with live animated envelope traces.
-  * **Dual LFOs**: Sine, Triangle, Saw, Square, and Random S&H targeting pitch vibrato, PWM, and filter cutoff.
-  * **Master FX Section**: Built-in analog distortion, stereo chorus, tempo/free ping-pong delay, and algorithmic hall reverb.
-  * **Built-In Factory Soundbank**: 8 production-ready presets (Anthem Supersaw, Diva Ladder Bass, Acid 303, Jupiter Pad, Pluck Poly Arp, Neuro Sub Reese, Vintage Keys).
-  * **Playable Virtual Keyboard**: Interactive 4-octave piano roll keyboard with active voice visualization.
-  * **Scalable UI**: HiDPI UI zoom presets (100% - 150%).
+Every plugin in this repository shares a unified design standard:
+* **Cross-Platform & Native:** Runs with zero external dependencies on Linux, Windows, and macOS.
+* **Linux X11 / HiDPI Scaling:** Built-in `100% / 125% / 150%` UI scale toggles and responsive window geometry for crisp typography on unscaled X11 and Wayland displays.
+* **Click-Free Transport & Automation:** Full parameter exposure to REAPER automation lanes with `ext_noinit` state preservation and Cytomic Zero-Delay Feedback (ZDF) / State Variable Filter (SVF) topologies.
 
 ---
 
-## 📂 Repository Structure
+## Plugin Index
 
-ReaPack uses directory structure to organize categories in REAPER's package browser:
-
-```text
-.
-├── .github/
-│   └── workflows/
-│       ├── deploy.yml          # Automatically regenerates index.xml on push
-│       └── check.yml           # Validates package headers on PRs/pushes
-├── .reapack-index.conf         # reapack-index options
-├── index.xml                   # ReaPack package index file
-├── README.md                   # Repository documentation (shown in ReaPack)
-├── screenshots/                # Plugin screenshot previews (WebP)
-├── Creative/                   # ReaPack Category: Creative
-│   ├── ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header
-│   └── VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header
-├── Delay/                      # ReaPack Category: Delay
-│   └── EchoForge.jsfx          # JSFX plugin with ReaPack metadata header
-├── Dynamics/                   # ReaPack Category: Dynamics
-│   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
-│   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
-│   ├── PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header
-│   ├── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
-│   └── VelvetClip.jsfx         # JSFX plugin with ReaPack metadata header
-├── EQ/                         # ReaPack Category: EQ
-│   ├── Dependencies/           # ReEQ include files
-│   │   ├── firhalfband.jsfx-inc
-│   │   ├── spectrum.jsfx-inc
-│   │   └── svf_filter.jsfx-inc
-│   ├── ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header
-│   ├── PocketQ.jsfx            # JSFX plugin with ReaPack metadata header
-│   └── ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header
-├── Reverb/                     # ReaPack Category: Reverb
-│   └── AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header
-├── Saturation/                 # ReaPack Category: Saturation
-│   ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
-│   └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
-└── Synth/                      # ReaPack Category: Synth
-    └── AetherSynth.jsfx        # JSFX plugin with ReaPack metadata header
-```
+| Category | Plugin | Description |
+| :--- | :--- | :--- |
+| **Dynamics** | [**SpectralCarver**](#dynamics) | 32-band sidechain dynamic spectral ducker |
+| **Dynamics** | [**Opto2A**](#dynamics) | Program-dependent T4 optical tube compressor |
+| **Dynamics** | [**OverTop**](#dynamics) | 3-band upward & downward multiband compressor |
+| **Dynamics** | [**PulseDuck**](#dynamics) | Multiband rhythmic sidechain & envelope shaper |
+| **Dynamics** | [**VelvetClip**](#dynamics) | Threshold-linear master soft clipper with 808 sub protection |
+| **EQ** | [**ConsoleQ**](#equalizers) | 4-band E/G British console strip with Air Band & FFT analyzer |
+| **EQ** | [**PocketQ**](#equalizers) | Compact zero-FFT fixed-band console & Air equalizer |
+| **EQ** | [**ReEQ Studio**](#equalizers) | 16-band parametric equalizer with piano roll & spectrum grab |
+| **Saturation** | [**OInflator**](#saturation) | Polynomial harmonic waveshaper & 3-band loudness enhancer |
+| **Saturation** | [**Phoenix**](#saturation) | 5-mode analog tape saturator with selectable flux curves |
+| **Time & Space** | [**EchoForge**](#time--space) | Tape varispeed, Lo-Fi & diffused ping-pong delay |
+| **Time & Space** | [**AetherVerb**](#time--space) | 8-mode algorithmic, shimmer, formant & FDN reverberator |
+| **Creative FX** | [**ChronoWarp**](#creative--synthesis) | Tempo-synced half-time, varispeed & octave-shimmer engine |
+| **Creative FX** | [**VintageFlux**](#creative--synthesis) | 6-module retro multi-FX & lo-fi texture processor |
+| **Synthesis** | [**AetherSynth**](#creative--synthesis) | 8-voice polyphonic unison supersaw & ZDF analog synthesizer |
 
 ---
 
-## 🛠 Adding New Plugins & Maintaining with `jj` (Jujutsu)
+## Dynamics
 
-This repository uses **`jj`** (Jujutsu) for source control.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">SpectralCarver</h3>
+      <p align="center"><img src="screenshots/spectralcarver.webp" width="440" alt="SpectralCarver" /></p>
+      <p><b>32-Band Dynamic Spectral Ducker</b> — Carves out only the exact frequencies present in the sidechain (Ch 3/4), preserving mix fullness without broadband pumping.</p>
+      <ul>
+        <li>32-band Cytomic SVF filterbank with draggable Low/High-Cut curtains.</li>
+        <li>Stereo (L/R) and Mid/Side processing with continuous balance weighting.</li>
+        <li><b>Freeze</b> static EQ capture and <b>Sidechain Audition</b> mode.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">Opto2A</h3>
+      <p align="center"><img src="screenshots/opto2a.webp" width="440" alt="Opto2A" /></p>
+      <p><b>Optical Tube Compressor</b> — Program-dependent optical leveling with two-stage release memory and tube stage saturation.</p>
+      <ul>
+        <li>Switchable <b>Compress / Limit</b> ratios and <b>Classic / Fast</b> opto cell speeds.</li>
+        <li><b>HF Emphasis (R37)</b> sidechain control for frequency-sensitive vocal leveling.</li>
+        <li>Scrolling gain reduction history trace and native REAPER mixer GR reporting.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">OverTop</h3>
+      <p align="center"><img src="screenshots/overtop.webp" width="340" alt="OverTop" /></p>
+      <p><b>3-Band Upward/Downward Compressor</b> — Combines upward expansion of quiet details with downward peak control across Low (&lt;88 Hz), Mid, and High (&gt;2.5 kHz) bands.</p>
+      <ul>
+        <li>Inline channel strips with draggable per-band thresholds, gain knobs, and bypasses.</li>
+        <li>Global <b>Depth</b>, <b>Time</b>, and <b>Upward / Downward %</b> ratio scalers.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">PulseDuck</h3>
+      <p align="center"><img src="screenshots/pulseduck.webp" width="440" alt="PulseDuck" /></p>
+      <p><b>Multiband Sidechain &amp; Envelope Shaper</b> — Precision volume shaping with dual-waveform kick/bass alignment and custom node editing.</p>
+      <ul>
+        <li>16 curve presets + custom breakpoint editor with <b>Slope</b> skew and phase <b>Shift</b>.</li>
+        <li>4 trigger modes: <b>Sync</b>, <b>MIDI</b>, <b>Sidechain (Ch 3/4)</b>, and <b>Self-Input</b>.</li>
+        <li><b>Trace SC</b> auto-shapes the ducking curve around your incoming kick drum.</li>
+        <li>Full, 2-Band, or 3-Band Linkwitz-Riley crossover with independent band depth.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3 align="center">VelvetClip</h3>
+      <p align="center"><img src="screenshots/velvetclip.webp" width="480" alt="VelvetClip" /></p>
+      <p><b>Transparent Master Soft Clipper</b> — Strictly <code>1:1</code> bit-identical below the threshold (zero harmonic coloration on your mix) with smooth C¹-continuous transient rounding above the knee.</p>
+      <ul>
+        <li>3 clipping topologies: <b>Fruity Soft</b> (asymptotic), <b>Cubic Knee</b>, and <b>Bass Shaper</b>.</li>
+        <li><b>808 Sub Safe</b> pre-deemphasis / post-reemphasis filter prevents low-end buzz on heavy sub-bass.</li>
+        <li><b>2x Polyphase Oversampling</b>, interactive threshold graph, and dual waveform / shaved-peak history monitor.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-### Adding a New Plugin
-1. Place your new `.jsfx` file inside the appropriate category folder (e.g. `Dynamics/`, `EQ/`, `Utility/`, `Synth/`, etc.).
-2. Include the standard ReaPack metadata comment header at the top of the file:
-   ```jsfx
-   desc:MyPlugin (Effect Description)
-   // @description MyPlugin (Short description for ReaPack)
-   // @author YourName
-   // @version 1.0.0
-   // @changelog Initial release
-   // @about
-   //   # MyPlugin
-   //   Detailed description formatted in Markdown.
-   // @provides
-   //   [effect] MyPlugin.jsfx
-   ```
-3. Commit your changes using `jj`:
-   ```bash
-   jj describe -m "feat: add MyPlugin"
-   jj bookmark set master -r @
-   jj git push --bookmark master
-   ```
-4. The included GitHub Actions workflow will automatically run `reapack-index`, compile `index.xml`, and update the repository on GitHub.
+---
+
+## Equalizers
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">ConsoleQ</h3>
+      <p align="center"><img src="screenshots/consoleq.webp" width="440" alt="ConsoleQ" /></p>
+      <p><b>Hybrid Console EQ &amp; Air Strip</b> — Combines a 4-band British console equalizer with a high-headroom 500-series Air Band and real-time 2048-point FFT analyzer.</p>
+      <ul>
+        <li>Switchable <b>E-Series</b> (constant Q) and <b>G-Series</b> (proportional Q) curves.</li>
+        <li><b>Air Band</b> shelf (2.5k, 5k, 10k, 20k, 40 kHz) + <b>Sub 10 Hz</b> resonant weight bell.</li>
+        <li>Draggable graph nodes, momentary <b>Band Solo [S]</b>, console saturation (Clean/Subtle/Warm), and Auto-Gain.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">PocketQ</h3>
+      <p align="center"><img src="screenshots/pocketq.webp" width="440" alt="PocketQ" /></p>
+      <p><b>Compact Console &amp; Air EQ</b> — Zero-FFT, ultra-low-CPU tactile equalizer designed for fast mixing across every track in a session.</p>
+      <ul>
+        <li>Fixed musical center frequencies: <b>Sub (10 Hz)</b>, <b>40 Hz</b>, <b>160 Hz</b>, <b>650 Hz</b>, and <b>2.5 kHz</b> (Shelf/Bell).</li>
+        <li>5-frequency push-button <b>Air Band</b> (2.5k–40 kHz) plus 18 dB HPF and 12 dB LPF.</li>
+        <li>Switchable E/G curves, Warm console drive, Auto-Gain, and Phase Invert.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3 align="center">ReEQ Studio</h3>
+      <p align="center"><img src="screenshots/reeq_studio.webp" width="540" alt="ReEQ Studio" /></p>
+      <p><b>16-Band Parametric Equalizer</b> — Studio workflow and Catppuccin UI upgrade of Justin Johnson's ReEQ with context-aware band previews and quick surgical tools.</p>
+      <ul>
+        <li>14 filter shapes per band (Peak, Butterworth/Analog Cuts, Shelves, Notch, Bandpass, Tilt, Pultec Low Shelf, All-Pass).</li>
+        <li>Per-band <b>Stereo / Mid / Side / Left / Right</b> placement and 2x FIR oversampling.</li>
+        <li><b>A/B State Compare</b>, <b>Spectrum Grab</b> peak detector, 88-key <b>Piano Roll</b> pitch quantizer, and node-tracking inspector.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Saturation
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">OInflator</h3>
+      <p align="center"><img src="screenshots/oinflator.webp" width="440" alt="OInflator" /></p>
+      <p><b>Harmonic Waveshaper &amp; Loudness Enhancer</b> — Increases perceived loudness, density, and presence without squashing dynamic range.</p>
+      <ul>
+        <li>Polynomial harmonic transfer curve with live operating-point visualizer and dB boost readout.</li>
+        <li>Phase-compensated <b>3-Band Split</b> (240 Hz / 2.4 kHz crossovers) and <b>Clip 0 dB</b> ceiling mode.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">Phoenix</h3>
+      <p align="center"><img src="screenshots/phoenix.webp" width="440" alt="Phoenix" /></p>
+      <p><b>Analog Tape Saturator</b> — Emulates magnetic tape compression, harmonic warmth, and high-frequency head saturation.</p>
+      <ul>
+        <li>5 tape topologies: <b>Luminescent</b>, <b>Iridescent</b>, <b>Radiant</b>, <b>Luster</b>, and <b>Dark Essence</b>.</li>
+        <li>3 high-frequency flux curves (<b>Opal</b>, <b>Gold</b>, <b>Sapphire</b>) with switchable <b>Auto-Gain</b>.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Time & Space
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">EchoForge</h3>
+      <p align="center"><img src="screenshots/echoforge.webp" width="440" alt="EchoForge" /></p>
+      <p><b>Analog Tape, Lo-Fi &amp; Diffused Delay</b> — Versatile echo processor capable of clean ping-pong delays, dub self-oscillation, and ambient diffused washes.</p>
+      <ul>
+        <li>4 modes: <b>Mono</b>, <b>Stereo</b>, <b>Ping-Pong</b>, and <b>Off (Standalone Filter/Lo-Fi/Diffuser FX)</b>.</li>
+        <li><b>Tape Pitch</b> (Doppler varispeed glide) vs. <b>Keep Pitch</b> (clickless crossfade).</li>
+        <li>Feedback up to <b>150%</b> with resonant LP/HP/BP filter, asymmetric waveshaper, sample-rate/bit decimator, and 4-stage stereo All-Pass Diffuser.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">AetherVerb</h3>
+      <p align="center"><img src="screenshots/aetherverb.webp" width="440" alt="AetherVerb" /></p>
+      <p><b>8-Mode Algorithmic, Shimmer &amp; FDN Reverb</b> — Spans vintage studio plates to massive modulated feedback delay networks.</p>
+      <ul>
+        <li>8 machines: <b>Plate 140</b>, <b>Hall</b>, <b>Cloud</b>, <b>Shimmer</b>, <b>Bloom</b>, <b>Chorale</b>, <b>Non-Linear</b>, and <b>SuperFDN</b>.</li>
+        <li>Dual pitch-shimmer voices (<code>-1 Oct</code> to <code>+2 Oct</code>) and morphing <code>AH/OH/OO</code> formant choir filters.</li>
+        <li><b>Auto-Decay</b> dynamic tail ducking, <b>Tube V54 / Solid 162</b> input preamps, <b>70s 12-Bit / 80s Dark</b> converter eras, <b>Freeze/Infinite Hold</b>, and interactive Post-EQ.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Creative & Synthesis
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">ChronoWarp</h3>
+      <p align="center"><img src="screenshots/chronowarp.webp" width="440" alt="ChronoWarp" /></p>
+      <p><b>Creative Half-Time &amp; Varispeed Engine</b> — Transforms melodies and drum loops via tempo-synced varispeed slicing and octave-up granular shimmer.</p>
+      <ul>
+        <li>3 speeds: <b>1.5x</b> (-5 st triplet groove), <b>2x</b> (-1 oct half-time), and <b>4x</b> (-2 oct quad-slow) across <code>1/16</code> to <code>8 Bar</code> loops.</li>
+        <li>Bipolar <b>Smooth</b> knob (Sustain/Swell crossfade vs. Percussive transient preservation).</li>
+        <li><b>Reverse</b> playback, <b>Octave Shimmer</b> grain layer, tempo-synced <b>Fade In/Out</b>, and 3-band crossover split with <b>Band Solo</b>.</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">VintageFlux</h3>
+      <p align="center"><img src="screenshots/vintageflux.webp" width="440" alt="VintageFlux" /></p>
+      <p><b>6-Module Vintage Multi-FX &amp; Lo-Fi Workstation</b> — Combines six analog and early-digital degradation stages controlled by a single global <b>Magnitude</b> slider.</p>
+      <ul>
+        <li><b>Noise</b> (Vinyl/Cassette/VHS/White + Follow/Duck) → <b>Wobble</b> (Wow/Flutter) → <b>Distort</b> (Tube/Tape/Crunch/Fold) → <b>Digital</b> (Rate/Bits + Smooth) → <b>Space</b> (Reverb) → <b>Magnetic</b> (Wear/Dropouts).</li>
+        <li>Per-module <b>Flux</b> organic random drift generators plus Master Cut &amp; Tilt/Smile Tone EQ.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3 align="center">AetherSynth</h3>
+      <p align="center"><img src="screenshots/aethersynth.webp" width="540" alt="AetherSynth" /></p>
+      <p><b>8-Voice Polyphonic Unison &amp; ZDF Analog Synthesizer</b> — Pairs a 7-voice stereo unison supersaw oscillator stack with three Zero-Delay Feedback analog filter topologies.</p>
+      <ul>
+        <li><b>Osc 1 &amp; Osc 2:</b> PolyBLEP Saw, Pulse, Triangle, Sine, and TriWrap waves with 7-voice stereo unison, Hard Sync (<code>1-&gt;2</code>), linear FM, Ring Mod, Sub-Oscillator, and Analog Noise.</li>
+        <li><b>3 ZDF Filters:</b> <b>Ladder 24dB</b>, <b>Bite MS Screamer</b>, and <b>Uhbie 12dB</b> (LP/BP/HP) with Drive, Keytrack, and live frequency response display.</li>
+        <li><b>Modulation &amp; FX:</b> Tabbed Amp/Mod ADSR faders, 2 multi-wave LFOs, per-voice <b>Analog Slop</b>, 4-module Master FX rack (Distortion, Chorus, Ping-Pong Delay, Reverb), and 8 built-in factory patches.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Credits
+
+* **Opto2A**, **OInflator**, and **Phoenix** core DSP algorithms adapted from [JClones/JSFXClones](https://github.com/JClones/JSFXClones) (MIT License).
+* **ReEQ Studio** core DSP and spectrum engine adapted from [Justin Johnson's ReEQ](https://github.com/Justin-Johnson/ReEQ) (MIT License).
