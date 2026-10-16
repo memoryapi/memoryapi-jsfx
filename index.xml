@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="11a3863d0cf6db7206d0e6f8f903f394fe77208b">
+<index version="1" name="MemoryAPI JSFX" commit="646e571f0a83540b5ac4fef8f2832299b68a35c7">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -197,6 +197,34 @@
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Dynamics/SpectralCarver.jsfx</source>
       </version>
     </reapack>
+    <reapack name="VelvetClip.jsfx" type="effect" desc="VelvetClip (Transparent Threshold-Linear Soft Clipper)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 VelvetClip\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Transparent threshold-linear soft clipper and peak dynamics controller with 100% bit-identical pass-through below threshold, 808 Sub Safe preservation, and HQ 2x oversampling.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 100% Bit-Identical Pass-Through (y = x) for all audio below threshold (0% harmonic coloration until clipping)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive Transfer Graph: Drag vertically directly on the response curve to offset clipping threshold\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3 Specialized Clipper Topologies:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Fruity Soft: Asymptotic rational curve that smoothly approaches ceiling without folding\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Cubic Knee: Smooth punchy polynomial knee that clamps strictly at 0 dBFS ceiling\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Bass Shaper: Exponential logarithmic curve tailored for aggressive 808s and kick drums\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 808 Sub Safe: Crossover filter that isolates and preserves low-end (<95 Hz) sub frequencies so deep bass notes never buzz or degrade\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab HQ 2x Oversampling: Zero-latency linear phase half-band filtering to eliminate digital alias distortion\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual Waveform & Shaved-Peak History Scope: Live scrolling view showing output waveform and shaved peak transients in real-time\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Calibrated Peak & Clip Metering: Precision output level bar and shaved dB clip amount indicator\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI UI: Vector interface with selectable text scaling presets (100% - 150%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0.0" author="MemoryAPI" time="2026-10-16T11:31:15Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/646e571f0a83540b5ac4fef8f2832299b68a35c7/Dynamics/VelvetClip.jsfx</source>
+      </version>
+    </reapack>
   </category>
   <category name="EQ">
     <reapack name="ConsoleQ.jsfx" type="effect" desc="ConsoleQ (Hybrid Console EQ &amp; Air Strip)">
@@ -367,6 +395,42 @@
       <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
         <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Saturation/Phoenix.jsfx</source>
+      </version>
+    </reapack>
+  </category>
+  <category name="Synth">
+    <reapack name="AetherSynth.jsfx" type="effect" desc="AetherSynth (Polyphonic Unison &amp; ZDF Analog Synthesizer)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 AetherSynth\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 8-Voice polyphonic unison and Zero-Delay Feedback (ZDF) analog synthesizer with multi-wave supersaw, FM/Sync oscillator, vintage ladder filters, dual envelopes, and onboard master effects.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 8-Voice Polyphony: Polyphonic, Mono, and Legato voice allocation with portamento glide and organic analog drift/slop\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual Oscillators & Sub/Noise:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Oscillator 1: Stepped octaves (-2 to +2), 1-7 Unison voices with variable detune and stereo spread\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Oscillator 2: Hard sync, linear FM, ring modulation, pulse width modulation (PWM), and fine tuning\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Dedicated sub-oscillator (-1 / -2 octaves) and analog white noise generator\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3 Zero-Delay Feedback (ZDF) Filter Topologies:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Ladder 24dB: Classic fat Moog-style transistor ladder with non-linear saturation\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Bite Screamer: Aggressive MS-20 style resonant filter with screaming feedback\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Uhbie Morph: Continuous multi-mode 12dB filter morphing between Low-Pass, Band-Pass, and High-Pass\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive Filter Display: Real-time frequency response visualization\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual Modulation Envelopes:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Amp ADSR and Mod ADSR with live visual envelope trace\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual LFOs: Sine, Triangle, Saw, Square, and Random S&H targeting pitch vibrato, PWM, and filter cutoff\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Master FX Engine: Analog distortion, stereo chorus, tempo/free ping-pong delay, and algorithmic hall reverb\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Built-In Factory Soundbank: 8 production-ready patches (Anthem Supersaw, Diva Ladder Bass, Acid 303, Jupiter Pad, etc.)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive 4-Octave Keyboard: Playable onscreen piano keys with active voice indicator\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI UI: Clean vector layout with selectable UI zoom (100% - 150%)\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-16T11:31:15Z">
+        <changelog><![CDATA[Initial release in repository]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/646e571f0a83540b5ac4fef8f2832299b68a35c7/Synth/AetherSynth.jsfx</source>
       </version>
     </reapack>
   </category>
@@ -562,6 +626,40 @@ Justin Johnson (ReJJ)
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Infinite & Freeze}: Instant hold modes for endless ambient sustain drones and atmospheric backdrops.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Integrated Tone & Post-EQ}: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.\par}
 {\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector Interface}: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 14. Dynamics / VelvetClip\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/VelvetClip.jsfx}\line {\b Description}: Transparent Threshold-Linear Soft Clipper\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/velvetclip.webp]\cf0}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 100% Bit-Identical Pass-Through}: Absolutely linear (y = x) below threshold with 0% harmonic distortion until peaks cross into the clipping region.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Transfer Graph}: Drag vertically directly on the response curve to offset clipping threshold with live numerical feedback.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Clipper Topologies}:\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Fruity Soft}: Asymptotic rational curve that smoothly limits transients without folding or harsh odd-harmonic distortion.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Cubic Knee}: Punchy polynomial knee that transitions smoothly into a rigid 0 dBFS brickwall ceiling.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Bass Shaper}: Logarithmic knee curve specifically tuned to saturate high peaks while preserving low-end definition.\sa180\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 808 Sub Safe}: Internal crossover filter that isolates low frequencies (<95 Hz) around the clipper so sub bass notes never buzz or lose energy.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HQ 2x Oversampling}: Zero-latency linear phase half-band filtering to suppress digital aliasing on aggressive transients.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual History Scope}: Real-time scrolling visualizer displaying output waveform alongside shaved peak reductions.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Precision Metering}: Calibrated stereo output level bar and shaved dB clip amount indicator.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 150%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 15. Synth / AetherSynth\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Synth/AetherSynth.jsfx}\line {\b Description}: 8-Voice Polyphonic Unison & ZDF Analog Synthesizer\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/aethersynth.webp]\cf0}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 8-Voice Polyphony & Modes}: Polyphonic (8-voice), Mono, and Legato voice allocation with portamento glide and organic analog slop/drift.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Multi-Wave Oscillators}:\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Oscillator 1 (Unison Stack)}: Saw, Pulse, Triangle, Sine, and TriWrap waveforms with stepped octave selector (-2 to +2), 1 to 7 unison voices, detune, and stereo spread.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Oscillator 2 & Sub/Noise}: Hard sync, linear FM, ring modulation, pulse width modulation, dedicated sub-oscillator (-1 / -2 octaves), and analog white noise generator.\sa180\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Zero-Delay Feedback (ZDF) Filter Topologies}:\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Ladder 24dB}: Rich Moog-style transistor ladder with non-linear saturation drive.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Bite Screamer}: Aggressive MS-20 style resonant filter with screaming feedback.\par}
+{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Uhbie Morph}: Continuous 12dB multi-mode filter smoothly morphing between Low-Pass, Band-Pass, and High-Pass.\sa180\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Filter Display}: Real-time frequency response visualization with live cutoff and resonance plotting.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Modulation Envelopes}: Amp ADSR and Mod ADSR with live animated envelope traces.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual LFOs}: Sine, Triangle, Saw, Square, and Random S&H targeting pitch vibrato, PWM, and filter cutoff.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Master FX Section}: Built-in analog distortion, stereo chorus, tempo/free ping-pong delay, and algorithmic hall reverb.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Built-In Factory Soundbank}: 8 production-ready presets (Anthem Supersaw, Diva Ladder Bass, Acid 303, Jupiter Pad, Pluck Poly Arp, Neuro Sub Reese, Vintage Keys).\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Playable Virtual Keyboard}: Interactive 4-octave piano roll keyboard with active voice visualization.\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI UI zoom presets (100% - 150%).\sa180\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
@@ -583,7 +681,8 @@ Justin Johnson (ReJJ)
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? VelvetClip.jsfx         # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
 \u9474 ?   \u9500 ?\u9472 ?\u9472 ? Dependencies/           # ReEQ include files\line
 \u9474 ?   \u9474 ?   \u9500 ?\u9472 ?\u9472 ? firhalfband.jsfx-inc\line
@@ -594,9 +693,11 @@ Justin Johnson (ReJJ)
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header\line
 \u9500 ?\u9472 ?\u9472 ? Reverb/                     # ReaPack Category: Reverb\line
 \u9474 ?   \u9492 ?\u9472 ?\u9472 ? AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header\line
-\u9492 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
-    \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
-    \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\par}
+\u9500 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
+\u9474 ?   \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
+\u9474 ?   \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\line
+\u9492 ?\u9472 ?\u9472 ? Synth/                      # ReaPack Category: Synth\line
+    \u9492 ?\u9472 ?\u9472 ? AetherSynth.jsfx        # JSFX plugin with ReaPack metadata header\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u57056 ? Adding New Plugins & Maintaining with {\f1 jj} (Jujutsu)\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 This repository uses {\b {\f1 jj}} (Jujutsu) for source control.\par}
