@@ -227,6 +227,48 @@ A collection of custom audio DSP effects and JSFX plugins for [Cockos REAPER](ht
   * **Integrated Tone & Post-EQ**: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.
   * **Modern Vector Interface**: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.
 
+### 14. Dynamics / VelvetClip
+**Path**: `Dynamics/VelvetClip.jsfx`  
+**Description**: Transparent Threshold-Linear Soft Clipper
+
+![VelvetClip](screenshots/velvetclip.webp)
+
+* **Key Features**:
+  * **100% Bit-Identical Pass-Through**: Absolutely linear (y = x) below threshold with 0% harmonic distortion until peaks cross into the clipping region.
+  * **Interactive Transfer Graph**: Drag vertically directly on the response curve to offset clipping threshold with live numerical feedback.
+  * **3 Clipper Topologies**:
+    * **Fruity Soft**: Asymptotic rational curve that smoothly limits transients without folding or harsh odd-harmonic distortion.
+    * **Cubic Knee**: Punchy polynomial knee that transitions smoothly into a rigid 0 dBFS brickwall ceiling.
+    * **Bass Shaper**: Logarithmic knee curve specifically tuned to saturate high peaks while preserving low-end definition.
+  * **808 Sub Safe**: Internal crossover filter that isolates low frequencies (<95 Hz) around the clipper so sub bass notes never buzz or lose energy.
+  * **HQ 2x Oversampling**: Zero-latency linear phase half-band filtering to suppress digital aliasing on aggressive transients.
+  * **Dual History Scope**: Real-time scrolling visualizer displaying output waveform alongside shaved peak reductions.
+  * **Precision Metering**: Calibrated stereo output level bar and shaved dB clip amount indicator.
+  * **Scalable UI**: HiDPI text zoom presets (100% - 150%).
+
+### 15. Synth / AetherSynth
+**Path**: `Synth/AetherSynth.jsfx`  
+**Description**: 8-Voice Polyphonic Unison & ZDF Analog Synthesizer
+
+![AetherSynth](screenshots/aethersynth.webp)
+
+* **Key Features**:
+  * **8-Voice Polyphony & Modes**: Polyphonic (8-voice), Mono, and Legato voice allocation with portamento glide and organic analog slop/drift.
+  * **Dual Multi-Wave Oscillators**:
+    * **Oscillator 1 (Unison Stack)**: Saw, Pulse, Triangle, Sine, and TriWrap waveforms with stepped octave selector (-2 to +2), 1 to 7 unison voices, detune, and stereo spread.
+    * **Oscillator 2 & Sub/Noise**: Hard sync, linear FM, ring modulation, pulse width modulation, dedicated sub-oscillator (-1 / -2 octaves), and analog white noise generator.
+  * **3 Zero-Delay Feedback (ZDF) Filter Topologies**:
+    * **Ladder 24dB**: Rich Moog-style transistor ladder with non-linear saturation drive.
+    * **Bite Screamer**: Aggressive MS-20 style resonant filter with screaming feedback.
+    * **Uhbie Morph**: Continuous 12dB multi-mode filter smoothly morphing between Low-Pass, Band-Pass, and High-Pass.
+  * **Interactive Filter Display**: Real-time frequency response visualization with live cutoff and resonance plotting.
+  * **Dual Modulation Envelopes**: Amp ADSR and Mod ADSR with live animated envelope traces.
+  * **Dual LFOs**: Sine, Triangle, Saw, Square, and Random S&H targeting pitch vibrato, PWM, and filter cutoff.
+  * **Master FX Section**: Built-in analog distortion, stereo chorus, tempo/free ping-pong delay, and algorithmic hall reverb.
+  * **Built-In Factory Soundbank**: 8 production-ready presets (Anthem Supersaw, Diva Ladder Bass, Acid 303, Jupiter Pad, Pluck Poly Arp, Neuro Sub Reese, Vintage Keys).
+  * **Playable Virtual Keyboard**: Interactive 4-octave piano roll keyboard with active voice visualization.
+  * **Scalable UI**: HiDPI UI zoom presets (100% - 150%).
+
 ---
 
 ## 📂 Repository Structure
@@ -252,7 +294,8 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   ├── Opto2A.jsfx             # JSFX plugin with ReaPack metadata header
 │   ├── OverTop.jsfx            # JSFX plugin with ReaPack metadata header
 │   ├── PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header
-│   └── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
+│   ├── SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header
+│   └── VelvetClip.jsfx         # JSFX plugin with ReaPack metadata header
 ├── EQ/                         # ReaPack Category: EQ
 │   ├── Dependencies/           # ReEQ include files
 │   │   ├── firhalfband.jsfx-inc
@@ -263,9 +306,11 @@ ReaPack uses directory structure to organize categories in REAPER's package brow
 │   └── ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header
 ├── Reverb/                     # ReaPack Category: Reverb
 │   └── AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header
-└── Saturation/                 # ReaPack Category: Saturation
-    ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
-    └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
+├── Saturation/                 # ReaPack Category: Saturation
+│   ├── OInflator.jsfx          # JSFX plugin with ReaPack metadata header
+│   └── Phoenix.jsfx            # JSFX plugin with ReaPack metadata header
+└── Synth/                      # ReaPack Category: Synth
+    └── AetherSynth.jsfx        # JSFX plugin with ReaPack metadata header
 ```
 
 ---
