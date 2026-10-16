@@ -247,4 +247,4 @@ Every plugin in this repository shares a unified design standard:
 ## Credits
 
 * **Opto2A**, **OInflator**, and **Phoenix** core DSP algorithms adapted from [JClones/JSFXClones](https://github.com/JClones/JSFXClones) (MIT License).
-* **ReEQ Studio** core DSP and spectrum engine adapted from [Justin Johnson's ReEQ](https://github.com/Justin-Johnson/ReEQ) (MIT License).
+* **ReEQ Studio** core DSP and spectrum engine adapted from [Justin Johnson's ReJJ](https://github.com/Justin-Johnson/ReJJ) (MIT License).
