@@ -439,286 +439,90 @@
 {\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
 \widowctrl\hyphauto
 
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MemoryAPI JSFX Repository\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 A collection of custom audio DSP effects and JSFX plugins for {\field{\*\fldinst{HYPERLINK "https://www.reaper.fm/"}}{\fldrslt{\ul
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MemoryAPI JSFX Suite\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A cross-platform collection of 15 studio mixing, mastering, and synthesis JSFX plugins for {\field{\*\fldinst{HYPERLINK "https://www.reaper.fm/"}}{\fldrslt{\ul
 Cockos REAPER
 }}}
-, packaged for seamless installation and automatic updates via {\field{\*\fldinst{HYPERLINK "https://reapack.com/"}}{\fldrslt{\ul
-ReaPack
-}}}
-.\par}
-{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56550 ? How to Install via ReaPack\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Ensure {\b ReaPack} is installed in REAPER (included by default in many setups, or downloadable from {\field{\*\fldinst{HYPERLINK "https://reapack.com"}}{\fldrslt{\ul
-reapack.com
-}}}
-).\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab In REAPER's top menu, go to: {\b Extensions} > {\b ReaPack} > {\b Import repositories...}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Paste your repository URL:\par}
+, featuring custom hardware-accelerated vector UIs styled in the {\b Catppuccin Mocha} palette.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Installation (ReaPack)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab In REAPER, navigate to {\b Extensions \u8594 ? ReaPack \u8594 ? Import repositories...}\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Paste the repository index URL and click {\b OK}:\par}
 {\pard \ql \f0 \sa180 \li360 \fi0 \f1 https://raw.githubusercontent.com/memoryapi/memoryapi-jsfx/master/index.xml\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab Click {\b OK}. ReaPack will fetch the repository index.\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 5.\tx360\tab In REAPER, go to: {\b Extensions} > {\b ReaPack} > {\b Browse packages...}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 6.\tx360\tab Search for {\f1 SpectralCarver} (or any plugin from this repo), right-click the package, select {\b Install}, and click {\b Apply}.\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Open {\b Extensions \u8594 ? ReaPack \u8594 ? Browse packages...}, search for {\f1 memoryapi} (or any plugin below), right-click to {\b Install}, and click {\b Apply}.\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55356 ?\u57243 ? Included Plugins\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 1. Dynamics / SpectralCarver\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/SpectralCarver.jsfx}\line {\b Description}: 32-Band Dynamic Spectral Ducker with Cytomic State Variable Filters (SVF)\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/spectralcarver.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 32-Band SVF Dynamic Carving}: Frequency-dependent ducking that attenuates only the frequencies active in the sidechain, keeping the mix clean and preserving headroom without traditional broadband pumping.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Routing}: Route your kick, vocals, or sidechain trigger audio to {\b Channels 3/4} of the track.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Spectrum Display}: Visual real-time sidechain energy and gain reduction meters with draggable Low-Cut and High-Cut filter boundary curtains.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Redesigned Animated UI}: Modern design with hover halos, animated collapsible drawer, and selectable UI Text Zoom (100%/120%/140%) for HiDPI displays.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo & Mid/Side Processing}: Switchable between L/R stereo ducking and M/S ducking (with dedicated M/S width balance).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Freeze & Audition}: Freeze the current sidechain profile into a static carving EQ curve, or audition the filtered sidechain signal.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Safe DSP Ceiling}: Hard NaN/Inf protection and anti-explosion audio ceilings.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 2. Dynamics / Opto2A\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/Opto2A.jsfx}\line {\b Description}: Optical Tube Compressor\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/opto2a.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b T4 Optical Attenuator Modeling}: Smooth, program-dependent compression curve with characteristic two-stage multi-exponential release memory.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Compress / Limit Modes}: Switchable knee characteristics from gentle musical leveling to peak limiting.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HF Emphasis (R37)}: Dedicated sidechain high-pass emphasis control for frequency-conscious vocal leveling and de-essing.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Classic vs. Fast Photocell Speed}: Switch between vintage relaxed optical response and modern fast response.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Display Metering}: Illuminated vintage VU meter with real-time scrolling Gain Reduction trace graph.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HiDPI Text Scaling}: Quick toggle for 100%, 120%, and 140% UI text zoom.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
-JClones
-}}}
-, licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 3. Dynamics / OverTop\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/OverTop.jsfx}\line {\b Description}: 3-Band Upward/Downward Multiband Compressor (OTT Style)\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/overtop.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3-Band Upward & Downward Dynamics}: Multiband processing with independent upward compression (lifting quiet details) and downward compression (controlling aggressive peaks).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Threshold Bars}: Drag horizontally on any band's level bar to offset thresholds with instantaneous visual feedback.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Per-Band Gain & Bypass}: Dedicated bypass toggle and +/-24 dB output gain control for Low (<88 Hz), Mid, and High (>2.5 kHz) bands.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Global Controls}: Depth percentage (dry/wet scaling), Time scaling (1% to 1000%), and Master Input/Output gain trims.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dedicated Upward % & Downward %}: Balance upward vs downward compression intensity from 0% to 200%.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector UI}: Real-time level meters, gain reduction indicators, and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 4. Dynamics / PulseDuck\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/PulseDuck.jsfx}\line {\b Description}: Multiband Sidechain & Envelope Shaper\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/pulseduck.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 16 Instant Curve Presets}: Classic, tight, offbeat, tremolo, and trance gate ducking shapes, plus custom breakpoint node editing with tension curves.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Trigger Modes}: Tempo Sync (Repeat), MIDI Note, External Sidechain (Ch 3/4), and Audio Input.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multiband Crossover}: Full-band, 2-band (Lo/Hi), and 3-band (Lo/Mid/Hi) ducking with 12/24 dB slopes and Band Solo.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Real-Time Scope}: Overlay ducked bass audio (white) directly over incoming sidechain trigger kick (yellow).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b One-Click Trace SC}: Automatically detects and fits the ducking curve around your incoming kick transient.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Groove Shaping}: Variable curve slope, timing offset, and phase shift controls (<< < > >>) to lock the pocket.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 5. Saturation / OInflator\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/OInflator.jsfx}\line {\b Description}: Harmonic Waveshaper & Loudness Enhancer\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/oinflator.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Authentic Transfer Curve Waveshaping}: Specialized polynomial waveshaping algorithm that increases perceived loudness, warmth, and density without destroying transient punch.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-time Harmonic Transfer Viewport}: Live visual representation of the transfer curve and operating point with instantaneous boost dB readout.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Phase-Compensated Band Split}: Switchable 3-band split mode with 240 Hz and 2.4 kHz crossovers for independent multiband harmonic excitement.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Clip 0dB Protection}: Prevents signals from exceeding 0 dBFS ceiling when active.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Calibrated Studio Metering}: High-resolution input/output peak and RMS bar meters with hold decay and clip latches.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HiDPI Text Scaling}: Quick toggle for 100%, 120%, and 140% UI text zoom.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
-JClones
-}}}
-, licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 6. Saturation / Phoenix\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Saturation/Phoenix.jsfx}\line {\b Description}: Analog Tape Saturator\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/phoenix.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 5 Tape Topologies}: Selectable analog saturation types (Luminescent, Iridescent, Radiant, Luster, and Dark Essence).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Brightness Curves}: Switchable high-frequency tape flux responses (Opal for neutral, Gold for warm, Sapphire for bright).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Input & Output Trims with Auto-Gain}: Input Trim (-10 to +10 dB), Process amount (0 to 100%), Output Trim (-6 to +6 dB), and optional automatic gain compensation.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Studio Metering & HiDPI Zoom}: Dual input/output peak/RMS meters with OVER clip indicators and selectable UI text scaling.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: DSP algorithms by {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
-JClones
-}}}
-, licensed under MIT.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 7. Creative / ChronoWarp\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/ChronoWarp.jsfx}\line {\b Description}: Creative Half-Time & Varispeed Engine\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/chronowarp.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Speed Modes}: 1.5x (-5 semitones triplet), 2x Half-Time (-1 octave half-speed), and 4x Quarter-Time (-2 octaves quad-slow).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Continuous Ring-Buffer DSP}: 4-point Hermite cubic interpolation over an ~87-second continuous ring buffer for artifact-free, clickless time transformation.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Synchronized Loop Lengths}: Quantized to project tempo from 1/16 beat up to 8 full bars.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Bipolar Smooth Windowing}: Smooth contour shape transitions between transient-preserving percussion/FX mode and seamless sustain/swell mode.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Bandpass Crossover}: Draggable low-cut and high-cut frequency filters with dedicated Band Solo auditioning.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Upper-Octave Shimmer & Reverse}: Layer an octave-up granular sheen or flip slice playback direction.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo-Synced Fade In/Out}: Cleanly eliminates edge transients or creates musical fade swells.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Modern UI}: Live waveform visualizer with position playhead indicator and scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 8. Creative / VintageFlux\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Creative/VintageFlux.jsfx}\line {\b Description}: 6-Module Vintage Multi-FX & Lo-Fi Color Workstation\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/vintageflux.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 6 Dedicated Vintage FX Modules}:\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Noise}: Vinyl, Cassette, VHS, and White noise with envelope following and ducking.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Wobble}: Pitch wow & flutter with rate and stereo drift.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Distort}: Tube, Tape, Crunch, and Wavefold saturation with focused frequency crossover.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Digital}: Sample rate downsampling and bitcrushing with smoothing and pass/cut modes.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Space}: Ambient algorithmic reverb with pre-delay, decay, and damping controls.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Magnetic}: Vintage tape wear, dropouts, and flutter imperfections.\sa180\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Global Magnitude Slider}: Scales all module intensities and master character simultaneously.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dedicated Flux Controls}: Organic, non-repeating random analog drift on every module.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Master Tone & Filters}: 12/24 dB Low/High cuts, Tilt/Smile tone EQ, M/S width, and output trim.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 9. Delay / EchoForge\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Delay/EchoForge.jsfx}\line {\b Description}: Analog Tape, Lo-Fi & Diffused Delay Workstation\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/echoforge.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4 Delay Models}: Mono, Stereo, Ping-Pong, and Off (standalone Lo-Fi / Modulation / Reverb FX processor).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tempo Sync & Free Milliseconds}: Tempo-quantized 16th steps (1 to 16) or free-running delay times from 1 ms to 1000 ms.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tape Pitch Glide vs Keep Pitch}: Switch between classic tape-style Doppler pitch slewing or clickless crossfaded time changes.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Self-Oscillation & Analog Distortion}: Feedback up to 150% with tape-modeled saturation and soft limiter protection.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Resonant Multi-Mode Filter}: Low-Pass, High-Pass, and Band-Pass filter in the feedback path with adjustable resonance.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Stage Stereo All-Pass Diffuser}: Smears delay repeats into expansive, lush ambient reverb washes.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Lo-Fi Degradation Engine}: Continuous sample rate downsampling (down to 1 kHz) and bitcrushing (down to 2 bits).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Destination Modulation}: Dedicated LFO modulating delay time and filter cutoff for tape wow & flutter or sweeping filter dub effects.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Tone Tilt, Spread & Mix}: Output tone shaping, stereo width spread, and independent dry/wet controls.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive UI}: Live animated waveform and echo tap visualizer with scalable HiDPI text zoom (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 10. EQ / ConsoleQ\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ConsoleQ.jsfx}\line {\b Description}: Hybrid Console EQ, Air Strip & FFT Spectrum Analyzer\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/consoleq.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 4-Band Console EQ}: Low, Low-Mid, High-Mid, and High frequency bands with switchable Bell and Shelf curves for LF/HF.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Cut Filters}: 18 dB/oct resonant High-Pass (20 - 500 Hz) and 12 dB/oct Low-Pass (3k - 22 kHz) filters.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b High-Headroom Air Band & Sub Weight}: Dedicated Air Band shelf with selectable frequencies (2.5k, 5k, 10k, 20k, 40 kHz) up to +20 dB boost, plus a Sub 10Hz resonance weight bell.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Console Topologies}: Switchable E-Series (Constant Q) and G-Series (Proportional Q) response curves.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Analog Character Coloring}: Clean, Subtle, and Warm analog harmonic drive modes.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Graph Nodes}: Drag band frequency and gain handles directly on the live EQ response curve.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-time 2048-Point FFT Analyzer}: High-resolution spectrum visualizer switchable between Post-EQ, Pre-EQ, and Off.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Momentary Band Solo}: Hold the [S] audition button on any frequency band column to isolate its processing range.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Output Section}: Mid/Side stereo width (0% - 200%), panning, auto-gain compensation, and latched peak LED.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 11. EQ / PocketQ\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/PocketQ.jsfx}\line {\b Description}: Compact Console & Air Channel Strip EQ\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/pocketq.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Fixed Musical Frequency Bands}: Tuned classic frequencies: Sub (10 Hz), 40 Hz, 160 Hz, 650 Hz, and 2.5 kHz (switchable Shelf/Bell).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Air Band}: Selectable ultra-high frequencies (2.5k, 5k, 10k, 20k, 40 kHz) with up to +20 dB boost.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Cut Filters}: 18 dB/oct HPF (20 - 500 Hz) and 12 dB/oct LPF (3k - 22 kHz).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b E-Series & G-Series Modes}: Switch between tight constant Q and smooth proportional Q response.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Console Drive}: Clean vs. Warm analog harmonic drive.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Auto Gain & Phase Invert}: Output level compensation and quick polarity toggle.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Ultra-Lightweight CPU Footprint}: Zero FFT overhead, designed for tracking and heavy multi-track mixing sessions.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 140%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 12. EQ / ReEQ Studio\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 EQ/ReEQ_Studio.jsfx}\line {\b Description}: Polished 16-Band Parametric Equalizer\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/reeq_studio.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 16 Fully Parametric Bands}: Individual solo, gain, Q, frequency, and slope controls across all 16 bands.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Extended Filter Topologies}: Peak, Low/High Cut (including Butterworth and Analog models), Low/High Shelf, Notch, Band Pass, Tilt Shelf, Pultec Low Shelf, and All Pass.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Stereo, Mid/Side & Left/Right}: Independent processing modes per band.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Real-Time FFT Analyzer}: High-resolution spectrum visualizer with Pre-EQ, Post-EQ, Mid/Side, and L/R visualization.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HQ Oversampling}: High-Quality mode with linear-phase FIR half-band filtering.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive GUI}: Marquee multi-node selection, piano roll scale display, and smart context-aware band creation.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Credits}: Original DSP & core architecture by {\field{\*\fldinst{HYPERLINK "https://github.com/Justin-Johnson/ReEQ"}}{\fldrslt{\ul
-Justin Johnson (ReJJ)
-}}}
-.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 13. Reverb / AetherVerb\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Reverb/AetherVerb.jsfx}\line {\b Description}: 8-Mode Algorithmic, Shimmer & FDN Reverb\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/aetherverb.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 8 Reverb Topologies}: Plate 140, Concert Hall, Cloud, Shimmer, Bloom, Chorale, Non-Linear, and SuperFDN (8-delay Feedback Delay Network).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Multi-Voice Pitch Shimmer}: Two independent shimmer voices with octave and musical interval transpositions (-1 Oct, -5th, Detune, +5th, +1 Oct, +2 Oct).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Formant Chorale Resonators}: Morphing vowel filtering (AH, OH, OO) for vocal resonances and synthetic choir pads.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dynamic Auto-Decay}: Built-in envelope follower ducks the reverb tail during active performance to preserve clarity and prevent muddy buildups.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Analog Preamp & Converter Modeling}: Clean, Tube V54, and Solid State 162 preamps paired with Modern HiFi, 70s 12-Bit, and 80s Dark digital converter flavors.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Infinite & Freeze}: Instant hold modes for endless ambient sustain drones and atmospheric backdrops.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Integrated Tone & Post-EQ}: Pre Low/High Cut filters plus an interactive 2-band parametric post-EQ with draggable node handles.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Modern Vector Interface}: HiDPI UI text zoom presets (100% - 150%) and collapsible tweak drawer.\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 14. Dynamics / VelvetClip\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Dynamics/VelvetClip.jsfx}\line {\b Description}: Transparent Threshold-Linear Soft Clipper\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/velvetclip.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 100% Bit-Identical Pass-Through}: Absolutely linear (y = x) below threshold with 0% harmonic distortion until peaks cross into the clipping region.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Transfer Graph}: Drag vertically directly on the response curve to offset clipping threshold with live numerical feedback.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Clipper Topologies}:\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Fruity Soft}: Asymptotic rational curve that smoothly limits transients without folding or harsh odd-harmonic distortion.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Cubic Knee}: Punchy polynomial knee that transitions smoothly into a rigid 0 dBFS brickwall ceiling.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Bass Shaper}: Logarithmic knee curve specifically tuned to saturate high peaks while preserving low-end definition.\sa180\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 808 Sub Safe}: Internal crossover filter that isolates low frequencies (<95 Hz) around the clipper so sub bass notes never buzz or lose energy.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b HQ 2x Oversampling}: Zero-latency linear phase half-band filtering to suppress digital aliasing on aggressive transients.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual History Scope}: Real-time scrolling visualizer displaying output waveform alongside shaved peak reductions.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Precision Metering}: Calibrated stereo output level bar and shaved dB clip amount indicator.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI text zoom presets (100% - 150%).\sa180\sa180\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 15. Synth / AetherSynth\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\b Path}: {\f1 Synth/AetherSynth.jsfx}\line {\b Description}: 8-Voice Polyphonic Unison & ZDF Analog Synthesizer\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 {\cf1 [image: screenshots/aethersynth.webp]\cf0}\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Key Features}:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 8-Voice Polyphony & Modes}: Polyphonic (8-voice), Mono, and Legato voice allocation with portamento glide and organic analog slop/drift.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Multi-Wave Oscillators}:\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Oscillator 1 (Unison Stack)}: Saw, Pulse, Triangle, Sine, and TriWrap waveforms with stepped octave selector (-2 to +2), 1 to 7 unison voices, detune, and stereo spread.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Oscillator 2 & Sub/Noise}: Hard sync, linear FM, ring modulation, pulse width modulation, dedicated sub-oscillator (-1 / -2 octaves), and analog white noise generator.\sa180\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b 3 Zero-Delay Feedback (ZDF) Filter Topologies}:\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Ladder 24dB}: Rich Moog-style transistor ladder with non-linear saturation drive.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Bite Screamer}: Aggressive MS-20 style resonant filter with screaming feedback.\par}
-{\pard \ql \f0 \sa0 \li1080 \fi-360 \bullet \tx360\tab {\b Uhbie Morph}: Continuous 12dB multi-mode filter smoothly morphing between Low-Pass, Band-Pass, and High-Pass.\sa180\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Interactive Filter Display}: Real-time frequency response visualization with live cutoff and resonance plotting.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual Modulation Envelopes}: Amp ADSR and Mod ADSR with live animated envelope traces.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Dual LFOs}: Sine, Triangle, Saw, Square, and Random S&H targeting pitch vibrato, PWM, and filter cutoff.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Master FX Section}: Built-in analog distortion, stereo chorus, tempo/free ping-pong delay, and algorithmic hall reverb.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Built-In Factory Soundbank}: 8 production-ready presets (Anthem Supersaw, Diva Ladder Bass, Acid 303, Jupiter Pad, Pluck Poly Arp, Neuro Sub Reese, Vintage Keys).\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Playable Virtual Keyboard}: Interactive 4-octave piano roll keyboard with active voice visualization.\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab {\b Scalable UI}: HiDPI UI zoom presets (100% - 150%).\sa180\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Suite Architecture\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Every plugin in this repository shares a unified design standard:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Cross-Platform & Native:} Runs with zero external dependencies on Linux, Windows, and macOS.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Linux X11 / HiDPI Scaling:} Built-in {\f1 100% / 125% / 150%} UI scale toggles and responsive window geometry for crisp typography on unscaled X11 and Wayland displays.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Click-Free Transport & Automation:} Full parameter exposure to REAPER automation lanes with {\f1 ext_noinit} state preservation and Cytomic Zero-Delay Feedback (ZDF) / State Variable Filter (SVF) topologies.\sa180\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u56514 ? Repository Structure\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 ReaPack uses directory structure to organize categories in REAPER's package browser:\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \f1 .\line
-\u9500 ?\u9472 ?\u9472 ? .github/\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? workflows/\line
-\u9474 ?       \u9500 ?\u9472 ?\u9472 ? deploy.yml          # Automatically regenerates index.xml on push\line
-\u9474 ?       \u9492 ?\u9472 ?\u9472 ? check.yml           # Validates package headers on PRs/pushes\line
-\u9500 ?\u9472 ?\u9472 ? .reapack-index.conf         # reapack-index options\line
-\u9500 ?\u9472 ?\u9472 ? index.xml                   # ReaPack package index file\line
-\u9500 ?\u9472 ?\u9472 ? README.md                   # Repository documentation (shown in ReaPack)\line
-\u9500 ?\u9472 ?\u9472 ? screenshots/                # Plugin screenshot previews (WebP)\line
-\u9500 ?\u9472 ?\u9472 ? Creative/                   # ReaPack Category: Creative\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? ChronoWarp.jsfx         # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? VintageFlux.jsfx        # JSFX plugin with ReaPack metadata header\line
-\u9500 ?\u9472 ?\u9472 ? Delay/                      # ReaPack Category: Delay\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? EchoForge.jsfx          # JSFX plugin with ReaPack metadata header\line
-\u9500 ?\u9472 ?\u9472 ? Dynamics/                   # ReaPack Category: Dynamics\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? Opto2A.jsfx             # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? OverTop.jsfx            # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? PulseDuck.jsfx          # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? SpectralCarver.jsfx     # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? VelvetClip.jsfx         # JSFX plugin with ReaPack metadata header\line
-\u9500 ?\u9472 ?\u9472 ? EQ/                         # ReaPack Category: EQ\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? Dependencies/           # ReEQ include files\line
-\u9474 ?   \u9474 ?   \u9500 ?\u9472 ?\u9472 ? firhalfband.jsfx-inc\line
-\u9474 ?   \u9474 ?   \u9500 ?\u9472 ?\u9472 ? spectrum.jsfx-inc\line
-\u9474 ?   \u9474 ?   \u9492 ?\u9472 ?\u9472 ? svf_filter.jsfx-inc\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? ConsoleQ.jsfx           # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? PocketQ.jsfx            # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? ReEQ_Studio.jsfx        # JSFX plugin with ReaPack metadata header\line
-\u9500 ?\u9472 ?\u9472 ? Reverb/                     # ReaPack Category: Reverb\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? AetherVerb.jsfx         # JSFX plugin with ReaPack metadata header\line
-\u9500 ?\u9472 ?\u9472 ? Saturation/                 # ReaPack Category: Saturation\line
-\u9474 ?   \u9500 ?\u9472 ?\u9472 ? OInflator.jsfx          # JSFX plugin with ReaPack metadata header\line
-\u9474 ?   \u9492 ?\u9472 ?\u9472 ? Phoenix.jsfx            # JSFX plugin with ReaPack metadata header\line
-\u9492 ?\u9472 ?\u9472 ? Synth/                      # ReaPack Category: Synth\line
-    \u9492 ?\u9472 ?\u9472 ? AetherSynth.jsfx        # JSFX plugin with ReaPack metadata header\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Plugin Index\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 | Category | Plugin | Description | | :--- | :--- | :--- | | {\b Dynamics} | {\field{\*\fldinst{HYPERLINK "#dynamics"}}{\fldrslt{\ul
+{\b SpectralCarver}
+}}}
+ | 32-band sidechain dynamic spectral ducker | | {\b Dynamics} | {\field{\*\fldinst{HYPERLINK "#dynamics"}}{\fldrslt{\ul
+{\b Opto2A}
+}}}
+ | Program-dependent T4 optical tube compressor | | {\b Dynamics} | {\field{\*\fldinst{HYPERLINK "#dynamics"}}{\fldrslt{\ul
+{\b OverTop}
+}}}
+ | 3-band upward & downward multiband compressor | | {\b Dynamics} | {\field{\*\fldinst{HYPERLINK "#dynamics"}}{\fldrslt{\ul
+{\b PulseDuck}
+}}}
+ | Multiband rhythmic sidechain & envelope shaper | | {\b Dynamics} | {\field{\*\fldinst{HYPERLINK "#dynamics"}}{\fldrslt{\ul
+{\b VelvetClip}
+}}}
+ | Threshold-linear master soft clipper with 808 sub protection | | {\b EQ} | {\field{\*\fldinst{HYPERLINK "#equalizers"}}{\fldrslt{\ul
+{\b ConsoleQ}
+}}}
+ | 4-band E/G British console strip with Air Band & FFT analyzer | | {\b EQ} | {\field{\*\fldinst{HYPERLINK "#equalizers"}}{\fldrslt{\ul
+{\b PocketQ}
+}}}
+ | Compact zero-FFT fixed-band console & Air equalizer | | {\b EQ} | {\field{\*\fldinst{HYPERLINK "#equalizers"}}{\fldrslt{\ul
+{\b ReEQ Studio}
+}}}
+ | 16-band parametric equalizer with piano roll & spectrum grab | | {\b Saturation} | {\field{\*\fldinst{HYPERLINK "#saturation"}}{\fldrslt{\ul
+{\b OInflator}
+}}}
+ | Polynomial harmonic waveshaper & 3-band loudness enhancer | | {\b Saturation} | {\field{\*\fldinst{HYPERLINK "#saturation"}}{\fldrslt{\ul
+{\b Phoenix}
+}}}
+ | 5-mode analog tape saturator with selectable flux curves | | {\b Time & Space} | {\field{\*\fldinst{HYPERLINK "#time--space"}}{\fldrslt{\ul
+{\b EchoForge}
+}}}
+ | Tape varispeed, Lo-Fi & diffused ping-pong delay | | {\b Time & Space} | {\field{\*\fldinst{HYPERLINK "#time--space"}}{\fldrslt{\ul
+{\b AetherVerb}
+}}}
+ | 8-mode algorithmic, shimmer, formant & FDN reverberator | | {\b Creative FX} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
+{\b ChronoWarp}
+}}}
+ | Tempo-synced half-time, varispeed & octave-shimmer engine | | {\b Creative FX} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
+{\b VintageFlux}
+}}}
+ | 6-module retro multi-FX & lo-fi texture processor | | {\b Synthesis} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
+{\b AetherSynth}
+}}}
+ | 8-voice polyphonic unison supersaw & ZDF analog synthesizer |\par}
 {\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 \u55357 ?\u57056 ? Adding New Plugins & Maintaining with {\f1 jj} (Jujutsu)\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 This repository uses {\b {\f1 jj}} (Jujutsu) for source control.\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Adding a New Plugin\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Place your new {\f1 .jsfx} file inside the appropriate category folder (e.g. {\f1 Dynamics/}, {\f1 EQ/}, {\f1 Utility/}, {\f1 Synth/}, etc.).\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Include the standard ReaPack metadata comment header at the top of the file:\par}
-{\pard \ql \f0 \sa180 \li360 \fi0 \f1 desc:MyPlugin (Effect Description)\line
-// @description MyPlugin (Short description for ReaPack)\line
-// @author YourName\line
-// @version 1.0.0\line
-// @changelog Initial release\line
-// @about\line
-//   # MyPlugin\line
-//   Detailed description formatted in Markdown.\line
-// @provides\line
-//   [effect] MyPlugin.jsfx\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Commit your changes using {\f1 jj}:\par}
-{\pard \ql \f0 \sa180 \li360 \fi0 \f1 jj describe -m "feat: add MyPlugin"\line
-jj bookmark set master -r @\line
-jj git push --bookmark master\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab The included GitHub Actions workflow will automatically run {\f1 reapack-index}, compile {\f1 index.xml}, and update the repository on GitHub.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Dynamics\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Equalizers\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Saturation\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Time & Space\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Creative & Synthesis\par}
+{\pard \qc \f0 \sa180 \li0 \fi0 \emdash\emdash\emdash\emdash\emdash\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Credits\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Opto2A}, {\b OInflator}, and {\b Phoenix} core DSP algorithms adapted from {\field{\*\fldinst{HYPERLINK "https://github.com/JClones/JSFXClones"}}{\fldrslt{\ul
+JClones/JSFXClones
+}}}
+ (MIT License).\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b ReEQ Studio} core DSP and spectrum engine adapted from {\field{\*\fldinst{HYPERLINK "https://github.com/Justin-Johnson/ReEQ"}}{\fldrslt{\ul
+Justin Johnson's ReEQ
+}}}
+ (MIT License).\sa180\par}
 }
 ]]></description>
   </metadata>
