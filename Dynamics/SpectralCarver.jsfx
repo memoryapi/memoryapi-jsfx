@@ -1,8 +1,8 @@
 desc:SpectralCarver (32-Band Dynamic Spectral Ducker)
 // @description SpectralCarver (32-Band Dynamic Spectral Ducker)
 // @author MemoryAPI
-// @version 1.2.1
-// @changelog Unified repository author metadata to MemoryAPI
+// @version 1.3.0
+// @changelog Replaced shifting bottom drawer with zero-shift in-place spectrum overlay panel
 // @about
 //   # SpectralCarver
 //   32-Band Dynamic Spectral Ducker using Cytomic SVF filters.
@@ -10,6 +10,7 @@ desc:SpectralCarver (32-Band Dynamic Spectral Ducker)
 //   ### Features
 //   - 32-band Cytomic SVF dynamic spectral ducking
 //   - High-contrast visualizer with smooth animated controls and hover halos
+//   - Zero-shift In-Place Advanced Overlay over the spectrum analyzer
 //   - Stereo (L/R) and Mid/Side (M/S) processing modes
 //   - Low-cut and high-cut sidechain filtering with interactive spectrum display
 //   - Sidechain audition mode, freeze function, and scalable UI text zoom
@@ -302,15 +303,15 @@ audition_on ? (
   spl1 = out_r;
 );
 
-@gfx 700 680
+@gfx 700 640
 // Solid dark base (#1E1E2E: R=30, G=30, B=46)
 gfx_clear = 30 + (30 * 256) + (46 * 65536);
 
 W = max(560, gfx_w);
-H = max(540, gfx_h);
+H = max(520, gfx_h);
 
 // Responsive geometry scale & user text scale for Linux X11
-S  = min(W / 700.0, H / 680.0);
+S  = min(W / 700.0, H / 640.0);
 TS = S * max(1.0, ui_zoom);
 
 // Configure crisp readable fonts (scaled automatically)
@@ -328,9 +329,9 @@ gfx_setfont(4, "sans-serif", f_btn,   'b');
 gfx_setfont(5, "sans-serif", f_grid,  0);
 gfx_setfont(6, "sans-serif", f_big,   'b');
 
-// Smooth animation for the Advanced Drawer (eliminates dead space when closed)
+// Smooth fade animation for the In-Place Viewport Overlay (Zero Geometry Shift!)
 target_adv = adv_open ? 1.0 : 0.0;
-adv_anim = adv_anim + (target_adv - adv_anim) * 0.35;
+adv_anim = adv_anim + (target_adv - adv_anim) * 0.40;
 abs(target_adv - adv_anim) < 0.005 ? adv_anim = target_adv;
 
 function freq_to_x(f, x0, xw)
@@ -503,7 +504,7 @@ title_hit = mouse_x >= 16 && mouse_x <= (q_x + qw + 16) && mouse_y >= 6 && mouse
   info_open = !info_open;
 );
 
-// UI Text Scale Toggle Button (1x / 1.15x / 1.35x) for Linux X11 convenience
+// UI Text Scale Toggle Button (1x / 1.2x / 1.4x) for Linux X11 convenience
 zm_w = floor(96 * S); zm_h = floor(30 * S);
 zm_x = W - floor(238 * S); zm_y = (hdr_h - zm_h) * 0.5;
 zm_hit = mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= zm_y && mouse_y <= zm_y + zm_h;
@@ -542,27 +543,31 @@ gfx_x = frz_x + (frz_w - fw) * 0.5; gfx_y = frz_y + (frz_h - fh) * 0.5;
 gfx_drawstr("FREEZE");
 
 // =========================================================================
-// 2. DYNAMIC GEOMETRY CALCULATION (NO DEAD SPACE WHEN ADVANCED IS CLOSED)
+// 2. STATIC GEOMETRY CALCULATION (ZERO UI SHIFT WHEN TOGGLING ADVANCED)
 // =========================================================================
-pad = floor(20 * S);
-adv_full_h = floor(150 * S);
-cur_adv_h  = floor(adv_full_h * adv_anim);
-cur_adv_gap = floor(14 * S * adv_anim);
+pad = floor(18 * S);
+avail_h = H - hdr_h - (pad * 3);
 
-avail_h = H - hdr_h - (pad * 3) - cur_adv_h - cur_adv_gap;
 spec_x  = pad;
 spec_y  = hdr_h + pad;
 spec_w  = W - (pad * 2);
-// Analyzer expands smoothly when Advanced Panel is collapsed
-spec_h  = floor(avail_h * (0.56 - 0.04 * adv_anim));
+spec_h  = floor(avail_h * 0.53);
 
 ctrl_x  = pad;
 ctrl_y  = spec_y + spec_h + pad;
 ctrl_w  = spec_w;
 ctrl_h  = avail_h - spec_h;
 
+// Pre-compute ADV button coordinates so they stay 100% locked
+adv_btn_w = floor(78 * S);
+adv_btn_h = floor(28 * S);
+adv_btn_x = spec_x + spec_w - adv_btn_w - floor(10 * S);
+adv_btn_y = spec_y + spec_h - adv_btn_h - floor(10 * S);
+adv_hit   = mouse_x >= adv_btn_x && mouse_x <= (adv_btn_x + adv_btn_w) &&
+            mouse_y >= adv_btn_y && mouse_y <= (adv_btn_y + adv_btn_h);
+
 // =========================================================================
-// 3. SPECTRUM ANALYZER VIEWPORT
+// 3. SPECTRUM ANALYZER VIEWPORT (WITH IN-PLACE ADVANCED OVERLAY)
 // =========================================================================
 draw_panel_box(spec_x, spec_y, spec_w, spec_h, 0.067, 0.067, 0.106, 0.22, 0.24, 0.34);
 
@@ -582,7 +587,7 @@ loop(8,
   gfx_set(0.14, 0.15, 0.22, 1.0);
   gfx_line(gx, spec_y + 1, gx, spec_y + spec_h - 1);
 
-  gfx_set(0.58, 0.62, 0.75, 1.0);
+  gfx_set(0.58, 0.62, 0.75, 1.0 - 0.65 * adv_anim);
   gf >= 1000 ? sprintf(#flbl, "%dk", gf/1000) : sprintf(#flbl, "%d", gf);
   gfx_measurestr(#flbl, flw, flh);
   gfx_x = gx - flw * 0.5;
@@ -597,7 +602,7 @@ loop(3,
   gy = spec_y + (db_idx / 4.0) * spec_h;
   gfx_set(0.14, 0.15, 0.22, 1.0);
   gfx_line(spec_x + 1, gy, spec_x + spec_w - 1, gy);
-  gfx_set(0.55, 0.59, 0.72, 1.0);
+  gfx_set(0.55, 0.59, 0.72, 1.0 - 0.65 * adv_anim);
   sprintf(#dblbl, "-%d dB", db_idx * 6);
   gfx_x = spec_x + 8;
   gfx_y = gy + 3;
@@ -659,106 +664,216 @@ gfx_set(0.03, 0.03, 0.06, 0.62);
 lc_x > spec_x ? gfx_rect(spec_x + 1, spec_y + 1, lc_x - spec_x, spec_h - 2);
 hc_x < spec_x + spec_w ? gfx_rect(hc_x, spec_y + 1, (spec_x + spec_w) - hc_x - 1, spec_h - 2);
 
-gfx_set(0.54, 0.71, 0.98, 0.9);
+gfx_set(0.54, 0.71, 0.98, 0.9 * (1.0 - 0.6 * adv_anim));
 gfx_line(lc_x, spec_y + 1, lc_x, spec_y + spec_h - 2);
 gfx_line(lc_x + 1, spec_y + 1, lc_x + 1, spec_y + spec_h - 2);
 gfx_line(hc_x, spec_y + 1, hc_x, spec_y + spec_h - 2);
 gfx_line(hc_x - 1, spec_y + 1, hc_x - 1, spec_y + spec_h - 2);
 
-// "LC" and "HC" grab tabs at top of curtains
-gfx_setfont(5);
-tab_w = floor(28 * S); tab_h = floor(20 * S);
-gfx_set(0.22, 0.48, 0.85, 1.0);
-gfx_rect(lc_x, spec_y + 8, tab_w, tab_h);
-gfx_rect(hc_x - tab_w, spec_y + 8, tab_w, tab_h);
-gfx_set(0.95, 0.97, 1.0, 1.0);
-gfx_measurestr("LC", lcw, lch);
-gfx_x = lc_x + (tab_w - lcw)*0.5; gfx_y = spec_y + 8 + (tab_h - lch)*0.5;
-gfx_drawstr("LC");
-gfx_measurestr("HC", hcw, hch);
-gfx_x = hc_x - tab_w + (tab_w - hcw)*0.5; gfx_y = spec_y + 8 + (tab_h - hch)*0.5;
-gfx_drawstr("HC");
+// Only allow LC/HC curtain dragging and hover badge when Advanced Overlay is closed
+!adv_open ? (
+  // "LC" and "HC" grab tabs at top of curtains
+  gfx_setfont(5);
+  tab_w = floor(28 * S); tab_h = floor(20 * S);
+  gfx_set(0.22, 0.48, 0.85, 1.0);
+  gfx_rect(lc_x, spec_y + 8, tab_w, tab_h);
+  gfx_rect(hc_x - tab_w, spec_y + 8, tab_w, tab_h);
+  gfx_set(0.95, 0.97, 1.0, 1.0);
+  gfx_measurestr("LC", lcw, lch);
+  gfx_x = lc_x + (tab_w - lcw)*0.5; gfx_y = spec_y + 8 + (tab_h - lch)*0.5;
+  gfx_drawstr("LC");
+  gfx_measurestr("HC", hcw, hch);
+  gfx_x = hc_x - tab_w + (tab_w - hcw)*0.5; gfx_y = spec_y + 8 + (tab_h - hch)*0.5;
+  gfx_drawstr("HC");
 
-// Dragging Low-Cut / High-Cut lines directly in analyzer
-(mouse_cap & 1) && !(last_mouse_cap & 1) && drag_id == 0 ? (
-  mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
-    abs(mouse_x - lc_x) < 16 ? drag_id = 101 :
-    abs(mouse_x - hc_x) < 16 ? drag_id = 102;
+  // Dragging Low-Cut / High-Cut lines directly in analyzer
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && drag_id == 0 && !adv_hit ? (
+    mouse_y >= spec_y && mouse_y <= spec_y + spec_h ? (
+      abs(mouse_x - lc_x) < 16 ? drag_id = 101 :
+      abs(mouse_x - hc_x) < 16 ? drag_id = 102;
+    );
+  );
+  drag_id == 101 ? (
+    (mouse_cap & 1) ? (
+      low_cut_hz = min(high_cut_hz - 20, max(20, x_to_freq(mouse_x, spec_x, spec_w)));
+      update_parameters();
+      slider_automate(slider2);
+    ) : drag_id = 0;
+  );
+  drag_id == 102 ? (
+    (mouse_cap & 1) ? (
+      high_cut_hz = max(low_cut_hz + 20, min(20000, x_to_freq(mouse_x, spec_x, spec_w)));
+      update_parameters();
+      slider_automate(slider3);
+    ) : drag_id = 0;
+  );
+
+  // Hover Frequency & dB Readout Badge (Top-Right of Spectrum Analyzer)
+  (mouse_x >= spec_x && mouse_x <= spec_x + spec_w && mouse_y >= spec_y && mouse_y <= spec_y + spec_h && !adv_hit) ? (
+    hover_freq = x_to_freq(mouse_x, spec_x, spec_w);
+    hover_db   = -((mouse_y - spec_y) / spec_h) * 24.0;
+    hover_freq >= 1000 ? (
+      sprintf(#hover_str, "%.2f kHz   %.1f dB", hover_freq * 0.001, hover_db);
+    ) : (
+      sprintf(#hover_str, "%d Hz   %.1f dB", hover_freq, hover_db);
+    );
+    gfx_setfont(3);
+    gfx_measurestr(#hover_str, hw, hh);
+    hb_w = hw + 20; hb_h = hh + 10;
+    hb_x = spec_x + spec_w - hb_w - 12;
+    hb_y = spec_y + 10;
+    draw_panel_box(hb_x, hb_y, hb_w, hb_h, 0.10, 0.11, 0.16, 0.32, 0.36, 0.50);
+    gfx_set(0.92, 0.95, 1.0, 1.0);
+    gfx_x = hb_x + 10; gfx_y = hb_y + 5;
+    gfx_drawstr(#hover_str);
   );
 );
-drag_id == 101 ? (
-  (mouse_cap & 1) ? (
-    low_cut_hz = min(high_cut_hz - 20, max(20, x_to_freq(mouse_x, spec_x, spec_w)));
-    update_parameters();
-    slider_automate(slider2);
-  ) : drag_id = 0;
-);
-drag_id == 102 ? (
-  (mouse_cap & 1) ? (
-    high_cut_hz = max(low_cut_hz + 20, min(20000, x_to_freq(mouse_x, spec_x, spec_w)));
-    update_parameters();
-    slider_automate(slider3);
-  ) : drag_id = 0;
+
+// =========================================================================
+// 3B. IN-PLACE ADVANCED OVERLAY (REPLACES SPECTRUM VIEWPORT WHEN ACTIVE)
+// =========================================================================
+adv_anim > 0.05 ? (
+  // Translucent dark backdrop over the spectrum analyzer (keeps live GR curves subtly visible)
+  gfx_set(0.075, 0.078, 0.122, 0.90 * adv_anim);
+  gfx_rect(spec_x + 1, spec_y + 1, spec_w - 2, spec_h - 2);
+
+  // Highlighted cyan-blue inner border when Advanced Overlay is active
+  gfx_set(0.45, 0.78, 0.98, 0.65 * adv_anim);
+  gfx_rect(spec_x, spec_y, spec_w, spec_h, 0);
+
+  // Overlay Header Strip
+  ov_hdr_h = floor(34 * S);
+  gfx_set(0.11, 0.12, 0.18, 0.95 * adv_anim);
+  gfx_rect(spec_x + 1, spec_y + 1, spec_w - 2, ov_hdr_h);
+  gfx_set(0.22, 0.25, 0.36, 0.95 * adv_anim);
+  gfx_line(spec_x + 1, spec_y + ov_hdr_h, spec_x + spec_w - 2, spec_y + ov_hdr_h);
+
+  gfx_setfont(2);
+  gfx_set(0.54, 0.78, 1.0, adv_anim);
+  gfx_x = spec_x + floor(16 * S);
+  gfx_y = spec_y + floor(8 * S);
+  gfx_drawstr("ADVANCED SETTINGS  —  STEREO ROUTING & ENVELOPE BALLISTICS");
+
+  adv_open ? (
+    adv_body_y = spec_y + ov_hdr_h;
+    adv_body_h = spec_h - ov_hdr_h;
+    adv_cy     = adv_body_y + adv_body_h * 0.39;
+    r_adv      = min(floor(35 * S), floor(adv_body_h * 0.23));
+
+    // Vertical divider separating Rotary Knobs (left 63%) and Mode/Audition Toggles (right 37%)
+    div_x = spec_x + floor(spec_w * 0.63);
+    gfx_set(0.20, 0.22, 0.32, 1.0);
+    gfx_line(div_x, adv_body_y + floor(14 * S), div_x, spec_y + spec_h - floor(14 * S));
+
+    // 1. Pan / M-S Balance Knob
+    proc_mode == 0 ? (
+      pan_val < -0.5 ? sprintf(#pan_str, "%d %% L", abs(pan_val)) :
+      pan_val >  0.5 ? sprintf(#pan_str, "%d %% R", pan_val) : strcpy(#pan_str, "Center");
+      strcpy(#pan_lbl, "PAN (L/R)");
+    ) : (
+      pan_val < -0.5 ? sprintf(#pan_str, "%d %% Mid", abs(pan_val)) :
+      pan_val >  0.5 ? sprintf(#pan_str, "%d %% Side", pan_val) : strcpy(#pan_str, "Even M/S");
+      strcpy(#pan_lbl, "M/S BALANCE");
+    );
+    new_pan = draw_rotary_knob(4, spec_x + spec_w * 0.115, adv_cy, r_adv, pan_val, -100.0, 100.0, 0.0, #pan_lbl, #pan_str, 0);
+    abs(new_pan - pan_val) > 0.01 ? (
+      pan_val = new_pan;
+      update_parameters();
+      slider_automate(slider7);
+    );
+
+    // 2. Attack Knob
+    sprintf(#att_str, "%.1f ms", attack_ms);
+    new_att = draw_rotary_knob(5, spec_x + spec_w * 0.315, adv_cy, r_adv, attack_ms, 0.1, 200.0, 10.0, "ATTACK", #att_str, 0);
+    abs(new_att - attack_ms) > 0.01 ? (
+      attack_ms = new_att;
+      update_parameters();
+      slider_automate(slider4);
+    );
+
+    // 3. Release Knob
+    sprintf(#rel_str, "%d ms", release_ms);
+    new_rel = draw_rotary_knob(6, spec_x + spec_w * 0.515, adv_cy, r_adv, release_ms, 5.0, 1000.0, 80.0, "RELEASE", #rel_str, 0);
+    abs(new_rel - release_ms) > 0.01 ? (
+      release_ms = new_rel;
+      update_parameters();
+      slider_automate(slider5);
+    );
+
+    // Right-side Segmented Mode & SC Audition Buttons inside Overlay
+    btn_x = div_x + floor(18 * S);
+    btn_w = (spec_x + spec_w) - btn_x - floor(18 * S);
+    btn_h = floor(38 * S);
+
+    // Mode Toggle (L/R vs M/S)
+    mode_y = adv_body_y + floor(adv_body_h * 0.17);
+    mode_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= mode_y && mouse_y <= (mode_y + btn_h);
+    (mouse_cap & 1) && !(last_mouse_cap & 1) && mode_hit ? (
+      proc_mode = !proc_mode;
+      slider_automate(slider6);
+    );
+    draw_panel_box(btn_x, mode_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.32, 0.38, 0.54);
+    gfx_setfont(4);
+    gfx_set(0.54, 0.78, 1.0, 1.0);
+    proc_mode == 0 ? strcpy(#m_str, "MODE: STEREO (L/R)") : strcpy(#m_str, "MODE: MID / SIDE");
+    gfx_measurestr(#m_str, mw, mh);
+    gfx_x = btn_x + (btn_w - mw) * 0.5; gfx_y = mode_y + (btn_h - mh) * 0.5;
+    gfx_drawstr(#m_str);
+
+    // SC Audition Toggle
+    aud_y = mode_y + btn_h + floor(14 * S);
+    aud_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= aud_y && mouse_y <= (aud_y + btn_h);
+    (mouse_cap & 1) && !(last_mouse_cap & 1) && aud_hit ? (
+      audition_on = !audition_on;
+      slider_automate(slider9);
+    );
+    audition_on ? (
+      draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.85, 0.48, 0.14, 1.0, 0.75, 0.35);
+      gfx_set(1.0, 1.0, 1.0, 1.0);
+    ) : (
+      draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.32, 0.38, 0.54);
+      gfx_set(0.82, 0.86, 0.96, 1.0);
+    );
+    gfx_setfont(4);
+    gfx_measurestr("SIDECHAIN AUDITION", aw, ah);
+    gfx_x = btn_x + (btn_w - aw) * 0.5; gfx_y = aud_y + (btn_h - ah) * 0.5;
+    gfx_drawstr("SIDECHAIN AUDITION");
+  );
 );
 
-// ADV Toggle Pill Button (Bottom-Right Corner inside Spectrum Analyzer)
-adv_btn_w = floor(74 * S);
-adv_btn_h = floor(26 * S);
-adv_btn_x = spec_x + spec_w - adv_btn_w - 10;
-adv_btn_y = spec_y + spec_h - adv_btn_h - 8;
-adv_hit = mouse_x >= adv_btn_x && mouse_x <= (adv_btn_x + adv_btn_w) &&
-          mouse_y >= adv_btn_y && mouse_y <= (adv_btn_y + adv_btn_h);
-
+// =========================================================================
+// 3C. PINNED "ADV" TOGGLE PILL BUTTON (ALWAYS ON TOP, NEVER SHIFTS POSITION)
+// =========================================================================
 (mouse_cap & 1) && !(last_mouse_cap & 1) && adv_hit ? (
   adv_open = !adv_open;
+  drag_id = 0;
   slider_automate(slider10);
 );
 
 adv_open ? (
-  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.16, 0.35, 0.62, 0.45, 0.78, 0.98);
+  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.20, 0.42, 0.72, 0.55, 0.84, 1.0);
 ) : (
   draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.13, 0.14, 0.21, 0.30, 0.33, 0.46);
 );
 
-// Glowing Blue Dot + "ADV" text inside the pill button
-dot_cx = adv_btn_x + floor(14 * S);
+dot_cx = adv_btn_x + floor(15 * S);
 dot_cy = adv_btn_y + adv_btn_h * 0.5;
-adv_open ? gfx_set(0.45, 0.88, 1.0, 1.0) : gfx_set(0.32, 0.65, 0.95, 0.9);
+adv_open ? gfx_set(0.55, 0.92, 1.0, 1.0) : gfx_set(0.32, 0.65, 0.95, 0.9);
 gfx_circle(dot_cx, dot_cy, floor(5 * S), 1, 1);
 
 gfx_setfont(4);
-gfx_set(0.92, 0.95, 1.0, 1.0);
+gfx_set(0.95, 0.97, 1.0, 1.0);
 gfx_measurestr("ADV", adw, adh);
 gfx_x = dot_cx + floor(10 * S);
 gfx_y = adv_btn_y + (adv_btn_h - adh) * 0.5;
 gfx_drawstr("ADV");
 
-// Hover Frequency & dB Readout Badge (Top-Right of Spectrum Analyzer)
-(mouse_x >= spec_x && mouse_x <= spec_x + spec_w && mouse_y >= spec_y && mouse_y <= spec_y + spec_h && !adv_hit) ? (
-  hover_freq = x_to_freq(mouse_x, spec_x, spec_w);
-  hover_db   = -((mouse_y - spec_y) / spec_h) * 24.0;
-  hover_freq >= 1000 ? (
-    sprintf(#hover_str, "%.2f kHz   %.1f dB", hover_freq * 0.001, hover_db);
-  ) : (
-    sprintf(#hover_str, "%d Hz   %.1f dB", hover_freq, hover_db);
-  );
-  gfx_setfont(3);
-  gfx_measurestr(#hover_str, hw, hh);
-  hb_w = hw + 20; hb_h = hh + 10;
-  hb_x = spec_x + spec_w - hb_w - 12;
-  hb_y = spec_y + 10;
-  draw_panel_box(hb_x, hb_y, hb_w, hb_h, 0.10, 0.11, 0.16, 0.32, 0.36, 0.50);
-  gfx_set(0.92, 0.95, 1.0, 1.0);
-  gfx_x = hb_x + 10; gfx_y = hb_y + 5;
-  gfx_drawstr(#hover_str);
-);
-
 // =========================================================================
-// 4. MAIN CONTROLS CARD (EXPANDS TO FILL WINDOW WHEN ADVANCED IS CLOSED)
+// 4. MAIN CONTROLS CARD (CONSTANT POSITION & SIZE)
 // =========================================================================
 draw_panel_box(ctrl_x, ctrl_y, ctrl_w, ctrl_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
 
-knob_cy = ctrl_y + ctrl_h * 0.40;
+knob_cy = ctrl_y + ctrl_h * 0.39;
 r_side  = min(floor(40 * S), floor(ctrl_h * 0.22));
 r_hero  = min(floor(62 * S), floor(ctrl_h * 0.31));
 
@@ -791,92 +906,7 @@ abs(new_hc_norm - hc_norm) > 0.0001 ? (
 );
 
 // =========================================================================
-// 5. COLLAPSIBLE ADVANCED DRAWER (ONLY RENDERED WHEN OPEN)
-// =========================================================================
-adv_anim > 0.45 ? (
-  adv_y = ctrl_y + ctrl_h + cur_adv_gap;
-  draw_panel_box(pad, adv_y, spec_w, cur_adv_h, 0.095, 0.098, 0.145, 0.22, 0.25, 0.36);
-
-  adv_cy = adv_y + cur_adv_h * 0.36;
-  r_adv  = min(floor(26 * S), floor(cur_adv_h * 0.19));
-
-  // Pan / M-S Balance Knob
-  proc_mode == 0 ? (
-    pan_val < -0.5 ? sprintf(#pan_str, "%d %% L", abs(pan_val)) :
-    pan_val >  0.5 ? sprintf(#pan_str, "%d %% R", pan_val) : strcpy(#pan_str, "Center");
-    strcpy(#pan_lbl, "PAN (L/R)");
-  ) : (
-    pan_val < -0.5 ? sprintf(#pan_str, "%d %% Mid", abs(pan_val)) :
-    pan_val >  0.5 ? sprintf(#pan_str, "%d %% Side", pan_val) : strcpy(#pan_str, "Even M/S");
-    strcpy(#pan_lbl, "M/S BALANCE");
-  );
-  new_pan = draw_rotary_knob(4, pad + spec_w * 0.13, adv_cy, r_adv, pan_val, -100.0, 100.0, 0.0, #pan_lbl, #pan_str, 0);
-  abs(new_pan - pan_val) > 0.01 ? (
-    pan_val = new_pan;
-    update_parameters();
-    slider_automate(slider7);
-  );
-
-  // Attack Knob
-  sprintf(#att_str, "%.1f ms", attack_ms);
-  new_att = draw_rotary_knob(5, pad + spec_w * 0.33, adv_cy, r_adv, attack_ms, 0.1, 200.0, 10.0, "ATTACK", #att_str, 0);
-  abs(new_att - attack_ms) > 0.01 ? (
-    attack_ms = new_att;
-    update_parameters();
-    slider_automate(slider4);
-  );
-
-  // Release Knob
-  sprintf(#rel_str, "%d ms", release_ms);
-  new_rel = draw_rotary_knob(6, pad + spec_w * 0.53, adv_cy, r_adv, release_ms, 5.0, 1000.0, 80.0, "RELEASE", #rel_str, 0);
-  abs(new_rel - release_ms) > 0.01 ? (
-    release_ms = new_rel;
-    update_parameters();
-    slider_automate(slider5);
-  );
-
-  // Right-side Segmented Mode & SC Audition Buttons inside Advanced Panel
-  btn_x = pad + floor(spec_w * 0.68);
-  btn_w = spec_w - floor(spec_w * 0.68) - floor(18 * S);
-  btn_h = floor(36 * S);
-
-  // Mode Toggle (L/R vs M/S)
-  mode_y = adv_y + floor(cur_adv_h * 0.18);
-  mode_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= mode_y && mouse_y <= (mode_y + btn_h);
-  (mouse_cap & 1) && !(last_mouse_cap & 1) && mode_hit ? (
-    proc_mode = !proc_mode;
-    slider_automate(slider6);
-  );
-  draw_panel_box(btn_x, mode_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.30, 0.35, 0.50);
-  gfx_setfont(4);
-  gfx_set(0.54, 0.78, 1.0, 1.0);
-  proc_mode == 0 ? strcpy(#m_str, "MODE: STEREO (L/R)") : strcpy(#m_str, "MODE: MID / SIDE");
-  gfx_measurestr(#m_str, mw, mh);
-  gfx_x = btn_x + (btn_w - mw) * 0.5; gfx_y = mode_y + (btn_h - mh) * 0.5;
-  gfx_drawstr(#m_str);
-
-  // SC Audition Toggle
-  aud_y = mode_y + btn_h + floor(14 * S);
-  aud_hit = mouse_x >= btn_x && mouse_x <= (btn_x + btn_w) && mouse_y >= aud_y && mouse_y <= (aud_y + btn_h);
-  (mouse_cap & 1) && !(last_mouse_cap & 1) && aud_hit ? (
-    audition_on = !audition_on;
-    slider_automate(slider9);
-  );
-  audition_on ? (
-    draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.85, 0.48, 0.14, 1.0, 0.75, 0.35);
-    gfx_set(1.0, 1.0, 1.0, 1.0);
-  ) : (
-    draw_panel_box(btn_x, aud_y, btn_w, btn_h, 0.14, 0.16, 0.24, 0.30, 0.35, 0.50);
-    gfx_set(0.82, 0.86, 0.96, 1.0);
-  );
-  gfx_setfont(4);
-  gfx_measurestr("SIDECHAIN AUDITION", aw, ah);
-  gfx_x = btn_x + (btn_w - aw) * 0.5; gfx_y = aud_y + (btn_h - ah) * 0.5;
-  gfx_drawstr("SIDECHAIN AUDITION");
-);
-
-// =========================================================================
-// 6. INFO OVERLAY MODAL
+// 5. INFO OVERLAY MODAL
 // =========================================================================
 info_open ? (
   mw = floor(W * 0.74);
@@ -889,7 +919,7 @@ info_open ? (
   gfx_setfont(1);
   gfx_set(0.54, 0.71, 0.98, 1.0);
   gfx_x = mx + 24; gfx_y = my + 20;
-  gfx_drawstr("SpectralCarver JSFX v1.2");
+  gfx_drawstr("SpectralCarver JSFX v1.3");
 
   gfx_setfont(3);
   gfx_set(0.90, 0.93, 0.98, 1.0);
@@ -897,8 +927,8 @@ info_open ? (
   ty = my + 64;
   gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 32-Band Cytomic SVF dynamic spectral ducker");
   gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Route your priority track to Sidechain Channels 3/4");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment)");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Double-click any knob to reset to its default value");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Click ADV in the analyzer corner for zero-shift ballistics & M/S routing");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Drag knobs vertically (hold Ctrl for fine adjustment, double-click reset)");
   gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Drag the LC and HC flags directly inside the spectrum");
   gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Use TEXT: 100%/120%/140% in the top bar for Linux DPI scaling");
 
