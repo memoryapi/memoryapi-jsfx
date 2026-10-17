@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="646e571f0a83540b5ac4fef8f2832299b68a35c7">
+<index version="1" name="MemoryAPI JSFX" commit="d0cd57169518fad2d29f123d3fb1a7518f68f38b">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -175,6 +175,7 @@
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 32-band Cytomic SVF dynamic spectral ducking\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab High-contrast visualizer with smooth animated controls and hover halos\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Zero-shift In-Place Advanced Overlay over the spectrum analyzer\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Stereo (L/R) and Mid/Side (M/S) processing modes\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Low-cut and high-cut sidechain filtering with interactive spectrum display\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Sidechain audition mode, freeze function, and scalable UI text zoom\par}
@@ -195,6 +196,10 @@
       <version name="1.2.1" author="MemoryAPI" time="2026-10-15T10:40:39Z">
         <changelog><![CDATA[Unified repository author metadata to MemoryAPI]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/cdf9dd3f0eef72210a8a8006a5fabbf7c529b789/Dynamics/SpectralCarver.jsfx</source>
+      </version>
+      <version name="1.3.0" author="MemoryAPI" time="2026-10-17T12:05:35Z">
+        <changelog><![CDATA[Replaced shifting bottom drawer with zero-shift in-place spectrum overlay panel]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/d0cd57169518fad2d29f123d3fb1a7518f68f38b/Dynamics/SpectralCarver.jsfx</source>
       </version>
     </reapack>
     <reapack name="VelvetClip.jsfx" type="effect" desc="VelvetClip (Transparent Threshold-Linear Soft Clipper)">
