@@ -1,35 +1,41 @@
 desc:VelvetClip (Transparent Threshold-Linear Soft Clipper)
 // @description VelvetClip (Transparent Threshold-Linear Soft Clipper)
 // @author MemoryAPI
-// @version 1.0.0
-// @changelog Initial release in repository
+// @version 1.1.0
+// @changelog
+//   - Fixed Mode 0 to use the exact exponential soft knee: T + W * (1 - exp(-d / W))
+//   - Precomputed knee width W and 1/W in parameter update block
+//   - Improved 2x oversampling to filter only the nonlinear shaved delta (100% bit-identical below T)
+//   - Fixed 256-sample peak accumulation for the real-time waveform & shaved transient scope
+//   - Sample-rate compensated 12 Hz DC blocker
+//   - Complete Catppuccin Mocha UI overhaul with segmented curve selector, calibrated dB grid, and studio metering
+//   - Fixed about dialog click dismissal bug so modal stays open smoothly
 // @about
 //   # VelvetClip
-//   Transparent threshold-linear soft clipper and peak dynamics controller with 100% bit-identical pass-through below threshold, 808 Sub Safe preservation, and HQ 2x oversampling.
+//   Transparent threshold-linear soft clipper and peak dynamics controller with 100% bit-identical pass-through below threshold, 808 Sub Safe preservation, and delta-filtered 2x oversampling.
 //
 //   ### Features
 //   - 100% Bit-Identical Pass-Through (y = x) for all audio below threshold (0% harmonic coloration until clipping)
 //   - Interactive Transfer Graph: Drag vertically directly on the response curve to offset clipping threshold
 //   - 3 Specialized Clipper Topologies:
-//     - Fruity Soft: Asymptotic rational curve that smoothly approaches ceiling without folding
-//     - Cubic Knee: Smooth punchy polynomial knee that clamps strictly at 0 dBFS ceiling
-//     - Bass Shaper: Exponential logarithmic curve tailored for aggressive 808s and kick drums
-//   - 808 Sub Safe: Crossover filter that isolates and preserves low-end (<95 Hz) sub frequencies so deep bass notes never buzz or degrade
-//   - HQ 2x Oversampling: Zero-latency linear phase half-band filtering to eliminate digital alias distortion
+//     - Classic Exponential (Mode 0): Exact exponential knee y = T + W(1 - exp(-d/W)) with C1 continuity
+//     - Cubic Knee (Mode 1): Smooth punchy polynomial knee that clamps strictly at 0 dBFS ceiling
+//     - Velvet Rational (Mode 2): Slower asymptotic curve y = T + W(d / (W + d)) for warm saturation
+//   - 808 Sub Safe: 95 Hz SVF shelf pre-attenuates & post-restores sub-bass to prevent buzz
+//   - Delta-Filtered 2x OS: Antialiases only the shaved distortion delta (0% dry phase smear)
 //   - Dual Waveform & Shaved-Peak History Scope: Live scrolling view showing output waveform and shaved peak transients in real-time
 //   - Calibrated Peak & Clip Metering: Precision output level bar and shaved dB clip amount indicator
 //   - Scalable HiDPI UI: Vector interface with selectable text scaling presets (100% - 150%)
 // @provides
 //   [effect] VelvetClip.jsfx
 
-// Sliders are hidden (- prefix) for the custom @gfx interface while remaining automatable.
 slider1:thresh_db=-1.8<-24.0,0.0,0.1>-Threshold (dB)
 slider2:post_db=0.0<-12.0,6.0,0.1>-Post Gain / Ceiling (dB)
 slider3:in_drive_db=0.0<-12.0,12.0,0.1>-Input Drive (dB)
-slider4:curve_mode=0<0,2,1{Fruity Asymptotic (Transparent),Cubic Knee (Punchy),Bass Shaper (808 Safe)}>-Clipper Curve
+slider4:curve_mode=0<0,2,1{Classic Exponential (Fruity),Cubic Knee (Punchy),Velvet Rational (Warm)}>-Clipper Curve
 slider5:sub_preserve_pct=0<0,100,1>-Sub-Bass Preserve (%)
-slider6:hq_oversample=1<0,1,1{Off (Zero Latency),HQ 2x Oversample}>-Oversampling
-slider7:dc_block_on=1<0,1,1{Off,On}>-Pre-DC Filter
+slider6:hq_oversample=0<0,1,1{Off (Zero Latency),HQ 2x Oversample}>-Oversampling
+slider7:dc_block_on=0<0,1,1{Off (Bit-Identical),On (12Hz Highpass)}>-Pre-DC Filter
 slider8:active_on=1<0,1,1{Bypass,Active}>-Active
 slider9:ui_zoom=1.25<1.0,1.5,0.25>-UI Scale
 
@@ -42,49 +48,50 @@ out_pin:Right Output
 ext_noinit = 1.0;
 ext_gr_meter = 0.0;
 
-function DB_TO_K(x) ( 10 ^ (x / 20.0) );
-function K_TO_DB(lin) ( 8.685889638 * log(max(0.0000001, lin)) );
+function DB_TO_K(x) ( 10.0 ^ (x / 20.0) );
+function K_TO_DB(lin) ( 8.685889638065036 * log(max(0.0000001, lin)) );
 
-// Waveform & Shaved-Peak History Buffers for Real-Time Scope (128 bins)
+// Waveform & Shaved-Peak History Ring Buffers (128 bins)
 HIST_BINS = 128;
 HIST_OUT  = 1000;
 HIST_CLIP = 1200;
+HIST_IN   = 1400;
 
-// Exact Piecewise-Linear Soft Clipping Function:
-// Strictly 1:1 (y = x, 0% distortion) for |x| <= T!
-// Smoothly bends peaks above T to approach ceiling 1.0 with C1 continuity (dy/dx = 1 at x = T).
+// Exact Piecewise-Linear Soft Clipping Kernel:
+// Strictly 1:1 (y = x, 0.000% THD) for |x| <= T.
+// C1 continuous (dy/dx = 1.0) at |x| = T.
 function clip_sample(x)
-  local(ax, sx, T, W, d, u, y_abs)
+  local(ax, sx, T, W, invW, d, u, y_abs)
 (
   ax = abs(x);
   T  = thresh_lin;
 
-  // When Threshold is at 0.0 dB (T >= 0.999), act as a pure hard ceiling at 1.0
-  T >= 0.999 ? (
+  T >= 0.9999 ? (
     max(-1.0, min(1.0, x));
   ) : ax <= T ? (
-    // 100% Bit-Identical Pass-Through below Threshold!
+    // 100% Bit-Identical Pass-Through below Threshold
     x;
   ) : (
-    sx = x >= 0.0 ? 1.0 : -1.0;
-    W  = 1.0 - T;
-    d  = ax - T;
+    sx   = x >= 0.0 ? 1.0 : -1.0;
+    W    = knee_w;
+    invW = inv_knee_w;
+    d    = ax - T;
 
     curve_mode == 0 ? (
-      // Mode 0: Fruity Soft Clipper Style Rational/Exponential Asymptote
-      // Approaches 1.0 smoothly without ever folding back, dy/dx = 1.0 at d = 0
-      y_abs = T + W * (d / (W + d));
+      // Mode 0: True Fruity Soft Clipper Exponential Asymptote
+      // y = T + W * (1.0 - exp(-(ax - T) / W))
+      y_abs = T + W * (1.0 - exp(-d * invW));
     ) : curve_mode == 1 ? (
-      // Mode 1: Cubic Polynomial Knee (Reaches exact 1.0 ceiling at ax = T + 1.5*W, then clamps)
-      u = d / (1.5 * W);
+      // Mode 1: Cubic Polynomial Knee (clamps smoothly at 1.0 when d >= 1.5*W)
+      u = d * invW * 0.6666666666666666;
       u >= 1.0 ? (
         y_abs = 1.0;
       ) : (
         y_abs = T + W * (1.5 * u - 0.5 * u * u * u);
       );
     ) : (
-      // Mode 2: Bass Shaper (gentler logarithmic-style knee for heavy 808s)
-      y_abs = T + W * (1.0 - exp(-d / W));
+      // Mode 2: Velvet Rational Asymptote (gentler shoulder)
+      y_abs = T + W * (d / (W + d));
     );
 
     sx * y_abs;
@@ -97,17 +104,22 @@ function update_parameters()
   SAFE_SRATE = max(8000.0, srate);
 
   thresh_lin = DB_TO_K(thresh_db);
-  in_lin     = DB_TO_K(in_drive_db);
-  post_lin   = DB_TO_K(post_db);
+  knee_w     = max(0.0000001, 1.0 - thresh_lin);
+  inv_knee_w = 1.0 / knee_w;
 
-  // Ableton Saturator Style Pre-DeEmphasis / Post-ReEmphasis Color Filter at 95 Hz
-  // Attenuates sub-bass before the clipper knee so 808s don't buzz, then restores it after!
-  sub_db = (sub_preserve_pct * 0.01) * 9.0; // up to -9 dB pre-cut / +9 dB post-boost below 95 Hz
+  in_lin   = (abs(in_drive_db) < 0.001) ? 1.0 : DB_TO_K(in_drive_db);
+  post_lin = (abs(post_db) < 0.001)     ? 1.0 : DB_TO_K(post_db);
+
+  // Sample-rate compensated 12 Hz DC Blocker coefficient
+  dc_coeff = exp(-2.0 * $pi * 12.0 / SAFE_SRATE);
+
+  // Pre-DeEmphasis / Post-ReEmphasis Sub-Bass Filter at 95 Hz (SVF Low Shelf)
+  sub_db = (sub_preserve_pct * 0.01) * 9.0;
   sub_db > 0.05 ? (
+    k = 1.4142135623730951;
     // Pre Low-Shelf Cut (-sub_db)
     A = pow(10.0, -sub_db / 40.0);
     g = tan($pi * 95.0 / SAFE_SRATE) / sqrt(A);
-    k = 1.41421356;
     pre_a1 = 1.0 / (1.0 + g * (g + k));
     pre_a2 = g * pre_a1;
     pre_a3 = g * pre_a2;
@@ -125,14 +137,12 @@ function update_parameters()
   );
 
   meter_decay = exp(-1.0 / (0.14 * SAFE_SRATE));
-  hold_decay  = exp(-1.0 / (1.20 * SAFE_SRATE));
+  hold_decay  = exp(-1.0 / (1.40 * SAFE_SRATE));
 );
 
 !init_done ? (
   ui_zoom < 1.0 ? ui_zoom = 1.25;
   active_on = 1;
-  hq_oversample = 1;
-  dc_block_on = 1;
   update_parameters();
   init_done = 1;
 );
@@ -144,26 +154,26 @@ update_parameters();
 
 @block
 update_parameters();
-ext_gr_meter = - shaved_hold_db;
+ext_gr_meter = -shaved_hold_db;
 
 @sample
 raw_l = spl0;
 raw_r = spl1;
 
 active_on ? (
-  x_l = raw_l * in_lin;
-  x_r = raw_r * in_lin;
+  x_l = (in_lin == 1.0) ? raw_l : raw_l * in_lin;
+  x_r = (in_lin == 1.0) ? raw_r : raw_r * in_lin;
 
-  // 1. Optional 15 Hz Pre-DC Blocker (ensures asymmetrical waves clip symmetrically)
+  // 1. Optional 12 Hz Pre-DC Blocker
   dc_block_on ? (
-    dc_l = x_l - dc_in_l + 0.9985 * dc_l; dc_in_l = x_l; x_l = dc_l;
-    dc_r = x_r - dc_in_r + 0.9985 * dc_r; dc_in_r = x_r; x_r = dc_r;
+    dc_l = x_l - dc_in_l + dc_coeff * dc_l; dc_in_l = x_l; x_l = dc_l;
+    dc_r = x_r - dc_in_r + dc_coeff * dc_r; dc_in_r = x_r; x_r = dc_r;
   );
 
   // Measure pre-clipper drive peak for the Transfer Curve operating dot
   drv_pk = max(abs(x_l), abs(x_r));
 
-  // 2. Optional Sub-Bass Pre-DeEmphasis (Ableton Color / Bass Shaper trick)
+  // 2. Optional Sub-Bass Pre-DeEmphasis (<95 Hz)
   sub_preserve_pct > 0.5 ? (
     v3 = x_l - pre_l_ic2;
     v1 = pre_a1 * pre_l_ic1 + pre_a2 * v3;
@@ -178,37 +188,28 @@ active_on ? (
     x_r = x_r + pre_m1 * v1 + pre_m2 * v2;
   );
 
-  // 3. Soft Clipper Stage (with optional 2x Linear-Interpolated Oversampling)
+  // 3. Soft Clipper Stage
+  // In 2x Oversample mode, we filter only the nonlinear shaved delta (x - clip(x)).
+  // This guarantees 100% bit-identical unity pass-through below threshold with zero HF roll-off!
   hq_oversample ? (
-    // 2x Oversampled: evaluate midpoint and current sample, then average via anti-aliasing filter
     mid_l = 0.5 * (x_l + prev_os_in_l);
     mid_r = 0.5 * (x_r + prev_os_in_r);
     prev_os_in_l = x_l;
     prev_os_in_r = x_r;
 
-    c0_l = clip_sample(mid_l);
-    c1_l = clip_sample(x_l);
-    c0_r = clip_sample(mid_r);
-    c1_r = clip_sample(x_r);
+    dl0 = mid_l - clip_sample(mid_l);
+    dl1 = x_l   - clip_sample(x_l);
+    dr0 = mid_r - clip_sample(mid_r);
+    dr1 = x_r   - clip_sample(x_r);
 
-    // 2-tap boxcar + 1st-order polyphase decimation filter (preserves 100% unity below threshold)
-    (abs(x_l) <= thresh_lin && abs(mid_l) <= thresh_lin) ? (
-      y_l = x_l;
-    ) : (
-      y_l = 0.5 * (c0_l + c1_l);
-    );
-
-    (abs(x_r) <= thresh_lin && abs(mid_r) <= thresh_lin) ? (
-      y_r = x_r;
-    ) : (
-      y_r = 0.5 * (c0_r + c1_r);
-    );
+    y_l = x_l - 0.5 * (dl0 + dl1);
+    y_r = x_r - 0.5 * (dr0 + dr1);
   ) : (
     y_l = clip_sample(x_l);
     y_r = clip_sample(x_r);
   );
 
-  // 4. Restore Sub-Bass Post-Emphasis + Final Safety Ceiling at 1.0
+  // 4. Restore Sub-Bass Post-Emphasis + Final Safety Catch
   sub_preserve_pct > 0.5 ? (
     v3 = y_l - post_l_ic2;
     v1 = post_a1 * post_l_ic1 + post_a2 * v3;
@@ -222,13 +223,12 @@ active_on ? (
     post_r_ic1 = 2.0 * v1 - post_r_ic1; post_r_ic2 = 2.0 * v2 - post_r_ic2;
     y_r = y_r + post_m1 * v1 + post_m2 * v2;
 
-    // Catch any sub-restored overshoot cleanly
     y_l = clip_sample(y_l);
     y_r = clip_sample(y_r);
   );
 
-  out_l = y_l * post_lin;
-  out_r = y_r * post_lin;
+  out_l = (post_lin == 1.0) ? y_l : y_l * post_lin;
+  out_r = (post_lin == 1.0) ? y_r : y_r * post_lin;
 ) : (
   drv_pk = max(abs(raw_l), abs(raw_r));
   y_l = raw_l; y_r = raw_r;
@@ -239,56 +239,104 @@ spl0 = out_l;
 spl1 = out_r;
 
 // Metering & Shaved-Peak Telemetry
-out_pk = max(abs(out_l), abs(out_r));
-clip_Out_pk = max(abs(y_l), abs(y_r));
-inst_shaved_db = (drv_pk > clip_Out_pk + 0.0001) ? (K_TO_DB(drv_pk) - K_TO_DB(clip_Out_pk)) : 0.0;
+in_pk       = max(abs(raw_l * in_lin), abs(raw_r * in_lin));
+out_pk      = max(abs(out_l), abs(out_r));
+clip_out_pk = max(abs(y_l), abs(y_r));
+shaved_lin  = max(0.0, drv_pk - clip_out_pk);
+inst_shaved_db = (drv_pk > clip_out_pk + 0.00001) ? (K_TO_DB(drv_pk) - K_TO_DB(clip_out_pk)) : 0.0;
 
-env_in_l   = max(abs(raw_l * in_lin), env_in_l  * meter_decay);
-env_in_r   = max(abs(raw_r * in_lin), env_in_r  * meter_decay);
-env_out_l  = max(abs(out_l),          env_out_l * meter_decay);
-env_out_r  = max(abs(out_r),          env_out_r * meter_decay);
-env_drv_pk = max(drv_pk,              env_drv_pk * meter_decay);
+env_in_pk  = max(in_pk,      env_in_pk  * meter_decay);
+env_out_pk = max(out_pk,     env_out_pk * meter_decay);
+env_drv_pk = max(drv_pk,     env_drv_pk * meter_decay);
 
 shaved_env_db  = max(inst_shaved_db, shaved_env_db  * meter_decay);
 shaved_hold_db = max(inst_shaved_db, shaved_hold_db * hold_decay);
 hold_out_pk    = max(out_pk,         hold_out_pk    * hold_decay);
+hold_in_pk     = max(in_pk,          hold_in_pk     * hold_decay);
 
-// Record rolling waveform & shaved-transient history every 256 samples
+// Accumulate true 256-sample peak window for scope history
+acc_in_pk  = max(acc_in_pk,  drv_pk);
+acc_out_pk = max(acc_out_pk, clip_out_pk);
+acc_shv_pk = max(acc_shv_pk, shaved_lin);
+
 hist_cnt += 1;
 hist_cnt >= 256 ? (
   hist_cnt = 0;
   h_head = (h_head + 1) & (HIST_BINS - 1);
-  HIST_OUT[h_head]  = min(1.2, out_pk);
-  HIST_CLIP[h_head] = min(1.0, max(0.0, drv_pk - clip_Out_pk));
+  HIST_IN[h_head]   = min(1.5, acc_in_pk);
+  HIST_OUT[h_head]  = min(1.2, acc_out_pk);
+  HIST_CLIP[h_head] = min(1.0, acc_shv_pk);
+  acc_in_pk  = 0.0;
   acc_out_pk = 0.0;
+  acc_shv_pk = 0.0;
 );
 
-@gfx 800 620
-// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
-gfx_clear = 30 + (30 * 256) + (46 * 65536);
+// =============================================================================
+// @gfx — STUDIO CATPPUCCIN MOCHA VECTOR INTERFACE
+// =============================================================================
+@gfx 860 640
+// Catppuccin Mocha Mantle Background (#181825: R=24, G=24, B=37)
+gfx_clear = 24 + (24 * 256) + (37 * 65536);
 
-W = max(680, gfx_w);
-H = max(520, gfx_h);
+W = max(720, gfx_w);
+H = max(540, gfx_h);
 
 ui_zoom < 1.0 ? ui_zoom = 1.25;
-S  = min(W / 800.0, H / 620.0);
-TS = S * ui_zoom;
+was_info_open = info_open;
+S  = min(W / 860.0, H / 640.0);
+TS = S * (0.85 + 0.15 * ui_zoom);
 
-f_title = max(19, floor(23 * TS));
-f_sec   = max(13, floor(14 * TS));
-f_val   = max(13, floor(14 * TS));
-f_btn   = max(12, floor(13 * TS));
-f_sub   = max(12, floor(13 * TS));
-f_big   = max(16, floor(19 * TS));
+f_title = max(16, floor(20 * TS));
+f_sec   = max(11, floor(12 * TS));
+f_val   = max(12, floor(13 * TS));
+f_btn   = max(11, floor(12 * TS));
+f_tiny  = max(10, floor(11 * TS));
+f_big   = max(14, floor(16 * TS));
 
 gfx_setfont(1, "sans-serif", f_title, 'b');
 gfx_setfont(2, "sans-serif", f_sec,   'b');
 gfx_setfont(3, "sans-serif", f_val,   0);
 gfx_setfont(4, "sans-serif", f_btn,   'b');
-gfx_setfont(5, "sans-serif", f_sub,   'b');
+gfx_setfont(5, "sans-serif", f_tiny,  0);
 gfx_setfont(6, "sans-serif", f_big,   'b');
 
-function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+// --- Helper: Elevated Card with Header Bar & Recessed Bevel ---
+function draw_card(bx, by, bw, bh, title_str)
+  local(hh)
+(
+  // Drop shadow
+  gfx_set(0.03, 0.03, 0.05, 0.55);
+  gfx_rect(bx + 2, by + 3, bw, bh);
+
+  // Main Card Body (#1E1E2E Base)
+  gfx_set(0.118, 0.118, 0.180, 1.0);
+  gfx_rect(bx, by, bw, bh);
+
+  // Header Strip (#181825 Mantle)
+  hh = floor(28 * S);
+  gfx_set(0.082, 0.082, 0.130, 1.0);
+  gfx_rect(bx + 1, by + 1, bw - 2, hh);
+  gfx_set(0.192, 0.196, 0.267, 1.0);
+  gfx_line(bx + 1, by + hh, bx + bw - 2, by + hh);
+
+  // Outer Border (#313244 Surface0) & Top Highlight
+  gfx_set(0.192, 0.196, 0.267, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+  gfx_set(0.27, 0.28, 0.37, 0.55);
+  gfx_line(bx + 1, by + 1, bx + bw - 2, by + 1);
+
+  // Card Title
+  strlen(title_str) > 0 ? (
+    gfx_setfont(2);
+    gfx_set(0.706, 0.745, 0.996, 0.92); // Lavender (#B4BEFE)
+    gfx_x = bx + floor(12 * S);
+    gfx_y = by + floor((hh - f_sec) * 0.5);
+    gfx_drawstr(title_str);
+  );
+);
+
+// --- Helper: Flat Pill / Button Box ---
+function draw_pill(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
 (
   gfx_set(r_bg, g_bg, b_bg, 1.0);
   gfx_rect(bx, by, bw, bh);
@@ -296,16 +344,17 @@ function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
   gfx_rect(bx, by, bw, bh, 0);
 );
 
-// Large, High-Contrast Rotary Knob (Catppuccin Peach #FAB387 Accent)
-function draw_vc_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc)
+// --- Helper: Studio Rotary Knob ---
+function draw_studio_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, sublabel, val_str, bipolar, rc, gc, bc)
   local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
-        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y, is_big)
+        steps, st, t0, t1, a0, a1, active_seg,
+        r_arc, r_cap, px0, py0, px1, py1, lw, lh, vw, vh, pill_w, pill_h, pill_x, pill_y, is_hero, tick_r0, tick_r1)
 (
   norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
-  is_big = (r >= floor(38 * S));
+  is_hero = (r >= floor(41 * S));
 
-  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 9)*(r + 9));
-  hover = hit || (drag_id == id);
+  hit = !was_info_open && (((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 10)*(r + 10)));
+  hover = !was_info_open && (hit || (drag_id == id));
 
   (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
     (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
@@ -322,7 +371,7 @@ function draw_vc_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipo
 
   drag_id == id ? (
     (mouse_cap & 1) ? (
-      sens = (mouse_cap & 4) ? 520.0 : 145.0;
+      sens = (mouse_cap & 4) ? 550.0 : 150.0;
       delta = (drag_start_y - mouse_y) / sens;
       val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
     ) : (
@@ -331,24 +380,40 @@ function draw_vc_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipo
   );
 
   norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
-  ang_start = -2.356194;
-  ang_end   =  2.356194;
+  ang_start = -2.35619449; // -135 deg
+  ang_end   =  2.35619449; // +135 deg
   ang_val   = ang_start + norm * (ang_end - ang_start);
   zero_norm = (0.0 - vmin) / (vmax - vmin);
 
-  gfx_set(0.04, 0.04, 0.08, 0.88);
-  gfx_circle(cx, cy + 3, r + 2, 1, 1);
-  hover ? (
-    gfx_set(rc, gc, bc, 0.18);
-    gfx_circle(cx, cy, r + 6, 1, 1);
+  // Outer Scale Ticks (11 ticks around perimeter)
+  st = 0;
+  loop(11,
+    t0 = st / 10.0;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    tick_r0 = r + floor(4 * S);
+    tick_r1 = r + floor((st == 0 || st == 5 || st == 10 ? 8 : 6) * S);
+    gfx_set(0.35, 0.37, 0.48, (st == 0 || st == 5 || st == 10) ? 0.85 : 0.45);
+    gfx_line(cx + sin(a0)*tick_r0, cy - cos(a0)*tick_r0, cx + sin(a0)*tick_r1, cy - cos(a0)*tick_r1, 1);
+    st += 1;
   );
 
-  gfx_set(0.11, 0.12, 0.17, 1.0);
+  // Soft Hover Halo & Drop Shadow
+  hover ? (
+    gfx_set(rc, gc, bc, 0.13);
+    gfx_circle(cx, cy, r + floor(6 * S), 1, 1);
+  );
+  gfx_set(0.04, 0.04, 0.07, 0.85);
+  gfx_circle(cx, cy + floor(4 * S), r, 1, 1);
+
+  // Outer Track Ring (#11111B Crust)
+  gfx_set(0.067, 0.067, 0.106, 1.0);
   gfx_circle(cx, cy, r, 1, 1);
-  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.25, 0.27, 0.37, 1.0);
+  gfx_set(hover ? rc : 0.24, hover ? gc : 0.25, hover ? bc : 0.34, hover ? 0.80 : 1.0);
   gfx_circle(cx, cy, r, 0, 1);
 
-  steps = 36;
+  // Segmented Value Arc
+  r_arc = r - floor(4 * S);
+  steps = 44;
   st = 0;
   loop(steps,
     t0 = st / steps;
@@ -359,187 +424,238 @@ function draw_vc_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipo
     bipolar ? (
       active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
     ) : (
-      active_seg = (t1 <= norm);
+      active_seg = (t1 <= norm) && (norm > 0.002);
     );
 
     active_seg ? (
       gfx_set(rc, gc, bc, 0.98);
     ) : (
-      gfx_set(0.19, 0.20, 0.28, 0.88);
+      gfx_set(0.18, 0.19, 0.27, 0.90);
     );
 
-    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
-    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
-    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
-    gfx_line(cx + sin(a0)*(r-6), cy - cos(a0)*(r-6), cx + sin(a1)*(r-6), cy - cos(a1)*(r-6), 1);
+    gfx_line(cx + sin(a0)*r_arc,       cy - cos(a0)*r_arc,       cx + sin(a1)*r_arc,       cy - cos(a1)*r_arc,       1);
+    gfx_line(cx + sin(a0)*(r_arc-1.0), cy - cos(a0)*(r_arc-1.0), cx + sin(a1)*(r_arc-1.0), cy - cos(a1)*(r_arc-1.0), 1);
+    gfx_line(cx + sin(a0)*(r_arc-2.0), cy - cos(a0)*(r_arc-2.0), cx + sin(a1)*(r_arc-2.0), cy - cos(a1)*(r_arc-2.0), 1);
+    gfx_line(cx + sin(a0)*(r_arc-3.0), cy - cos(a0)*(r_arc-3.0), cx + sin(a1)*(r_arc-3.0), cy - cos(a1)*(r_arc-3.0), 1);
     st += 1;
   );
 
-  gfx_set(0.16, 0.18, 0.25, 1.0);
-  gfx_circle(cx, cy, floor(r * 0.26), 1, 1);
-  gfx_set(0.96, 0.98, 1.0, 1.0);
-  px0 = cx + sin(ang_val) * (r * 0.22);
-  py0 = cy - cos(ang_val) * (r * 0.22);
-  px1 = cx + sin(ang_val) * (r - 7);
-  py1 = cy - cos(ang_val) * (r - 7);
-  gfx_line(px0, py0, px1, py1, 1);
-  gfx_line(px0 + 0.7, py0, px1 + 0.7, py1, 1);
+  // Inner Raised Knob Cap (#1E1E2E Base -> #313244 rim)
+  r_cap = floor(r * 0.72);
+  gfx_set(0.145, 0.149, 0.220, 1.0);
+  gfx_circle(cx, cy, r_cap, 1, 1);
+  gfx_set(0.26, 0.27, 0.36, 1.0);
+  gfx_circle(cx, cy, r_cap, 0, 1);
 
-  gfx_setfont(5);
+  // Center Hub Dot
+  gfx_set(0.09, 0.09, 0.14, 1.0);
+  gfx_circle(cx, cy, floor(r_cap * 0.26), 1, 1);
+
+  // Pointer Line + Glowing Tip
+  px0 = cx + sin(ang_val) * (r_cap * 0.28);
+  py0 = cy - cos(ang_val) * (r_cap * 0.28);
+  px1 = cx + sin(ang_val) * (r_cap - 3);
+  py1 = cy - cos(ang_val) * (r_cap - 3);
+  gfx_set(rc, gc, bc, 1.0);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_set(0.96, 0.97, 1.0, 1.0);
+  gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
+  gfx_circle(px1, py1, 2, 1, 1);
+
+  // Primary Label
+  gfx_setfont(2);
   gfx_measurestr(label, lw, lh);
-  gfx_set(0.78, 0.82, 0.92, 1.0);
+  gfx_set(0.804, 0.839, 0.957, 1.0); // #CDD6F4 Text
   gfx_x = cx - lw * 0.5;
-  gfx_y = cy + r + floor(6 * S);
+  gfx_y = cy + r + floor(10 * S);
   gfx_drawstr(label);
 
-  is_big ? gfx_setfont(6) : gfx_setfont(3);
+  // Value Readout Pill
+  is_hero ? gfx_setfont(6) : gfx_setfont(3);
   gfx_measurestr(val_str, vw, vh);
-  pill_w = max(vw + floor(16 * S), floor(78 * S));
+  pill_w = max(vw + floor(18 * S), floor(84 * S));
   pill_h = vh + floor(6 * S);
   pill_x = cx - pill_w * 0.5;
-  pill_y = cy + r + lh + floor(8 * S);
+  pill_y = cy + r + lh + floor(14 * S);
 
-  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.22, hover ? gc : 0.24, hover ? bc : 0.34);
-  gfx_set(0.96, 0.98, 1.0, 1.0);
+  draw_pill(pill_x, pill_y, pill_w, pill_h, 0.067, 0.067, 0.106, hover ? rc : 0.20, hover ? gc : 0.21, hover ? bc : 0.30);
+  gfx_set(hover ? rc : 0.94, hover ? gc : 0.96, hover ? bc : 1.0, 1.0);
   gfx_x = cx - vw * 0.5;
   gfx_y = pill_y + (pill_h - vh) * 0.5;
   gfx_drawstr(val_str);
 
+  // Sub-caption below pill
+  gfx_setfont(5);
+  gfx_measurestr(sublabel, lw, lh);
+  gfx_set(0.50, 0.53, 0.65, 0.90);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = pill_y + pill_h + floor(4 * S);
+  gfx_drawstr(sublabel);
+
   val;
 );
 
-// =========================================================================
-// 1. TOP HEADER BAR (CURVE MODE, HQ 2X OVERSAMPLE, DC FILTER, UI ZOOM, ACTIVE)
-// =========================================================================
-hdr_h = floor(50 * S);
-gfx_set(0.09, 0.09, 0.15, 1.0);
+// =============================================================================
+// 1. TOP STUDIO HEADER BAR
+// =============================================================================
+hdr_h = floor(52 * S);
+gfx_set(0.067, 0.067, 0.106, 1.0); // #11111B Crust
 gfx_rect(0, 0, W, hdr_h);
-gfx_set(0.22, 0.20, 0.28, 1.0);
+gfx_set(0.192, 0.196, 0.267, 1.0);
 gfx_line(0, hdr_h, W, hdr_h);
 
-// Brand Title: VELVETCLIP in Catppuccin Peach (#FAB387)
+// Brand Logo + Version Tag
 gfx_setfont(1);
-gfx_set(0.98, 0.70, 0.53, 1.0);
-gfx_x = floor(18 * S);
+gfx_set(0.980, 0.702, 0.529, 1.0); // #FAB387 Peach
+gfx_x = floor(16 * S);
 gfx_measurestr("VELVET", tw1, th1);
-gfx_y = (hdr_h - th1) * 0.5;
+gfx_y = floor((hdr_h - th1) * 0.5);
 gfx_drawstr("VELVET");
-gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_set(0.804, 0.839, 0.957, 1.0); // #CDD6F4 Text
 gfx_drawstr("CLIP");
 
-// "?" Info Badge
-gfx_setfont(5);
+// Info "?" Pill
+gfx_setfont(4);
 gfx_measurestr("?", qw, qh);
 q_x = gfx_x + floor(8 * S);
-q_y = (hdr_h - qh - 4) * 0.5;
-gfx_set(0.18, 0.19, 0.28, 1.0);
-gfx_rect(q_x, q_y, qw + 10, qh + 4);
-gfx_set(0.98, 0.70, 0.53, 1.0);
-gfx_x = q_x + 5; gfx_y = q_y + 2;
+q_y = floor((hdr_h - (qh + 6)) * 0.5);
+draw_pill(q_x, q_y, qw + 10, qh + 6, info_open ? 0.98 : 0.15, info_open ? 0.70 : 0.16, info_open ? 0.53 : 0.24, 0.98, 0.70, 0.53);
+gfx_set(info_open ? 0.07 : 0.98, info_open ? 0.07 : 0.70, info_open ? 0.11 : 0.53, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 3;
 gfx_drawstr("?");
 
-title_hit = mouse_x >= 14 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
-(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
-  info_open = !info_open;
+title_hit = mouse_x >= 12 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = 1;
 );
 
 hb_h = floor(28 * S);
-hb_y = (hdr_h - hb_h) * 0.5;
+hb_y = floor((hdr_h - hb_h) * 0.5);
 
-// 1. Clipper Curve Selector (FRUITY ASYMPTOTIC / CUBIC KNEE / BASS SHAPER)
-cm_w = floor(145 * S);
-cm_x = floor(195 * S);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
-(mouse_x >= cm_x && mouse_x <= cm_x + cm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
-  curve_mode = (curve_mode + 1) % 3;
-  slider_automate(slider4);
+// --- Segmented 3-Way Curve Selector: [CLASSIC EXP | CUBIC KNEE | VELVET RAT] ---
+seg_x = floor(185 * S);
+seg_w = floor(102 * S);
+seg_total_w = seg_w * 3;
+draw_pill(seg_x - 1, hb_y - 1, seg_total_w + 2, hb_h + 2, 0.05, 0.05, 0.08, 0.22, 0.23, 0.32);
+
+c_idx = 0;
+loop(3,
+  cx_btn = seg_x + c_idx * seg_w;
+  c_hit = (mouse_x >= cx_btn && mouse_x < cx_btn + seg_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h);
+  !was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) && c_hit ? (
+    curve_mode = c_idx;
+    slider_automate(slider4);
+  );
+
+  curve_mode == c_idx ? (
+    draw_pill(cx_btn, hb_y, seg_w, hb_h, 0.55, 0.33, 0.21, 0.98, 0.70, 0.53);
+    gfx_set(1.0, 0.98, 0.95, 1.0);
+  ) : (
+    draw_pill(cx_btn, hb_y, seg_w, hb_h, c_hit ? 0.16 : 0.11, c_hit ? 0.17 : 0.12, c_hit ? 0.25 : 0.18, 0.19, 0.20, 0.28);
+    gfx_set(0.65, 0.68, 0.80, 1.0);
+  );
+
+  c_idx == 0 ? strcpy(#c_lbl, "CLASSIC EXP") :
+  c_idx == 1 ? strcpy(#c_lbl, "CUBIC KNEE")  :
+               strcpy(#c_lbl, "VELVET RAT");
+  gfx_setfont(4);
+  gfx_measurestr(#c_lbl, tw, th);
+  gfx_x = cx_btn + (seg_w - tw) * 0.5;
+  gfx_y = hb_y + (hb_h - th) * 0.5;
+  gfx_drawstr(#c_lbl);
+  c_idx += 1;
 );
-draw_panel_box(cm_x, hb_y, cm_w, hb_h, 0.45, 0.28, 0.18, 0.98, 0.70, 0.53);
-curve_mode == 0 ? strcpy(#cm_s, "CURVE: FRUITY SOFT") :
-curve_mode == 1 ? strcpy(#cm_s, "CURVE: CUBIC KNEE")  :
-                  strcpy(#cm_s, "CURVE: BASS SHAPER");
-gfx_setfont(4); gfx_set(1.0, 0.98, 0.95, 1.0);
-gfx_measurestr(#cm_s, tw, th); gfx_x = cm_x + (cm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#cm_s);
 
-// 2. HQ 2x Oversampling Toggle
-os_w = floor(86 * S);
-os_x = cm_x + cm_w + floor(8 * S);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+// --- Right-Aligned Header Toggles: [DC 12Hz] [HQ 2x OS] [UI %] [ACTIVE] ---
+act_w = floor(74 * S);
+act_x = W - act_w - floor(14 * S);
+
+zm_w  = floor(74 * S);
+zm_x  = act_x - zm_w - floor(8 * S);
+
+dc_w  = floor(78 * S);
+dc_x  = zm_x - dc_w - floor(8 * S);
+
+os_w  = floor(84 * S);
+os_x  = dc_x - os_w - floor(8 * S);
+
+// 1. HQ 2x Oversampling Toggle
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) &&
 (mouse_x >= os_x && mouse_x <= os_x + os_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
   hq_oversample = !hq_oversample;
   slider_automate(slider6);
 );
 hq_oversample ? (
-  draw_panel_box(os_x, hb_y, os_w, hb_h, 0.45, 0.28, 0.18, 0.98, 0.70, 0.53);
-  strcpy(#os_s, "HQ: 2x OS");
+  draw_pill(os_x, hb_y, os_w, hb_h, 0.16, 0.35, 0.48, 0.54, 0.86, 0.92); // Sky #89DCEB
+  gfx_set(0.92, 0.98, 1.0, 1.0);
+  strcpy(#os_s, "HQ 2x: ON");
 ) : (
-  draw_panel_box(os_x, hb_y, os_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
-  strcpy(#os_s, "HQ: OFF");
+  draw_pill(os_x, hb_y, os_w, hb_h, 0.11, 0.12, 0.18, 0.22, 0.24, 0.33);
+  gfx_set(0.65, 0.68, 0.80, 1.0);
+  strcpy(#os_s, "HQ 2x: OFF");
 );
+gfx_setfont(4);
 gfx_measurestr(#os_s, tw, th); gfx_x = os_x + (os_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#os_s);
 
-// 3. Pre-DC Filter Toggle
-dc_w = floor(82 * S);
-dc_x = os_x + os_w + floor(8 * S);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+// 2. Pre-DC Blocker Toggle
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) &&
 (mouse_x >= dc_x && mouse_x <= dc_x + dc_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
   dc_block_on = !dc_block_on;
   slider_automate(slider7);
 );
 dc_block_on ? (
-  draw_panel_box(dc_x, hb_y, dc_w, hb_h, 0.18, 0.36, 0.56, 0.45, 0.78, 0.98);
-  strcpy(#dc_s, "DC FLT: ON");
+  draw_pill(dc_x, hb_y, dc_w, hb_h, 0.16, 0.35, 0.48, 0.54, 0.86, 0.92);
+  gfx_set(0.92, 0.98, 1.0, 1.0);
+  strcpy(#dc_s, "DC: 12Hz");
 ) : (
-  draw_panel_box(dc_x, hb_y, dc_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
-  strcpy(#dc_s, "DC FLT: OFF");
+  draw_pill(dc_x, hb_y, dc_w, hb_h, 0.11, 0.12, 0.18, 0.22, 0.24, 0.33);
+  gfx_set(0.65, 0.68, 0.80, 1.0);
+  strcpy(#dc_s, "DC: OFF");
 );
 gfx_measurestr(#dc_s, tw, th); gfx_x = dc_x + (dc_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#dc_s);
 
-// 4. UI Scale Toggle Button
-zm_w = floor(80 * S);
-zm_x = W - floor(176 * S);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+// 3. UI Scale Button
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) &&
 (mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
   ui_zoom < 1.1 ? ui_zoom = 1.25 : ui_zoom < 1.38 ? ui_zoom = 1.50 : ui_zoom = 1.0;
   slider_automate(slider9);
 );
-draw_panel_box(zm_x, hb_y, zm_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+draw_pill(zm_x, hb_y, zm_w, hb_h, 0.11, 0.12, 0.18, 0.22, 0.24, 0.33);
+gfx_set(0.75, 0.78, 0.90, 1.0);
 ui_zoom < 1.1 ? strcpy(#z_s, "UI: 100%") : ui_zoom < 1.38 ? strcpy(#z_s, "UI: 125%") : strcpy(#z_s, "UI: 150%");
 gfx_measurestr(#z_s, tw, th); gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#z_s);
 
-// 5. Master Active Button
-act_w = floor(80 * S);
-act_x = W - act_w - floor(10 * S);
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+// 4. Master Active / Bypass Button
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) &&
 (mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
   active_on = !active_on;
   slider_automate(slider8);
 );
 active_on ? (
-  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.78, 0.42, 0.22, 0.98, 0.70, 0.53);
+  draw_pill(act_x, hb_y, act_w, hb_h, 0.18, 0.42, 0.24, 0.65, 0.89, 0.63); // Green #A6E3A1
+  gfx_set(0.94, 1.0, 0.94, 1.0);
   strcpy(#ac_s, "ACTIVE");
 ) : (
-  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
-  strcpy(#ac_s, "BYP");
+  draw_pill(act_x, hb_y, act_w, hb_h, 0.38, 0.16, 0.20, 0.95, 0.55, 0.66); // Red #F38BA8
+  gfx_set(1.0, 0.92, 0.94, 1.0);
+  strcpy(#ac_s, "BYPASS");
 );
 gfx_measurestr(#ac_s, tw, th); gfx_x = act_x + (act_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#ac_s);
 
-// =========================================================================
-// 2. TOP VISUALIZER DECK: [LEFT: INTERACTIVE FRUITY TRANSFER GRAPH]
-//                         [CENTER: ROLLING WAVEFORM & SHAVED PEAKS]
-//                         [RIGHT: OUTPUT & SHAVED dB METERS]
-// =========================================================================
+// =============================================================================
+// 2. UPPER VISUALIZER DECK (3 STUDIO CARDS)
+// =============================================================================
 pad     = floor(12 * S);
 full_w  = W - (pad * 2);
 avail_h = H - hdr_h - (pad * 3);
 
 vis_y = hdr_h + pad;
-vis_h = floor(avail_h * 0.56);
+vis_h = floor(avail_h * 0.57);
 knb_y = vis_y + vis_h + pad;
 knb_h = avail_h - vis_h;
+card_hdr_h = floor(28 * S);
 
-// 3 Columns in Top Visualizer Deck
-v1_w = floor((full_w - pad * 2) * 0.42);
+v1_w = floor((full_w - pad * 2) * 0.41);
 v2_w = floor((full_w - pad * 2) * 0.40);
 v3_w = full_w - (pad * 2) - v1_w - v2_w;
 
@@ -547,84 +663,129 @@ v1_x = pad;
 v2_x = v1_x + v1_w + pad;
 v3_x = v2_x + v2_w + pad;
 
-// -------------------------------------------------------------------------
-// PANEL 1: INTERACTIVE FRUITY SOFT CLIPPER TRANSFER GRAPH (DRAG THRESHOLD!)
-// -------------------------------------------------------------------------
-draw_panel_box(v1_x, vis_y, v1_w, vis_h, 0.055, 0.058, 0.092, 0.22, 0.24, 0.34);
+// -----------------------------------------------------------------------------
+// CARD 1: INTERACTIVE TRANSFER CURVE & KNEE GEOMETRY
+// -----------------------------------------------------------------------------
+draw_card(v1_x, vis_y, v1_w, vis_h, "TRANSFER RESPONSE  (DRAG THRESHOLD)");
 
-// Quarter grid lines
-gi = 1;
+// Right-aligned formula tag in Card 1 Header
+gfx_setfont(5);
+gfx_set(0.980, 0.702, 0.529, 0.90);
+curve_mode == 0 ? strcpy(#eq_s, "y = T + W(1 - e^-d/W)") :
+curve_mode == 1 ? strcpy(#eq_s, "y = T + W(1.5u - 0.5u^3)") :
+                  strcpy(#eq_s, "y = T + W(d / (W + d))");
+gfx_measurestr(#eq_s, tw, th);
+gfx_x = v1_x + v1_w - tw - floor(10 * S);
+gfx_y = vis_y + floor((card_hdr_h - th) * 0.5);
+gfx_drawstr(#eq_s);
+
+// Recessed Plot Well (#11111B Crust)
+p1_x = v1_x + floor(8 * S);
+p1_y = vis_y + card_hdr_h + floor(6 * S);
+p1_w = v1_w - floor(16 * S);
+p1_h = vis_h - card_hdr_h - floor(14 * S);
+draw_pill(p1_x, p1_y, p1_w, p1_h, 0.055, 0.055, 0.088, 0.16, 0.17, 0.24);
+
+MAX_X_DOM = 1.45; // Up to +3.2 dBFS input
+MAX_Y_DOM = 1.08; // 0 dBFS ceiling + headroom margin
+
+// Calibrated Linear/dB Grid Lines (-12 dB = 0.251, -6 dB = 0.501, 0 dB = 1.0)
+gi = 0;
 loop(3,
-  gx = v1_x + (gi * 0.25) * v1_w;
-  gy = vis_y + (gi * 0.25) * vis_h;
-  gfx_set(0.13, 0.14, 0.21, 1.0);
-  gfx_line(gx, vis_y + 1, gx, vis_y + vis_h - 1);
-  gfx_line(v1_x + 1, gy, v1_x + v1_w - 1, gy);
+  g_lin = (gi == 0) ? 0.2511886 : (gi == 1) ? 0.5011872 : 1.0;
+  gx = p1_x + (g_lin / MAX_X_DOM) * p1_w;
+  gy = (p1_y + p1_h) - (g_lin / MAX_Y_DOM) * p1_h;
+
+  gfx_set(0.13, 0.14, 0.20, 1.0);
+  gfx_line(gx, p1_y + 1, gx, p1_y + p1_h - 1);
+  gfx_line(p1_x + 1, gy, p1_x + p1_w - 1, gy);
+
+  gfx_setfont(5);
+  gfx_set(0.38, 0.40, 0.52, 0.85);
+  gi == 0 ? strcpy(#gl_s, "-12dB") : gi == 1 ? strcpy(#gl_s, "-6dB") : strcpy(#gl_s, "0dB");
+  gfx_x = p1_x + 5;
+  gfx_y = gy + 2;
+  gfx_drawstr(#gl_s);
   gi += 1;
 );
 
-// Domain: X axis = Input 0.0 .. 1.5 (+3.5 dBFS), Y axis = Output 0.0 .. 1.05 (0 dBFS ceiling)
-MAX_X_DOM = 1.5;
-MAX_Y_DOM = 1.05;
+// 0.0 dBFS Hard Ceiling Line (Red #F38BA8)
+y_ceil = (p1_y + p1_h) - (1.0 / MAX_Y_DOM) * p1_h;
+x_ceil = p1_x + (1.0 / MAX_X_DOM) * p1_w;
+gfx_set(0.953, 0.545, 0.659, 0.45);
+gfx_line(p1_x + 1, y_ceil, p1_x + p1_w - 1, y_ceil);
 
-// 1:1 Linear Reference Diagonal
-x_1to1 = v1_x + (1.0 / MAX_X_DOM) * v1_w;
-y_1to1 = (vis_y + vis_h) - (1.0 / MAX_Y_DOM) * vis_h;
-gfx_set(0.28, 0.30, 0.42, 0.75);
-gfx_line(v1_x + 2, vis_y + vis_h - 2, x_1to1, y_1to1, 1);
+// 1:1 Unity Reference Diagonal
+gfx_set(0.30, 0.32, 0.44, 0.65);
+gfx_line(p1_x + 1, p1_y + p1_h - 1, x_ceil, y_ceil, 1);
 
-// 0 dBFS Ceiling Horizontal Line
-gfx_set(0.95, 0.55, 0.66, 0.55);
-gfx_line(v1_x + 2, y_1to1, v1_x + v1_w - 2, y_1to1);
+// Interactive Threshold Coordinates
+thr_y = (p1_y + p1_h) - (thresh_lin / MAX_Y_DOM) * p1_h;
+thr_x = p1_x + (thresh_lin / MAX_X_DOM) * p1_w;
 
-// Bright Interactive Threshold Horizontal Line (Fruity Soft Clipper Style)
-thr_y = (vis_y + vis_h) - (thresh_lin / MAX_Y_DOM) * vis_h;
-thr_x = v1_x + (thresh_lin / MAX_X_DOM) * v1_w;
-
-// Shaded Non-Linear Soft-Knee Region above Threshold Line
+// Soft Knee Shaded Zone (between Threshold and 0 dBFS Ceiling)
 thresh_lin < 0.995 ? (
-  gfx_set(0.98, 0.70, 0.53, 0.12);
-  gfx_rect(v1_x + 1, y_1to1, v1_w - 2, max(1, thr_y - y_1to1));
+  gfx_set(0.980, 0.702, 0.529, 0.08);
+  gfx_rect(p1_x + 1, y_ceil, p1_w - 2, max(1, thr_y - y_ceil));
 );
 
-// Bright Threshold Line + Grab Handle
-gfx_set(0.98, 0.89, 0.69, 0.90);
-gfx_line(v1_x + 2, thr_y, v1_x + v1_w - 2, thr_y);
-gfx_line(v1_x + 2, thr_y + 1, v1_x + v1_w - 2, thr_y + 1);
+// Horizontal Threshold Line + Vertical Knee Guide
+gfx_set(0.976, 0.886, 0.686, 0.75); // Yellow #F9E2AF
+gfx_line(p1_x + 1, thr_y, p1_x + p1_w - 1, thr_y);
+gfx_set(0.976, 0.886, 0.686, 0.25);
+gfx_line(thr_x, thr_y, thr_x, p1_y + p1_h - 1);
 
-// Drag anywhere inside the Transfer Graph to adjust Threshold directly!
-in_graph = (mouse_x >= v1_x && mouse_x <= v1_x + v1_w && mouse_y >= vis_y && mouse_y <= vis_y + vis_h);
+// Threshold Handle Pill on Right Side of Graph
+sprintf(#thr_tag, "T: %.1f dB", thresh_db);
+gfx_setfont(5);
+gfx_measurestr(#thr_tag, tw, th);
+tag_w = tw + 10;
+tag_h = th + 4;
+tag_x = p1_x + p1_w - tag_w - 6;
+tag_y = max(p1_y + 3, min(p1_y + p1_h - tag_h - 3, thr_y - tag_h * 0.5));
+draw_pill(tag_x, tag_y, tag_w, tag_h, 0.14, 0.13, 0.18, 0.976, 0.886, 0.686);
+gfx_set(0.976, 0.886, 0.686, 1.0);
+gfx_x = tag_x + 5; gfx_y = tag_y + 2;
+gfx_drawstr(#thr_tag);
+
+// Drag inside Plot 1 to adjust Threshold
+in_graph = !was_info_open && (mouse_x >= p1_x && mouse_x <= p1_x + p1_w && mouse_y >= p1_y && mouse_y <= p1_y + p1_h);
 (mouse_cap & 1) && !(last_mouse_cap & 1) && in_graph && (drag_id == 0) ? (
   drag_id = 400;
 );
 drag_id == 400 ? (
   (mouse_cap & 1) ? (
-    new_t_lin = max(0.0631, min(1.0, ((vis_y + vis_h - mouse_y) / vis_h) * MAX_Y_DOM));
+    new_t_lin = max(0.0630957, min(1.0, ((p1_y + p1_h - mouse_y) / p1_h) * MAX_Y_DOM));
     thresh_db = max(-24.0, min(0.0, K_TO_DB(new_t_lin)));
     update_parameters();
     slider_automate(slider1);
   ) : drag_id = 0;
 );
 
-// Plot Piecewise Transfer Curve:
-// Sapphire Blue below Threshold (100% Linear 1:1), Warm Peach above Threshold (Soft Knee)
-steps = 80;
+// Plot Piecewise Transfer Curve with Subtle Area Under Curve Fill
+steps = 96;
 st = 0;
 loop(steps + 1,
   t_n  = st / steps;
   x_in = t_n * MAX_X_DOM;
   y_cl = clip_sample(x_in);
 
-  px = v1_x + 2 + (x_in / MAX_X_DOM) * (v1_w - 4);
-  py = (vis_y + vis_h - 2) - (y_cl / MAX_Y_DOM) * (vis_h - 4);
+  px = p1_x + 2 + (x_in / MAX_X_DOM) * (p1_w - 4);
+  py = (p1_y + p1_h - 2) - (y_cl / MAX_Y_DOM) * (p1_h - 4);
+
+  // Subtle vertical glow fill under curve
+  (st & 1) == 0 ? (
+    x_in <= thresh_lin ? gfx_set(0.537, 0.706, 0.980, 0.045) : gfx_set(0.980, 0.702, 0.529, 0.065);
+    gfx_line(px, py, px, p1_y + p1_h - 2);
+  );
 
   st > 0 ? (
     x_in <= thresh_lin ? (
-      // 100% Linear Untouched Region in Sapphire Blue
-      gfx_set(0.45, 0.78, 0.98, 0.98);
+      // 100% Linear Untouched Region in Catppuccin Blue (#89B4FA)
+      gfx_set(0.537, 0.706, 0.980, 0.98);
     ) : (
-      // Soft-Clipped Region in Catppuccin Peach
-      gfx_set(0.98, 0.70, 0.53, 0.98);
+      // Soft-Clipped Knee Region in Catppuccin Peach (#FAB387)
+      gfx_set(0.980, 0.702, 0.529, 0.98);
     );
     gfx_line(prev_px, prev_py, px, py, 1);
     gfx_line(prev_px, prev_py + 1, px, py + 1, 1);
@@ -634,190 +795,307 @@ loop(steps + 1,
 );
 
 // Exact Knee Inflection Point Circle at (T, T)
-gfx_set(0.98, 0.89, 0.69, 1.0);
-gfx_circle(thr_x, thr_y, floor(5 * S), 1, 1);
+gfx_set(0.976, 0.886, 0.686, 0.25);
+gfx_circle(thr_x, thr_y, floor(8 * S), 1, 1);
+gfx_set(0.976, 0.886, 0.686, 1.0);
+gfx_circle(thr_x, thr_y, floor(4 * S), 1, 1);
 
-// Live Audio Peak Operating Dot riding the Transfer Curve
+// Live Audio Peak Operating Ball Riding the Curve
 cur_x_pk = min(MAX_X_DOM, env_drv_pk);
 cur_y_pk = clip_sample(cur_x_pk);
-dot_px = v1_x + 2 + (cur_x_pk / MAX_X_DOM) * (v1_w - 4);
-dot_py = (vis_y + vis_h - 2) - (cur_y_pk / MAX_Y_DOM) * (vis_h - 4);
+dot_px = p1_x + 2 + (cur_x_pk / MAX_X_DOM) * (p1_w - 4);
+dot_py = (p1_y + p1_h - 2) - (cur_y_pk / MAX_Y_DOM) * (p1_h - 4);
 
-cur_x_pk > 0.01 ? (
-  cur_x_pk > thresh_lin ? gfx_set(0.95, 0.55, 0.66, 1.0) : gfx_set(0.65, 0.89, 0.63, 1.0);
-  gfx_circle(dot_px, dot_py, floor(6 * S), 1, 1);
-  gfx_set(1.0, 1.0, 1.0, 1.0);
-  gfx_circle(dot_px, dot_py, floor(6 * S), 0, 1);
+cur_x_pk > 0.008 ? (
+  cur_x_pk > thresh_lin ? (
+    gfx_set(0.953, 0.545, 0.659, 0.28);
+    gfx_circle(dot_px, dot_py, floor(10 * S), 1, 1);
+    gfx_set(0.953, 0.545, 0.659, 1.0);
+  ) : (
+    gfx_set(0.651, 0.890, 0.631, 0.22);
+    gfx_circle(dot_px, dot_py, floor(9 * S), 1, 1);
+    gfx_set(0.651, 0.890, 0.631, 1.0);
+  );
+  gfx_circle(dot_px, dot_py, floor(5 * S), 1, 1);
+  gfx_set(1.0, 1.0, 1.0, 0.95);
+  gfx_circle(dot_px, dot_py, floor(5 * S), 0, 1);
 );
 
-// Graph Labels & Hover Input->Output dB Mapping Readout (just like Fruity Soft Clipper hint bar)
+// Bottom Telemetry / Hover Status Inside Graph
 gfx_setfont(5);
-gfx_set(0.75, 0.80, 0.92, 1.0);
-gfx_x = v1_x + 10; gfx_y = vis_y + 8;
-gfx_drawstr("LINEAR 1:1 BELOW THRESHOLD (DRAG GRAPH)");
-
 in_graph ? (
-  hov_x = max(0.001, ((mouse_x - v1_x) / v1_w) * MAX_X_DOM);
+  hov_x = max(0.001, ((mouse_x - p1_x) / p1_w) * MAX_X_DOM);
   hov_y = clip_sample(hov_x);
-  sprintf(#hov_s, "IN: %+.1f dB -> OUT: %+.1f dB", K_TO_DB(hov_x), K_TO_DB(hov_y));
-  gfx_set(0.98, 0.89, 0.69, 1.0);
-  gfx_x = v1_x + 10; gfx_y = vis_y + vis_h - floor(20 * S);
-  gfx_drawstr(#hov_s);
+  sprintf(#hov_s, "CURSOR  IN: %+.1f dB  ->  OUT: %+.1f dB", K_TO_DB(hov_x), K_TO_DB(hov_y));
+  gfx_set(0.976, 0.886, 0.686, 0.95);
+) : (
+  strcpy(#hov_s, "BLUE = BIT-IDENTICAL (1:1)   |   PEACH = SOFT KNEE");
+  gfx_set(0.55, 0.58, 0.70, 0.85);
 );
+gfx_x = p1_x + 8; gfx_y = p1_y + p1_h - floor(16 * S);
+gfx_drawstr(#hov_s);
 
-// -------------------------------------------------------------------------
-// PANEL 2: REAL-TIME WAVEFORM & SHAVED TRANSIENT PEAK MONITOR
-// -------------------------------------------------------------------------
-draw_panel_box(v2_x, vis_y, v2_w, vis_h, 0.055, 0.058, 0.092, 0.22, 0.24, 0.34);
+// -----------------------------------------------------------------------------
+// CARD 2: REAL-TIME WAVEFORM & SHAVED TRANSIENT SCOPE
+// -----------------------------------------------------------------------------
+draw_card(v2_x, vis_y, v2_w, vis_h, "REAL-TIME WAVE & SHAVED PEAKS");
 
-// Threshold reference line inside Waveform Scope
-wf_thr_y = (vis_y + vis_h) - (thresh_lin / MAX_Y_DOM) * vis_h;
-gfx_set(0.98, 0.89, 0.69, 0.35);
-gfx_line(v2_x + 2, wf_thr_y, v2_x + v2_w - 2, wf_thr_y);
+// Legend Dots in Card 2 Header
+gfx_setfont(5);
+gfx_measurestr("SHAVED", tw, th);
+lx2 = v2_x + v2_w - tw - floor(12 * S);
+ly2 = vis_y + floor((card_hdr_h - th) * 0.5);
+gfx_set(0.953, 0.545, 0.659, 1.0);
+gfx_circle(lx2 - 7, ly2 + th*0.5, 3, 1, 1);
+gfx_x = lx2; gfx_y = ly2; gfx_drawstr("SHAVED");
 
-col_w = (v2_w - 6) / HIST_BINS;
+gfx_measurestr("OUT", tw2, th2);
+lx1 = lx2 - tw2 - floor(22 * S);
+gfx_set(0.537, 0.706, 0.980, 1.0);
+gfx_circle(lx1 - 7, ly2 + th*0.5, 3, 1, 1);
+gfx_x = lx1; gfx_y = ly2; gfx_drawstr("OUT");
+
+// Recessed Scope Well
+p2_x = v2_x + floor(8 * S);
+p2_y = vis_y + card_hdr_h + floor(6 * S);
+p2_w = v2_w - floor(16 * S);
+p2_h = vis_h - card_hdr_h - floor(14 * S);
+draw_pill(p2_x, p2_y, p2_w, p2_h, 0.055, 0.055, 0.088, 0.16, 0.17, 0.24);
+
+// 0 dBFS & Threshold Reference Lines inside Scope
+wf_ceil_y = (p2_y + p2_h) - (1.0 / MAX_Y_DOM) * p2_h;
+wf_thr_y  = (p2_y + p2_h) - (thresh_lin / MAX_Y_DOM) * p2_h;
+
+gfx_set(0.953, 0.545, 0.659, 0.30);
+gfx_line(p2_x + 1, wf_ceil_y, p2_x + p2_w - 1, wf_ceil_y);
+gfx_set(0.976, 0.886, 0.686, 0.40);
+gfx_line(p2_x + 1, wf_thr_y, p2_x + p2_w - 1, wf_thr_y);
+
+col_w = (p2_w - 4) / HIST_BINS;
 hi = 0;
 loop(HIST_BINS,
   h_idx = (h_head + 1 + hi) & (HIST_BINS - 1);
+  v_in  = HIST_IN[h_idx];
   v_out = HIST_OUT[h_idx];
   v_shv = HIST_CLIP[h_idx];
 
-  hx = v2_x + 3 + hi * col_w;
-  h_out_px = min(vis_h - 6, (v_out / MAX_Y_DOM) * (vis_h - 6));
-  h_shv_px = min(vis_h * 0.45, (v_shv / MAX_Y_DOM) * (vis_h - 6));
+  hx = p2_x + 2 + hi * col_w;
+  bw_col = max(1, col_w - 0.8);
 
-  // Output Waveform Bars from bottom up (Sapphire Blue)
-  h_out_px > 1 ? (
-    gfx_set(0.45, 0.78, 0.98, 0.60);
-    gfx_rect(hx, (vis_y + vis_h - 2) - h_out_px, max(1, col_w - 1), h_out_px);
+  h_in_px  = min(p2_h - 4, (v_in  / MAX_Y_DOM) * (p2_h - 4));
+  h_out_px = min(p2_h - 4, (v_out / MAX_Y_DOM) * (p2_h - 4));
+  h_shv_px = min(p2_h * 0.55, (v_shv / MAX_Y_DOM) * (p2_h - 4));
+
+  // 1. Unclipped Input Ghost Silhouette (dim peach/surface)
+  h_in_px > h_out_px + 0.5 ? (
+    gfx_set(0.980, 0.702, 0.529, 0.22);
+    gfx_rect(hx, (p2_y + p2_h - 2) - h_in_px, bw_col, h_in_px - h_out_px);
   );
 
-  // Shaved Peaks from top down (Catppuccin Red/Peach shows only what was clipped!)
-  h_shv_px > 0.5 ? (
-    gfx_set(0.95, 0.55, 0.66, 0.90);
-    gfx_rect(hx, vis_y + 2, max(1, col_w - 1), max(2, h_shv_px));
+  // 2. Clipped Output Waveform Bars from bottom up
+  h_out_px > 1 ? (
+    v_out > thresh_lin ? gfx_set(0.537, 0.780, 0.980, 0.78) : gfx_set(0.537, 0.706, 0.980, 0.58);
+    gfx_rect(hx, (p2_y + p2_h - 2) - h_out_px, bw_col, h_out_px);
+    // Bright crest cap
+    gfx_set(0.75, 0.88, 1.0, 0.95);
+    gfx_rect(hx, (p2_y + p2_h - 2) - h_out_px, bw_col, 1.5);
+  );
+
+  // 3. Shaved Transient Peaks from top down (Catppuccin Red #F38BA8)
+  h_shv_px > 0.4 ? (
+    gfx_set(0.953, 0.545, 0.659, 0.92);
+    gfx_rect(hx, p2_y + 2, bw_col, max(2, h_shv_px));
   );
   hi += 1;
 );
 
+// -----------------------------------------------------------------------------
+// CARD 3: CALIBRATED 3-COLUMN STUDIO METERS (IN | OUT | CLIP GR)
+// -----------------------------------------------------------------------------
+draw_card(v3_x, vis_y, v3_w, vis_h, "PEAK & CLIP");
+
+m_top = vis_y + card_hdr_h + floor(22 * S);
+m_h   = vis_h - card_hdr_h - floor(62 * S);
+m_gap = floor(8 * S);
+m_w   = floor((v3_w - floor(28 * S) - m_gap * 2) / 3.0);
+
+m1_x = v3_x + floor(10 * S);
+m2_x = m1_x + m_w + m_gap;
+m3_x = m2_x + m_w + m_gap;
+
+// Column Headers
 gfx_setfont(5);
-gfx_set(0.75, 0.80, 0.92, 1.0);
-gfx_x = v2_x + 10; gfx_y = vis_y + 8;
-gfx_drawstr("OUTPUT WAVE (BOT) & SHAVED PEAKS (TOP)");
+gfx_set(0.68, 0.72, 0.84, 1.0);
+gfx_measurestr("IN", tw, th);  gfx_x = m1_x + (m_w - tw)*0.5; gfx_y = m_top - th - 3; gfx_drawstr("IN");
+gfx_measurestr("OUT", tw, th); gfx_x = m2_x + (m_w - tw)*0.5; gfx_y = m_top - th - 3; gfx_drawstr("OUT");
+gfx_set(0.953, 0.545, 0.659, 1.0);
+gfx_measurestr("GR", tw, th);  gfx_x = m3_x + (m_w - tw)*0.5; gfx_y = m_top - th - 3; gfx_drawstr("GR");
 
-// -------------------------------------------------------------------------
-// PANEL 3: STEREO OUTPUT METER & SHAVED GAIN REDUCTION METER
-// -------------------------------------------------------------------------
-draw_panel_box(v3_x, vis_y, v3_w, vis_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+// Meter Wells
+draw_pill(m1_x, m_top, m_w, m_h, 0.05, 0.05, 0.08, 0.18, 0.19, 0.27);
+draw_pill(m2_x, m_top, m_w, m_h, 0.05, 0.05, 0.08, 0.18, 0.19, 0.27);
+draw_pill(m3_x, m_top, m_w, m_h, 0.05, 0.05, 0.08, 0.18, 0.19, 0.27);
 
-m_top = vis_y + floor(28 * S);
-m_h   = vis_h - floor(58 * S);
-m_w   = floor((v3_w - floor(28 * S)) * 0.45);
-m1_x  = v3_x + floor(10 * S);
-m2_x  = m1_x + m_w + floor(8 * S);
-
-gfx_setfont(5);
-gfx_set(0.75, 0.80, 0.92, 1.0);
-gfx_x = m1_x; gfx_y = vis_y + floor(8 * S); gfx_drawstr("OUT");
-gfx_x = m2_x; gfx_y = vis_y + floor(8 * S); gfx_drawstr("CLIP");
-
-// Output Meter Box (Bottom-Up)
-draw_panel_box(m1_x, m_top, m_w, m_h, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
-out_db_now = K_TO_DB(max(env_out_l, env_out_r));
-out_norm   = max(0.0, min(1.0, (out_db_now + 48.0) / 48.0));
-out_fill_h = floor(out_norm * (m_h - 4));
-out_fill_h > 0 ? (
-  out_db_now > -0.2 ? gfx_set(0.98, 0.70, 0.53, 0.95) : gfx_set(0.45, 0.78, 0.98, 0.92);
-  gfx_rect(m1_x + 2, (m_top + m_h - 2) - out_fill_h, m_w - 4, out_fill_h);
+// 1. Input Level Bar (-48 dB to +6 dB range -> 54 dB span)
+in_db_now  = K_TO_DB(env_in_pk);
+in_norm    = max(0.0, min(1.0, (in_db_now + 48.0) / 54.0));
+in_fill_h  = floor(in_norm * (m_h - 4));
+in_fill_h > 0 ? (
+  gfx_set(0.537, 0.706, 0.980, 0.85);
+  gfx_rect(m1_x + 2, (m_top + m_h - 2) - in_fill_h, m_w - 4, in_fill_h);
+);
+// Input Peak Hold Line
+in_hold_norm = max(0.0, min(1.0, (K_TO_DB(hold_in_pk) + 48.0) / 54.0));
+in_hold_norm > 0.02 ? (
+  hy = (m_top + m_h - 2) - floor(in_hold_norm * (m_h - 4));
+  gfx_set(0.80, 0.88, 1.0, 0.95);
+  gfx_line(m1_x + 2, hy, m1_x + m_w - 3, hy);
 );
 
-// Shaved Peak Meter Box (Top-Down, 0 to 12 dB shaved)
-draw_panel_box(m2_x, m_top, m_w, m_h, 0.05, 0.05, 0.08, 0.20, 0.22, 0.32);
+// 2. Output Level Bar (-48 dB to +6 dB range)
+out_db_now = K_TO_DB(env_out_pk);
+out_norm   = max(0.0, min(1.0, (out_db_now + 48.0) / 54.0));
+out_fill_h = floor(out_norm * (m_h - 4));
+out_fill_h > 0 ? (
+  out_db_now > 0.05 ? gfx_set(0.953, 0.545, 0.659, 0.95) :
+  out_db_now > thresh_db ? gfx_set(0.980, 0.702, 0.529, 0.95) :
+                           gfx_set(0.651, 0.890, 0.631, 0.90);
+  gfx_rect(m2_x + 2, (m_top + m_h - 2) - out_fill_h, m_w - 4, out_fill_h);
+);
+// Output Peak Hold Line
+out_hold_norm = max(0.0, min(1.0, (K_TO_DB(hold_out_pk) + 48.0) / 54.0));
+out_hold_norm > 0.02 ? (
+  hy = (m_top + m_h - 2) - floor(out_hold_norm * (m_h - 4));
+  gfx_set(0.98, 0.89, 0.69, 0.95);
+  gfx_line(m2_x + 2, hy, m2_x + m_w - 3, hy);
+);
+
+// 0 dB Tick Line across IN & OUT meters
+y_0db = (m_top + m_h - 2) - floor((48.0 / 54.0) * (m_h - 4));
+gfx_set(0.95, 0.55, 0.66, 0.65);
+gfx_line(m1_x, y_0db, m2_x + m_w, y_0db);
+
+// 3. Shaved Gain Reduction Bar (Top-Down, 0 to 12 dB range)
 shv_norm   = max(0.0, min(1.0, shaved_env_db / 12.0));
 shv_fill_h = floor(shv_norm * (m_h - 4));
 shv_fill_h > 0 ? (
-  gfx_set(0.95, 0.55, 0.66, 0.95);
-  gfx_rect(m2_x + 2, m_top + 2, m_w - 4, shv_fill_h);
+  gfx_set(0.953, 0.545, 0.659, 0.95);
+  gfx_rect(m3_x + 2, m_top + 2, m_w - 4, shv_fill_h);
+);
+// Shaved Peak Hold Line
+shv_hold_norm = max(0.0, min(1.0, shaved_hold_db / 12.0));
+shv_hold_norm > 0.01 ? (
+  hy = m_top + 2 + floor(shv_hold_norm * (m_h - 4));
+  gfx_set(1.0, 0.85, 0.88, 0.95);
+  gfx_line(m3_x + 2, hy, m3_x + m_w - 3, hy);
 );
 
-// Numeric Peak Readouts at Bottom of Meters (Click to reset)
+// Readout Pill at Bottom of Card 3 (Click to Reset Hold)
+rd_y = m_top + m_h + floor(8 * S);
+rd_h = floor(24 * S);
+draw_pill(m1_x, rd_y, v3_w - floor(20 * S), rd_h, 0.067, 0.067, 0.106, 0.20, 0.21, 0.30);
+
 gfx_setfont(3);
-gfx_set(0.95, 0.97, 1.0, 1.0);
-sprintf(#shv_s, "-%.1fdB", shaved_hold_db);
+shaved_hold_db > 0.05 ? (
+  gfx_set(0.953, 0.545, 0.659, 1.0);
+  sprintf(#shv_s, "CLIP: -%.1f dB", shaved_hold_db);
+) : (
+  gfx_set(0.651, 0.890, 0.631, 0.95);
+  strcpy(#shv_s, "CLIP: 0.0 dB");
+);
 gfx_measurestr(#shv_s, tw, th);
-gfx_x = v3_x + (v3_w - tw)*0.5;
-gfx_y = m_top + m_h + floor(6 * S);
+gfx_x = v3_x + (v3_w - tw) * 0.5;
+gfx_y = rd_y + (rd_h - th) * 0.5;
 gfx_drawstr(#shv_s);
 
-(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+!was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) &&
 (mouse_x >= v3_x && mouse_x <= v3_x + v3_w && mouse_y >= vis_y && mouse_y <= vis_y + vis_h) ? (
   shaved_hold_db = 0.0;
   hold_out_pk = 0.0;
+  hold_in_pk  = 0.0;
 );
 
-// =========================================================================
-// 3. BOTTOM KNOB DECK: 4 LARGE PRIMARY KNOBS (DRIVE | THRESHOLD | SUB SAFE | POST GAIN)
-// =========================================================================
-draw_panel_box(pad, knb_y, full_w, knb_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+// =============================================================================
+// 3. LOWER STUDIO CONTROL DECK (4 PRECISION KNOBS)
+// =============================================================================
+draw_card(pad, knb_y, full_w, knb_h, "DYNAMICS & HARMONIC CONTROL DECK");
+
+// Subtle Status Readout on Right Side of Control Deck Header
+gfx_setfont(5);
+gfx_set(0.58, 0.62, 0.75, 0.85);
+strcpy(#deck_hint, "DOUBLE-CLICK KNOB TO RESET   |   CTRL+DRAG FOR FINE ADJUST");
+gfx_measurestr(#deck_hint, tw, th);
+gfx_x = pad + full_w - tw - floor(12 * S);
+gfx_y = knb_y + floor((card_hdr_h - th) * 0.5);
+gfx_drawstr(#deck_hint);
 
 cell_w = full_w / 4.0;
-r_knb  = min(floor(40 * S), floor(knb_h * 0.23));
-r_hero = min(floor(46 * S), floor(knb_h * 0.26));
-k_cy   = knb_y + floor(knb_h * 0.38);
+avail_knb_h = knb_h - card_hdr_h;
 
-// 1. INPUT DRIVE (-12 to +12 dB)
+// Vertical Divider Lines Between Knob Cells
+di = 1;
+loop(3,
+  dx = pad + di * cell_w;
+  gfx_set(0.16, 0.17, 0.24, 0.85);
+  gfx_line(dx, knb_y + card_hdr_h + floor(14 * S), dx, knb_y + knb_h - floor(14 * S));
+  di += 1;
+);
+
+r_knb  = min(floor(38 * S), floor(avail_knb_h * 0.23));
+r_hero = min(floor(44 * S), floor(avail_knb_h * 0.26));
+k_cy   = knb_y + card_hdr_h + floor(avail_knb_h * 0.38);
+
+// 1. INPUT DRIVE (-12 to +12 dB) — Sapphire Blue (#89B4FA)
 sprintf(#v_s, "%+.1f dB", in_drive_db);
-new_v = draw_vc_knob(1, pad + cell_w * 0.5, k_cy, r_knb, in_drive_db, -12.0, 12.0, 0.0, "INPUT DRIVE", #v_s, 1, 0.45, 0.78, 0.98);
-abs(new_v - in_drive_db) > 0.05 ? ( in_drive_db = new_v; update_parameters(); slider_automate(slider3); );
+new_v = draw_studio_knob(1, pad + cell_w * 0.5, k_cy, r_knb, in_drive_db, -12.0, 12.0, 0.0, "INPUT DRIVE", "PRE-CLIP GAIN", #v_s, 1, 0.537, 0.706, 0.980);
+abs(new_v - in_drive_db) > 0.02 ? ( in_drive_db = new_v; update_parameters(); slider_automate(slider3); );
 
-// 2. HERO THRESHOLD KNOB (-24 to 0.0 dB) — Matches Fruity Soft Clipper THRES
+// 2. HERO THRESHOLD KNOB (-24 to 0.0 dB) — Catppuccin Peach (#FAB387)
 sprintf(#v_s, "%.1f dB", thresh_db);
-new_v = draw_vc_knob(2, pad + cell_w * 1.5, k_cy, r_hero, thresh_db, -24.0, 0.0, -1.8, "THRESHOLD (THRES)", #v_s, 0, 0.98, 0.70, 0.53);
-abs(new_v - thresh_db) > 0.05 ? ( thresh_db = new_v; update_parameters(); slider_automate(slider1); );
+new_v = draw_studio_knob(2, pad + cell_w * 1.5, k_cy, r_hero, thresh_db, -24.0, 0.0, -1.8, "THRESHOLD", "LINEAR CEILING KNEE", #v_s, 0, 0.980, 0.702, 0.529);
+abs(new_v - thresh_db) > 0.02 ? ( thresh_db = new_v; update_parameters(); slider_automate(slider1); );
 
-// 3. SUB-BASS PRESERVE (0 to 100%) — Prevents 808s from buzzing when clipped hard
+// 3. 808 SUB SAFE (0 to 100%) — Catppuccin Yellow (#F9E2AF)
 sprintf(#v_s, "%.0f %%", sub_preserve_pct);
-new_v = draw_vc_knob(3, pad + cell_w * 2.5, k_cy, r_knb, sub_preserve_pct, 0.0, 100.0, 0.0, "808 SUB SAFE", #v_s, 0, 0.98, 0.89, 0.69);
-abs(new_v - sub_preserve_pct) > 0.1 ? ( sub_preserve_pct = new_v; update_parameters(); slider_automate(slider5); );
+new_v = draw_studio_knob(3, pad + cell_w * 2.5, k_cy, r_knb, sub_preserve_pct, 0.0, 100.0, 0.0, "808 SUB SAFE", "95Hz EMPHASIS EQ", #v_s, 0, 0.976, 0.886, 0.686);
+abs(new_v - sub_preserve_pct) > 0.05 ? ( sub_preserve_pct = new_v; update_parameters(); slider_automate(slider5); );
 
-// 4. POST GAIN / CEILING (-12 to +6 dB) — Matches Fruity Soft Clipper POST
+// 4. POST GAIN / CEILING (-12 to +6 dB) — Catppuccin Mauve/Peach (#CBA6F7)
 sprintf(#v_s, "%+.1f dB", post_db);
-new_v = draw_vc_knob(4, pad + cell_w * 3.5, k_cy, r_hero, post_db, -12.0, 6.0, 0.0, "POST GAIN (POST)", #v_s, 1, 0.98, 0.70, 0.53);
-abs(new_v - post_db) > 0.05 ? ( post_db = new_v; update_parameters(); slider_automate(slider2); );
+new_v = draw_studio_knob(4, pad + cell_w * 3.5, k_cy, r_hero, post_db, -12.0, 6.0, 0.0, "POST GAIN", "OUTPUT MAKEUP / TRIM", #v_s, 1, 0.796, 0.651, 0.969);
+abs(new_v - post_db) > 0.02 ? ( post_db = new_v; update_parameters(); slider_automate(slider2); );
 
-// =========================================================================
-// 4. INFO OVERLAY MODAL (Click VELVETCLIP Logo to Toggle)
-// =========================================================================
+// =============================================================================
+// 4. INFO OVERLAY MODAL (Click VELVETCLIP "?" Badge to Toggle)
+// =============================================================================
 info_open ? (
-  mw = floor(W * 0.76);
-  mh = floor(295 * S);
-  mx = (W - mw) * 0.5;
-  my = (H - mh) * 0.5;
+  // Dim background backdrop
+  gfx_set(0.03, 0.03, 0.06, 0.72);
+  gfx_rect(0, 0, W, H);
 
-  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.98, 0.70, 0.53);
+  mw = floor(W * 0.74);
+  mh = floor(310 * S);
+  mx = floor((W - mw) * 0.5);
+  my = floor((H - mh) * 0.5);
 
-  gfx_setfont(1);
-  gfx_set(0.98, 0.70, 0.53, 1.0);
-  gfx_x = mx + 24; gfx_y = my + 20;
-  gfx_drawstr("VelvetClip v1.0 (Transparent Master Soft Clipper)");
+  draw_card(mx, my, mw, mh, "VELVETCLIP v1.1  —  ARCHITECTURE & SIGNAL FLOW");
 
   gfx_setfont(3);
-  gfx_set(0.92, 0.94, 0.98, 1.0);
+  gfx_set(0.85, 0.88, 0.96, 1.0);
   lh_step = floor(26 * S);
-  ty = my + 60;
-  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 100% Bit-Identical Pass-Through (y = x) for all signals below Threshold");
-  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Drag vertically inside the left Transfer Graph to adjust Threshold directly");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• 3 Curves: Fruity Soft (Asymptotic), Cubic Knee (Punchy), and Bass Shaper");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• 808 SUB SAFE pre-cuts & post-restores <95 Hz so sub-bass never buzzes");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• HQ 2x Oversampling suppresses aliasing on sharp transient peaks");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Click the right meter panel to clear Peak Hold readouts");
+  ty = my + card_hdr_h + floor(20 * S);
+  gfx_x = mx + 22; gfx_y = ty;             gfx_drawstr("• 100% Bit-Identical Pass-Through (y = x) below Threshold when Drive/Post are 0 dB.");
+  gfx_x = mx + 22; gfx_y = ty + lh_step;   gfx_drawstr("• Classic Exp (Mode 0): Exact exponential knee y = T + W(1 - exp(-d/W)) with C1 continuity.");
+  gfx_x = mx + 22; gfx_y = ty + lh_step*2; gfx_drawstr("• Cubic Knee (Mode 1): C2 polynomial knee that clamps cleanly at 0.0 dBFS ceiling.");
+  gfx_x = mx + 22; gfx_y = ty + lh_step*3; gfx_drawstr("• Velvet Rational (Mode 2): Slower asymptotic curve y = T + W(d / (W + d)) for warm saturation.");
+  gfx_x = mx + 22; gfx_y = ty + lh_step*4; gfx_drawstr("• 808 Sub Safe: 95 Hz SVF shelf pre-attenuates & post-restores sub-bass to prevent buzz.");
+  gfx_x = mx + 22; gfx_y = ty + lh_step*5; gfx_drawstr("• Delta-Filtered 2x OS: Antialiases only the shaved distortion delta (0% dry phase smear).");
 
-  gfx_set(0.72, 0.66, 0.60, 1.0);
-  gfx_x = mx + 24; gfx_y = my + mh - 32;
-  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+  gfx_set(0.980, 0.702, 0.529, 0.95);
+  gfx_x = mx + 22; gfx_y = my + mh - floor(30 * S);
+  gfx_drawstr("Click anywhere to close this window.");
 
-  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
-  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+  was_info_open && (mouse_cap & 1) && !(last_mouse_cap & 1) ? (
     info_open = 0;
   );
 );
