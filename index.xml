@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="8e861a568fdfc3b7b60fbf15b304f2a92454ca80">
+<index version="1" name="MemoryAPI JSFX" commit="93c15002a6d8d52dce40fc5854ccf8419524585a">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -147,7 +147,11 @@
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 OverTop\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 3-Band Upward and Downward Multiband Dynamics Processor (OTT style) for aggressive presence, punch, and detail leveling.\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3-band split crossover (88 Hz and 2.5 kHz) with independent upward and downward compression engines\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Phase-aligned 4th-Order Linkwitz-Riley (LR4, 24 dB/oct) crossover at 88.3 Hz and 2.5 kHz\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab True stereo RMS power detection (L^2 + R^2) with Attack/Release smoothing in the dB gain domain\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Authentic OTT nominal time constants with 0.15x Attack and 0.25x Release multipliers\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Calibrated +10.3 dB High Band linear makeup gain (1.0 + 2.27304697 * Depth)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Phase-coherent Depth scaling directly modulating compression slopes and makeup without comb filtering\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive threshold bar editing: drag horizontally to shift thresholds per band\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Per-band bypass switches and dedicated band output gain trims\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Global Depth, Time scaling, and In/Out gain controls\par}
@@ -160,6 +164,15 @@
       <version name="1.1.0" author="MemoryAPI" time="2026-10-15T14:40:14Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/4cb7c27b53e5a46df38d4f0c620a0a6c4d3063f3/Dynamics/OverTop.jsfx</source>
+      </version>
+      <version name="1.2.0" author="MemoryAPI" time="2026-10-19T12:03:23Z">
+        <changelog><![CDATA[- Applied exact OTT 0.15x Attack and 0.25x Release internal time multipliers
+- Corrected High Band makeup gain to +10.3 dB (1.0 + 2.27304697 * Depth)
+- Eliminated destructive dry/wet phase cancellation: Depth now scales compression slopes & makeup directly
+- Switched from Peak detection to true stereo RMS power detection (L^2 + R^2)
+- Moved Attack/Release smoothing into the dB gain-reduction domain
+- Upgraded crossover to phase-aligned 4th-Order Linkwitz-Riley (LR4, 24 dB/oct)]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/93c15002a6d8d52dce40fc5854ccf8419524585a/Dynamics/OverTop.jsfx</source>
       </version>
     </reapack>
     <reapack name="PulseDuck.jsfx" type="effect" desc="PulseDuck (Multiband Sidechain &amp; Envelope Shaper)">
