@@ -1,6 +1,6 @@
 # MemoryAPI JSFX Suite
 
-A cross-platform collection of 15 studio mixing, mastering, and synthesis JSFX plugins for [Cockos REAPER](https://www.reaper.fm/), featuring custom hardware-accelerated vector UIs styled in the **Catppuccin Mocha** palette.
+A cross-platform collection of 16 studio mixing, mastering, and synthesis JSFX plugins for [Cockos REAPER](https://www.reaper.fm/), featuring custom hardware-accelerated vector UIs styled in the **Catppuccin Mocha** palette.
 
 ## Installation (ReaPack)
 
@@ -39,6 +39,7 @@ Every plugin in this repository shares a unified design standard:
 | **Time & Space** | [**EchoForge**](#time--space) | Tape varispeed, Lo-Fi & diffused ping-pong delay |
 | **Time & Space** | [**AetherVerb**](#time--space) | 8-mode algorithmic, shimmer, formant & FDN reverberator |
 | **Creative FX** | [**ChronoWarp**](#creative--synthesis) | Tempo-synced half-time, varispeed & octave-shimmer engine |
+| **Creative FX** | [**RhythmForge**](#creative--synthesis) | 6-module polyrhythmic multi-effect & envelope shaper workstation |
 | **Creative FX** | [**VintageFlux**](#creative--synthesis) | 6-module retro multi-FX & lo-fi texture processor |
 | **Synthesis** | [**AetherSynth**](#creative--synthesis) | 8-voice polyphonic unison supersaw & ZDF analog synthesizer |
 
@@ -225,6 +226,19 @@ Every plugin in this repository shares a unified design standard:
       <ul>
         <li><b>Noise</b> (Vinyl/Cassette/VHS/White + Follow/Duck) → <b>Wobble</b> (Wow/Flutter) → <b>Distort</b> (Tube/Tape/Crunch/Fold) → <b>Digital</b> (Rate/Bits + Smooth) → <b>Space</b> (Reverb) → <b>Magnetic</b> (Wear/Dropouts).</li>
         <li>Per-module <b>Flux</b> organic random drift generators plus Master Cut &amp; Tilt/Smile Tone EQ.</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3 align="center">RhythmForge</h3>
+      <p align="center"><img src="screenshots/rhythmforge.webp" width="540" alt="RhythmForge" /></p>
+      <p><b>6-Module Polyrhythmic Multi-Effect &amp; Envelope Shaper Workstation</b> — Combines six synchronized modulation engines (Time Warp, ZDF Filter, Drive Fold, Lo-Fi Crush, Comb Space, and Gate &amp; Haas) with custom multi-segment breakpoint envelopes, tension handles, and ShaperBox-style toolbars.</p>
+      <ul>
+        <li><b>6 FX Engines:</b> <b>Time Warp</b> (1:1 Hermite varispeed buffer with Half-Time, Stutter, Scratch &amp; Tape Stop), <b>ZDF Filter</b> (Ladder, MS Screamer, SVF), <b>Drive Fold</b> (Tube saturation &amp; wavefolding), <b>Lo-Fi Crush</b> (Bit depth &amp; sample rate decimation), <b>Comb Space</b> (Resonant tuned comb delay &amp; Haas widener), and <b>Gate &amp; Haas</b> (Trance gate, Haas delay, autopan).</li>
+        <li><b>Vector LFO &amp; Curve Editor:</b> 6 per-segment curve types (Linear, Arc, S-Curve, Hold Step, Stairs, Sine Wave) with draggable midpoint tension diamonds, snap-to-grid, and pen tools.</li>
+        <li><b>Polyrhythmic Modulation:</b> Independent per-module loop lengths (<code>1/16</code> to <code>4 Bars</code>), 16-step sequencer enable lane, host tempo sync, free Hz, MIDI note trigger (C2), or audio transient envelope follower.</li>
+        <li><b>Clean Sub &amp; Master Finisher:</b> Linkwitz-Riley low-end crossover (&lt;90 Hz sub protection) with Bass Solo, Master Squash compressor, and output soft clipper.</li>
       </ul>
     </td>
   </tr>

@@ -1,0 +1,2691 @@
+desc:RhythmForge (6-Module Polyrhythmic Shaper & Multi-FX Workstation)
+// @description RhythmForge (6-Module Polyrhythmic Shaper & Multi-FX Workstation)
+// @author MemoryAPI
+// @version 2.1.0
+// @changelog Added 6 per-segment curve types (Linear, Arc, S-Curve, Hold, Stairs, Wave), draggable midpoint tension handles, ShaperBox LFO Tool Strip (Pointer, Snap, Grid, Line/Arc/S-Curve Pens), LFO Control Strip (2x, Flip X/Y, All-Lin), and 1:1 linear Time Warp tracking
+// @about
+//   # RhythmForge v2.1
+//   6-Module Polyrhythmic Multi-Effect, Time-Warp & Envelope Shaper Workstation combining the best of ShaperBox 3, Tantra 2, Infiltrator, Gross Beat, ChronoWarp, and PulseDuck.
+//
+//   ### Features
+//   - 6 Per-Segment Curve Types: Linear (pure constant-pitch ramps for Half-Time/Scratch), Arc (exponential/logarithmic), S-Curve, Hold (instant step jumps), Stairs, and Sine Wave
+//   - Interactive Midpoint Tension Handles: Drag the diamond handle between any two nodes to bend the curve, or Right-Click the diamond to switch that segment's curve type
+//   - ShaperBox LFO Tool Strip: Pointer, Snap-to-Grid, Grid Size (8 / 12T / 16), Line Pen, Arc Pen, and S-Curve Pen
+//   - ShaperBox LFO Control Strip: All-Linear, All-Smooth, 2x Double-Time, Flip Horizontal, Flip Vertical, Grid Shift, and Clear
+//   - Independent Per-Module Timing (1/16 to 4 Bars) + 16-Step Sequencer Enable Lane
+//   - Clean Bass Crossover (20 - 500 Hz) with Bass Solo + Master Squash Compressor & Soft Clipper
+// @provides
+//   [effect] RhythmForge.jsfx
+
+options:maxmem=16777216
+
+// Automatable Sliders (Hidden with - prefix for custom vector UI)
+slider1:sel_mod=0<0,5,1{Time Warp,ZDF Filter,Drive Fold,LoFi Crush,Comb Space,Gate & Haas}>-Selected Module View
+slider2:trig_mode=0<0,3,1{Tempo Sync,Free Hz,MIDI (C2),Audio Transient}>-Trigger Mode
+slider3:free_hz=2.0<0.2,16.0,0.05>-Free Rate (Hz)
+slider4:swing_pct=0<-50,50,1>-Global Swing (%)
+slider5:smooth_ms=2.5<0.2,60.0,0.2>-Modulation Smooth (ms)
+slider6:gate_pct=100<15,100,1>-Step Gate Width (%)
+
+// Active Module Enable & Mix Sliders
+slider7:m0_on=1<0,1,1{Off,On}>-Time Module Enable
+slider8:m0_mix=100<0,100,0.5>-Time Module Mix (%)
+slider9:m1_on=1<0,1,1{Off,On}>-Filter Module Enable
+slider10:m1_mix=100<0,100,0.5>-Filter Module Mix (%)
+slider11:m2_on=0<0,1,1{Off,On}>-Drive Module Enable
+slider12:m2_mix=85<0,100,0.5>-Drive Module Mix (%)
+slider13:m3_on=0<0,1,1{Off,On}>-Crush Module Enable
+slider14:m3_mix=80<0,100,0.5>-Crush Module Mix (%)
+slider15:m4_on=0<0,1,1{Off,On}>-Space Module Enable
+slider16:m4_mix=45<0,100,0.5>-Space Module Mix (%)
+slider17:m5_on=1<0,1,1{Off,On}>-Gate/Pan Module Enable
+slider18:m5_mix=100<0,100,0.5>-Gate/Pan Module Mix (%)
+
+// Primary Modulatable Controls
+slider19:flt_cutoff_norm=0.58<0,1,0.001>-Filter Base Cutoff
+slider20:flt_res_pct=35<0,92,0.5>-Filter Resonance (%)
+slider21:drv_amount_pct=45<0,100,0.5>-Drive Base Amount (%)
+slider22:crs_rate_pct=60<0,100,0.5>-Crush Base Decimate (%)
+slider23:spc_time_pct=42<0,100,0.5>-Space Base Delay/Freq (%)
+slider24:gat_pan_pct=35<0,100,0.5>-Pan / Haas Depth (%)
+
+// Envelope Follower, Clean Bass & Master Finisher
+slider25:env_src=0<0,1,1{Main Input,Sidechain 3/4}>-Envelope & Trigger Source
+slider26:env_thr_db=-18<-48,0,0.5>-Trigger / Env Threshold (dB)
+slider27:env_att_ms=5<0.5,150,0.5>-Envelope Attack (ms)
+slider28:env_rel_ms=110<10,800,1>-Envelope Release (ms)
+slider29:clean_bass_hz=90<20,500,1>-Clean Bass Split (Hz)
+slider30:clean_bass_on=1<0,1,1{Off,On}>-Clean Bass Enable
+slider31:squash_pct=20<0,100,1>-Master Squash Comp (%)
+slider32:master_clip=1<0,1,1{Off,On}>-Master Soft Clipper
+slider33:out_gain_db=0<-24,18,0.1>-Output Gain (dB)
+slider34:master_mix_pct=100<0,100,0.5>-Master Mix (%)
+slider35:adv_open=0<0,1,1{Closed,Open}>-Trigger & Master Overlay
+slider36:active_on=1<0,1,1{Bypass,Active}>-Master Active
+slider37:ui_zoom=1.20<1.0,1.4,0.2>-UI Text Zoom
+
+in_pin:Left Input
+in_pin:Right Input
+in_pin:Sidechain Left
+in_pin:Sidechain Right
+out_pin:Left Output
+out_pin:Right Output
+
+@init
+ext_noinit = 1.0;
+
+NUM_MODS   = 6;
+NUM_STEPS  = 16;
+MAX_NODES  = 20;
+SCOPE_BINS = 192;
+
+MIN_FREQ = 20.0;
+MAX_FREQ = 20000.0;
+LOG_MIN  = log(MIN_FREQ);
+LOG_MAX  = log(MAX_FREQ);
+
+function DB_TO_K(x) ( 10.0 ^ (x / 20.0) );
+function K_TO_DB(lin) ( 8.685889638 * log(max(0.0000001, lin)) );
+
+// =========================================================================
+// NON-OVERLAPPING MEMORY MAP
+// =========================================================================
+rate_beats_tbl = 50;
+rate_beats_tbl[0] = 0.25;      // 1/16
+rate_beats_tbl[1] = 0.3333333; // 1/8T
+rate_beats_tbl[2] = 0.50;      // 1/8
+rate_beats_tbl[3] = 0.6666667; // 1/4T
+rate_beats_tbl[4] = 1.00;      // 1/4 (1 Beat)
+rate_beats_tbl[5] = 2.00;      // 1/2 (2 Beats)
+rate_beats_tbl[6] = 4.00;      // 1 Bar (4 Beats)
+rate_beats_tbl[7] = 8.00;      // 2 Bars
+rate_beats_tbl[8] = 16.00;     // 4 Bars
+
+// Per-Module Configuration Block (Stride = 32 per module, Base = 100)
+// [0]=sub_type, [1]=param1, [2]=param2, [3]=special_toggle,
+// [4]=lfo_depth, [5]=env_depth, [6]=env_mult_mode, [7]=edit_mode(0=Nodes,1=Steps),
+// [8]=preset_id, [9]=smoothed_lfo, [10]=rate_idx(0..8), [11]=combined_mod,
+// [12]=mod_phase, [13]=slope_pct(10..90), [14]=shift_pct(-50..50),
+// [15]=step_gate_env, [16]=num_nodes
+MOD_CFG_BASE  = 100;
+
+MOD_STEP_VAL  = 350;  // 6 * 16 = 96 floats
+MOD_STEP_ACT  = 470;  // 6 * 16 = 96 floats
+
+// Per-Module Editable Breakpoint Nodes (6 modules * 20 nodes = 120 floats each)
+// MOD_NODE_C stores Segment Curve Type:
+//   0 = LINEAR (pure straight line - exact constant-pitch ramps)
+//   1 = ARC / EXP (power curve controlled by tension NODE_T)
+//   2 = S-CURVE (smooth cosine/Hermite with tension skew)
+//   3 = HOLD (flat horizontal step jump at x1)
+//   4 = STAIRS (quantized staircase, step count controlled by tension)
+//   5 = SINE WAVE (oscillating wave between nodes, rate controlled by tension)
+MOD_NODE_X    = 600;
+MOD_NODE_Y    = 750;
+MOD_NODE_T    = 900;  // Segment tension (-1.0 to +1.0)
+MOD_NODE_C    = 1050; // Segment curve type (0..5)
+
+// Per-Module Oscilloscope Circular Buffers (6 modules * 192 bins = 1152 floats)
+SCOPE_IN_BASE  = 1500;
+SCOPE_OUT_BASE = 2800;
+SCOPE_MOD_BASE = 4100;
+
+// Filter Coefficient & State Blocks
+C_BASS_LP   = 5600; C_BASS_HP   = 5620;
+ST_BASS_L   = 5640; ST_BASS_R   = 5660;
+C_MOD_FLT_L = 5700; C_MOD_FLT_R = 5720;
+ST_FLT_L    = 5740; ST_FLT_R    = 5760;
+C_FORM1     = 5780; C_FORM2     = 5800;
+ST_FORM_L   = 5820; ST_FORM_R   = 5840;
+C_DRV_TONE  = 5860; ST_DRV_L    = 5880; ST_DRV_R = 5890;
+
+// Continuous Ring Buffer for ChronoWarp-Grade Hermite Time Engine (524,288 stereo frames)
+RING_FRAMES = 524288;
+RING_MASK   = RING_FRAMES - 1;
+RING_BASE   = 16384;
+
+SPC_FRAMES  = 65536;
+SPC_MASK    = SPC_FRAMES - 1;
+SPC_BUF     = RING_BASE + (RING_FRAMES * 2);
+
+HAAS_FRAMES = 4096;
+HAAS_MASK   = HAAS_FRAMES - 1;
+HAAS_BUF    = SPC_BUF + (SPC_FRAMES * 2);
+
+AP_FRAMES   = 4096;
+AP_MASK     = AP_FRAMES - 1;
+AP_L1       = HAAS_BUF + (HAAS_FRAMES * 2);
+AP_R1       = AP_L1 + AP_FRAMES;
+
+// 4-Point Hermite Cubic Interpolation on Continuous Ring Buffer
+function read_ring_hermite(r_pos, max_valid_pos)
+  local(safe_pos, i0, frac, idx_m1, idx_0, idx_p1, idx_p2,
+        y0_l, y1_l, y2_l, y3_l, c0_l, c1_l, c2_l, c3_l,
+        y0_r, y1_r, y2_r, y3_r, c0_r, c1_r, c2_r, c3_r)
+(
+  safe_pos = min(r_pos, max_valid_pos - 2.0);
+  i0   = floor(safe_pos);
+  frac = safe_pos - i0;
+
+  idx_m1 = ((i0 - 1) & RING_MASK) * 2;
+  idx_0  = (i0       & RING_MASK) * 2;
+  idx_p1 = ((i0 + 1) & RING_MASK) * 2;
+  idx_p2 = ((i0 + 2) & RING_MASK) * 2;
+
+  y0_l = RING_BASE[idx_m1];     y0_r = RING_BASE[idx_m1 + 1];
+  y1_l = RING_BASE[idx_0];      y1_r = RING_BASE[idx_0  + 1];
+  y2_l = RING_BASE[idx_p1];     y2_r = RING_BASE[idx_p1 + 1];
+  y3_l = RING_BASE[idx_p2];     y3_r = RING_BASE[idx_p2 + 1];
+
+  c0_l = y1_l;
+  c1_l = 0.5 * (y2_l - y0_l);
+  c2_l = y0_l - 2.5 * y1_l + 2.0 * y2_l - 0.5 * y3_l;
+  c3_l = 0.5 * (y3_l - y0_l) + 1.5 * (y1_l - y2_l);
+  out_herm_l = ((c3_l * frac + c2_l) * frac + c1_l) * frac + c0_l;
+
+  c0_r = y1_r;
+  c1_r = 0.5 * (y2_r - y0_r);
+  c2_r = y0_r - 2.5 * y1_r + 2.0 * y2_r - 0.5 * y3_r;
+  c3_r = 0.5 * (y3_r - y0_r) + 1.5 * (y1_r - y2_r);
+  out_herm_r = ((c3_r * frac + c2_r) * frac + c1_r) * frac + c0_r;
+);
+
+function svf_design(ptr, type, fc, gain_db, Q, srate_val)
+  local(fc_s, g, A, k, a1, a2, a3, m0, m1, m2)
+(
+  fc_s = max(18.0, min(srate_val * 0.44, fc));
+  g = tan($pi * fc_s / srate_val);
+  A = 1.0;
+  k = 1.0 / max(0.18, Q);
+
+  type == 1 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 0.0; m1 = 0.0; m2 = 1.0;
+  ) : type == 2 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 0.0; m1 = k; m2 = 0.0;
+  ) : type == 3 ? (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = -k; m2 = -1.0;
+  ) : (
+    a1 = 1.0 / (1.0 + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    m0 = 1.0; m1 = -k; m2 = 0.0;
+  );
+
+  ptr[0]=a1; ptr[1]=a2; ptr[2]=a3; ptr[3]=m0; ptr[4]=m1; ptr[5]=m2;
+);
+
+function svf_design_fast(ptr, type, fc, Q, srate_val)
+  local(fc_s, w, g, k, a1, a2, a3, m0, m1, m2)
+(
+  fc_s = max(20.0, min(srate_val * 0.42, fc));
+  w = $pi * fc_s / srate_val;
+  g = w * (1.0 + w * w * (0.333333 + w * w * 0.133333));
+  k = 1.0 / max(0.18, Q);
+  a1 = 1.0 / (1.0 + g * (g + k));
+  a2 = g * a1;
+  a3 = g * a2;
+
+  type == 1 ? ( m0 = 0.0; m1 = 0.0; m2 = 1.0; ) :
+  type == 2 ? ( m0 = 0.0; m1 = k;   m2 = 0.0; ) :
+  type == 3 ? ( m0 = 1.0; m1 = -k;  m2 = -1.0; ) :
+              ( m0 = 1.0; m1 = -k;  m2 = 0.0; );
+
+  ptr[0]=a1; ptr[1]=a2; ptr[2]=a3; ptr[3]=m0; ptr[4]=m1; ptr[5]=m2;
+);
+
+function process_svf(x, coeff_ptr, state_ptr)
+  local(ic1, ic2, v1, v2, v3)
+(
+  ic1 = state_ptr[0]; ic2 = state_ptr[1];
+  v3  = x - ic2;
+  v1  = coeff_ptr[0] * ic1 + coeff_ptr[1] * v3;
+  v2  = ic2 + coeff_ptr[1] * ic1 + coeff_ptr[2] * v3;
+  state_ptr[0] = 2.0 * v1 - ic1;
+  state_ptr[1] = 2.0 * v2 - ic2;
+  coeff_ptr[3] * x + coeff_ptr[4] * v1 + coeff_ptr[5] * v2;
+);
+
+function proc_allpass(x, base_ptr, d_len, g, w_pos)
+  local(w_i, r_i, y, v)
+(
+  w_i = w_pos & AP_MASK;
+  r_i = (w_pos - d_len) & AP_MASK;
+  y = base_ptr[r_i];
+  v = x - g * y;
+  base_ptr[w_i] = v;
+  y + g * v;
+);
+
+// Evaluate Single Segment Curve by Curve Type c_type (0=Lin, 1=Arc, 2=S-Crv, 3=Hold, 4=Stairs, 5=Wave)
+function eval_segment_shape(seg_t, c_type, t_val)
+  local(s_t, k_p, n_st, w_cyc, sh)
+(
+  s_t = max(0.0, min(1.0, seg_t));
+  c_type == 0 ? (
+    // 0: PURE LINEAR (with optional tension bend if user drags midpoint handle)
+    abs(t_val) < 0.02 ? (
+      sh = s_t;
+    ) : (
+      sh = pow(s_t, pow(3.5, -t_val));
+    );
+  ) : c_type == 1 ? (
+    // 1: ARC / EXPONENTIAL CURVE
+    k_p = abs(t_val) < 0.02 ? 0.45 : pow(4.0, -t_val);
+    sh  = pow(s_t, k_p);
+  ) : c_type == 2 ? (
+    // 2: SMOOTH S-CURVE
+    sh = 0.5 - 0.5 * cos($pi * pow(s_t, pow(2.8, -t_val)));
+  ) : c_type == 3 ? (
+    // 3: HOLD STEP (Gross Beat Jump)
+    sh = (s_t >= 0.999) ? 1.0 : 0.0;
+  ) : c_type == 4 ? (
+    // 4: STAIRS (Quantized Steps between nodes, tension sets 2..12 steps)
+    n_st = floor(2.0 + (abs(t_val) * 10.0 + 2.0));
+    sh   = floor(s_t * n_st) / max(1.0, n_st - 1.0);
+    sh   = max(0.0, min(1.0, sh));
+  ) : (
+    // 5: SINE WAVE PULSE
+    w_cyc = floor(1.0 + abs(t_val) * 6.0);
+    sh    = 0.5 - 0.5 * cos(2.0 * $pi * w_cyc * s_t);
+  );
+  sh;
+);
+
+// Evaluate Module m_idx Envelope at Normalized Phase [0..1]
+function eval_module_lfo(m_idx, raw_ph)
+  local(cfg, edit_mode, ph, sk, k_exp, n_cnt, nx_ptr, ny_ptr, nt_ptr, nc_ptr,
+        i_n, x0, x1, y0, y1, t_val, c_type, seg_t, shaped_t,
+        val_ptr, sw, scaled, st_idx, frac, g_w, out_val)
+(
+  cfg       = MOD_CFG_BASE + m_idx * 32;
+  edit_mode = cfg[7];
+
+  // 1. Apply Per-Module Phase Shift (-50% to +50%)
+  ph = raw_ph - (cfg[14] * 0.01);
+  ph = ph - floor(ph);
+
+  // 2. Apply Per-Module Slope Skew (50% = linear 1.0)
+  sk = max(0.10, min(0.90, cfg[13] * 0.01));
+  abs(sk - 0.50) > 0.01 ? (
+    k_exp = log(0.5) / log(sk);
+    ph = pow(max(0.0, min(1.0, ph)), k_exp);
+  );
+
+  edit_mode == 0 ? (
+    n_cnt  = max(2, floor(cfg[16] + 0.1));
+    nx_ptr = MOD_NODE_X + m_idx * MAX_NODES;
+    ny_ptr = MOD_NODE_Y + m_idx * MAX_NODES;
+    nt_ptr = MOD_NODE_T + m_idx * MAX_NODES;
+    nc_ptr = MOD_NODE_C + m_idx * MAX_NODES;
+
+    i_n = 0;
+    while (i_n < n_cnt - 1 && ph >= nx_ptr[i_n + 1]) (
+      i_n += 1;
+    );
+    i_n >= n_cnt - 1 ? i_n = n_cnt - 2;
+
+    x0 = nx_ptr[i_n];     y0 = ny_ptr[i_n];
+    t_val  = nt_ptr[i_n]; c_type = floor(nc_ptr[i_n] + 0.1);
+    x1 = nx_ptr[i_n + 1]; y1 = ny_ptr[i_n + 1];
+
+    seg_t = (x1 > x0 + 0.00001) ? ((ph - x0) / (x1 - x0)) : 0.0;
+    shaped_t = eval_segment_shape(seg_t, c_type, t_val);
+    out_val  = y0 + (y1 - y0) * shaped_t;
+  ) : (
+    val_ptr = MOD_STEP_VAL + m_idx * NUM_STEPS;
+    sw = swing_pct * 0.005;
+    abs(sw) > 0.001 ? (
+      scaled = ph * 4.0;
+      st_idx = floor(scaled);
+      frac   = scaled - st_idx;
+      frac < 0.5 + sw * 0.35 ? (
+        frac = (frac / max(0.08, 0.5 + sw * 0.35)) * 0.5;
+      ) : (
+        frac = 0.5 + ((frac - (0.5 + sw * 0.35)) / max(0.08, 0.5 - sw * 0.35)) * 0.5;
+      );
+      ph = (st_idx + frac) * 0.25;
+    );
+    scaled = ph * NUM_STEPS;
+    st_idx = min(NUM_STEPS - 1, max(0, floor(scaled)));
+    frac   = scaled - st_idx;
+    g_w    = max(0.10, gate_pct * 0.01);
+    out_val = (frac <= g_w) ? val_ptr[st_idx] : 0.0;
+  );
+
+  max(0.0, min(1.0, out_val));
+);
+
+function sync_steps_from_nodes(m_idx)
+  local(val_ptr, cfg, saved_mode, idx_s, ph_s)
+(
+  cfg        = MOD_CFG_BASE + m_idx * 32;
+  val_ptr    = MOD_STEP_VAL + m_idx * NUM_STEPS;
+  saved_mode = cfg[7];
+  cfg[7]     = 0;
+  idx_s = 0;
+  loop(NUM_STEPS,
+    ph_s = (idx_s + 0.5) / NUM_STEPS;
+    val_ptr[idx_s] = eval_module_lfo(m_idx, ph_s);
+    idx_s += 1;
+  );
+  cfg[7] = saved_mode;
+);
+
+// Load 1 of 8 Presets with Appropriate Per-Segment Curve Types (Linear for Time Ramps!)
+function load_module_pattern(m_idx, pat_id)
+  local(cfg, nx, ny, nt, nc, n_cnt, k_i)
+(
+  cfg = MOD_CFG_BASE + m_idx * 32;
+  cfg[8]  = pat_id;
+  cfg[13] = 50.0;
+  cfg[14] = 0.0;
+
+  nx = MOD_NODE_X + m_idx * MAX_NODES;
+  ny = MOD_NODE_Y + m_idx * MAX_NODES;
+  nt = MOD_NODE_T + m_idx * MAX_NODES;
+  nc = MOD_NODE_C + m_idx * MAX_NODES;
+
+  k_i = 0;
+  loop(MAX_NODES, nt[k_i] = 0.0; nc[k_i] = 0; k_i += 1; );
+
+  pat_id == 0 ? (
+    // 1. PURE LINEAR 2x Half-Time (for Time) OR Classic Sidechain Pump (for others)
+    m_idx == 0 ? (
+      n_cnt = 2;
+      nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=0; // Pure Linear!
+      nx[1]=1.00; ny[1]=0.50; nt[1]=0.0; nc[1]=0;
+    ) : (
+      n_cnt = 4;
+      nx[0]=0.00; ny[0]=1.00; nt[0]=0.0;  nc[0]=0;
+      nx[1]=0.03; ny[1]=0.00; nt[1]=0.0;  nc[1]=0;
+      nx[2]=0.20; ny[2]=0.00; nt[2]=-0.4; nc[2]=1; // Arc rise
+      nx[3]=1.00; ny[3]=1.00; nt[3]=0.0;  nc[3]=0;
+    );
+  ) : pat_id == 1 ? (
+    // 2. PURE LINEAR 1.5x Triplet (for Time) OR Linear Ramp Down
+    m_idx == 0 ? (
+      n_cnt = 2;
+      nx[0]=0.00; ny[0]=1.00;   nt[0]=0.0; nc[0]=0; // Pure Linear!
+      nx[1]=1.00; ny[1]=0.6667; nt[1]=0.0; nc[1]=0;
+    ) : (
+      n_cnt = 2;
+      nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=0;
+      nx[1]=1.00; ny[1]=0.00; nt[1]=0.0; nc[1]=0;
+    );
+  ) : pat_id == 2 ? (
+    // 3. Stutter 1/4 Repeat (for Time) OR Double Pump
+    m_idx == 0 ? (
+      n_cnt = 5;
+      nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=0;
+      nx[1]=0.25; ny[1]=0.75; nt[1]=0.0; nc[1]=0;
+      nx[2]=0.50; ny[2]=1.00; nt[2]=0.0; nc[2]=0;
+      nx[3]=0.75; ny[3]=0.75; nt[3]=0.0; nc[3]=0;
+      nx[4]=1.00; ny[4]=0.50; nt[4]=0.0; nc[4]=0;
+    ) : (
+      n_cnt = 5;
+      nx[0]=0.00; ny[0]=0.05; nt[0]=0.35; nc[0]=1;
+      nx[1]=0.48; ny[1]=1.00; nt[1]=0.0;  nc[1]=0;
+      nx[2]=0.50; ny[2]=0.05; nt[2]=0.35; nc[2]=1;
+      nx[3]=0.98; ny[3]=1.00; nt[3]=0.0;  nc[3]=0;
+      nx[4]=1.00; ny[4]=1.00; nt[4]=0.0;  nc[4]=0;
+    );
+  ) : pat_id == 3 ? (
+    // 4. Triplet Bounce (Linear / Arc)
+    n_cnt = 7;
+    nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=0;
+    nx[1]=0.32; ny[1]=0.20; nt[1]=0.0; nc[1]=0;
+    nx[2]=0.333;ny[2]=1.00; nt[2]=0.0; nc[2]=0;
+    nx[3]=0.65; ny[3]=0.20; nt[3]=0.0; nc[3]=0;
+    nx[4]=0.667;ny[4]=1.00; nt[4]=0.0; nc[4]=0;
+    nx[5]=0.98; ny[5]=0.20; nt[5]=0.0; nc[5]=0;
+    nx[6]=1.00; ny[6]=1.00; nt[6]=0.0; nc[6]=0;
+  ) : pat_id == 4 ? (
+    // 5. Vinyl Scratch (Linear + S-Curve)
+    n_cnt = 5;
+    nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=0;
+    nx[1]=0.25; ny[1]=0.50; nt[1]=0.0; nc[1]=0;
+    nx[2]=0.50; ny[2]=1.00; nt[2]=0.0; nc[2]=2;
+    nx[3]=0.75; ny[3]=0.35; nt[3]=0.0; nc[3]=0;
+    nx[4]=1.00; ny[4]=1.00; nt[4]=0.0; nc[4]=0;
+  ) : pat_id == 5 ? (
+    // 6. Tape Stop (Arc Deceleration toSafety Slope) OR Riser Swell
+    m_idx == 0 ? (
+      n_cnt = 3;
+      nx[0]=0.00; ny[0]=1.00; nt[0]=0.0;  nc[0]=0;
+      nx[1]=0.50; ny[1]=1.00; nt[1]=-0.5; nc[1]=1; // Curved deceleration
+      nx[2]=1.00; ny[2]=0.50; nt[2]=0.0;  nc[2]=0;
+    ) : (
+      n_cnt = 3;
+      nx[0]=0.00; ny[0]=0.00; nt[0]=-0.55; nc[0]=1;
+      nx[1]=0.94; ny[1]=1.00; nt[1]=0.0;   nc[1]=0;
+      nx[2]=1.00; ny[2]=0.00; nt[2]=0.0;   nc[2]=0;
+    );
+  ) : pat_id == 6 ? (
+    // 7. Hold Step Sequence (Uses Curve Type 3 = HOLD for instant square jumps!)
+    n_cnt = 5;
+    nx[0]=0.00; ny[0]=1.00; nt[0]=0.0; nc[0]=3;
+    nx[1]=0.25; ny[1]=0.50; nt[1]=0.0; nc[1]=3;
+    nx[2]=0.50; ny[2]=0.85; nt[2]=0.0; nc[2]=3;
+    nx[3]=0.75; ny[3]=0.25; nt[3]=0.0; nc[3]=3;
+    nx[4]=1.00; ny[4]=1.00; nt[4]=0.0; nc[4]=0;
+  ) : (
+    // 8. Staircase Glitch (Uses Curve Type 4 = STAIRS)
+    n_cnt = 3;
+    nx[0]=0.00; ny[0]=1.00; nt[0]=0.4; nc[0]=4;
+    nx[1]=0.50; ny[1]=0.20; nt[1]=0.6; nc[1]=4;
+    nx[2]=1.00; ny[2]=1.00; nt[2]=0.0; nc[2]=0;
+  );
+
+  cfg[16] = n_cnt;
+  sync_steps_from_nodes(m_idx);
+);
+
+function init_all_modules()
+  local(m_i, st_i, cfg, act_ptr)
+(
+  snap_grid_on  = 1;
+  grid_div_mode = 1; // 0=8, 1=16, 2=12T
+  pen_tool      = 0; // 0=Pointer, 1=Line Pen, 2=Arc Pen, 3=S-Curve Pen
+
+  m_i = 0;
+  loop(NUM_MODS,
+    cfg     = MOD_CFG_BASE + m_i * 32;
+    act_ptr = MOD_STEP_ACT + m_i * NUM_STEPS;
+
+    cfg[13] = 50.0;
+    cfg[14] = 0.0;
+    cfg[15] = 1.0;
+
+    m_i == 0 ? (
+      cfg[0]  = 0;    // 0=Curve Offset (Linear Half-Time ready!), 1=2x, 2=1.5x, 3=4x
+      cfg[1]  = 0.25; // Smooth Window
+      cfg[2]  = 0.0;  // Octave Shimmer
+      cfg[3]  = 0.0;  // Reverse
+      cfg[4]  = 1.0;  // LFO Depth
+      cfg[5]  = 0.0;  // Env Depth
+      cfg[6]  = 0;
+      cfg[7]  = 0;    // Nodes Mode
+      cfg[10] = 6;    // 1 Bar
+      load_module_pattern(0, 0);
+    ) : m_i == 1 ? (
+      cfg[0]  = 0;
+      cfg[1]  = 0.30;
+      cfg[2]  = 0.50;
+      cfg[3]  = 0.0;
+      cfg[4]  = 0.65;
+      cfg[5]  = 0.30;
+      cfg[6]  = 0;
+      cfg[7]  = 0;
+      cfg[10] = 5;    // 1/2
+      load_module_pattern(1, 3);
+    ) : m_i == 2 ? (
+      cfg[0]  = 0;
+      cfg[1]  = 0.60;
+      cfg[2]  = 0.50;
+      cfg[3]  = 0.50;
+      cfg[4]  = 0.70;
+      cfg[5]  = 0.35;
+      cfg[6]  = 0;
+      cfg[7]  = 0;
+      cfg[10] = 4;    // 1/4
+      load_module_pattern(2, 2);
+    ) : m_i == 3 ? (
+      cfg[0]  = 0;
+      cfg[1]  = 0.70;
+      cfg[2]  = 0.15;
+      cfg[3]  = 0.08;
+      cfg[4]  = 0.75;
+      cfg[5]  = 0.0;
+      cfg[6]  = 0;
+      cfg[7]  = 0;
+      cfg[10] = 5;    // 1/2
+      load_module_pattern(3, 7);
+    ) : m_i == 4 ? (
+      cfg[0]  = 0;
+      cfg[1]  = 0.58;
+      cfg[2]  = 0.65;
+      cfg[3]  = 0.50;
+      cfg[4]  = 0.60;
+      cfg[5]  = 0.0;
+      cfg[6]  = 0;
+      cfg[7]  = 0;
+      cfg[10] = 6;    // 1 Bar
+      load_module_pattern(4, 4);
+    ) : (
+      cfg[0]  = 0;
+      cfg[1]  = 0.45;
+      cfg[2]  = 0.50;
+      cfg[3]  = 0.0;
+      cfg[4]  = 0.85;
+      cfg[5]  = 0.0;
+      cfg[6]  = 0;
+      cfg[7]  = 0;
+      cfg[10] = 4;    // 1/4
+      load_module_pattern(5, 0);
+    );
+
+    st_i = 0;
+    loop(NUM_STEPS,
+      act_ptr[st_i] = 1;
+      st_i += 1;
+    );
+    m_i += 1;
+  );
+);
+
+function quantize_pitch_norm(norm_val)
+  local(freq, midi_note, q_freq)
+(
+  freq = exp(LOG_MIN + max(0.0, min(1.0, norm_val)) * (LOG_MAX - LOG_MIN));
+  midi_note = floor(69.0 + 12.0 * log(freq / 440.0) / log(2.0) + 0.5);
+  q_freq = 440.0 * pow(2.0, (midi_note - 69.0) / 12.0);
+  max(0.0, min(1.0, (log(max(MIN_FREQ, min(MAX_FREQ, q_freq))) - LOG_MIN) / (LOG_MAX - LOG_MIN)));
+);
+
+function update_parameters()
+  local(SAFE_SRATE, sm_sec, tone_fc)
+(
+  SAFE_SRATE = max(8000.0, srate);
+
+  out_lin = DB_TO_K(out_gain_db);
+  thr_lin = DB_TO_K(env_thr_db);
+
+  env_att_coeff = exp(-1.0 / max(1.0, (env_att_ms * 0.001) * SAFE_SRATE));
+  env_rel_coeff = exp(-1.0 / max(1.0, (env_rel_ms * 0.001) * SAFE_SRATE));
+
+  sm_sec = max(0.0002, smooth_ms * 0.001);
+  lfo_smooth_coeff = exp(-1.0 / (sm_sec * SAFE_SRATE));
+
+  step_gate_coeff = exp(-1.0 / (0.005 * SAFE_SRATE));
+
+  svf_design(C_BASS_LP, 1, clean_bass_hz, 0.0, 0.7071, SAFE_SRATE);
+  svf_design(C_BASS_HP, 3, clean_bass_hz, 0.0, 0.7071, SAFE_SRATE);
+
+  tone_fc = exp(log(350.0) + (MOD_CFG_BASE + 2 * 32)[1] * (log(16000.0) - log(350.0)));
+  svf_design(C_DRV_TONE, 1, tone_fc, 0.0, 0.7071, SAFE_SRATE);
+
+  meter_decay = exp(-1.0 / (0.12 * SAFE_SRATE));
+);
+
+!init_done ? (
+  ui_zoom < 1.0 ? ui_zoom = 1.20;
+  active_on = 1;
+  clean_bass_on = 1;
+  master_clip = 1;
+  write_abs = 65536;
+  cycle_start_abs = write_abs;
+  old_read_anchor = write_abs;
+  init_all_modules();
+  update_parameters();
+  init_done = 1;
+);
+
+update_parameters();
+
+@slider
+update_parameters();
+
+@block
+update_parameters();
+SAFE_SRATE = max(8000.0, srate);
+SAFE_TEMPO = max(30.0, tempo > 0 ? tempo : 120.0);
+samples_per_beat = (60.0 / SAFE_TEMPO) * SAFE_SRATE;
+
+is_playing = (play_state & 1);
+is_playing ? (
+  host_abs = floor(beat_position * samples_per_beat + 0.5);
+  (!was_playing || abs(host_abs - tracked_host_abs) > 64) ? (
+    tracked_host_abs = host_abs;
+  );
+  was_playing = 1;
+) : (
+  was_playing = 0;
+);
+
+while (midirecv(m_off, m_msg1, m_msg2, m_msg3)) (
+  m_status = m_msg1 & 0xF0;
+  (m_status == 0x90 && m_msg3 > 0) ? (
+    (m_msg2 == 36 || trig_mode == 2) ? (
+      trig_sync_abs = tracked_host_abs;
+      trig_flash = 1.0;
+    );
+    (m_msg2 >= 48 && m_msg2 <= 55) ? (
+      load_module_pattern(sel_mod, m_msg2 - 48);
+    );
+  );
+  midisend(m_off, m_msg1, m_msg2, m_msg3);
+);
+
+@sample
+raw_l = spl0;
+raw_r = spl1;
+sc_l  = spl2;
+sc_r  = spl3;
+
+write_abs += 1;
+tracked_host_abs += 1;
+
+in_pk  = max(abs(raw_l), abs(raw_r));
+env_in = max(in_pk, env_in * meter_decay);
+
+// =========================================================================
+// 1. ENVELOPE FOLLOWER & TRANSIENT DETECTOR
+// =========================================================================
+det_sig = env_src == 1 ? max(abs(sc_l), abs(sc_r)) : in_pk;
+
+trig_holdoff > 0 ? trig_holdoff -= 1;
+(trig_mode == 3 && det_sig > thr_lin && prev_det_sig <= thr_lin && trig_holdoff <= 0) ? (
+  trig_sync_abs = tracked_host_abs;
+  trig_flash    = 1.0;
+  trig_holdoff  = floor(0.050 * SAFE_SRATE);
+);
+prev_det_sig = det_sig;
+
+det_gated = det_sig > thr_lin ? min(1.0, (det_sig - thr_lin) / max(0.05, 1.0 - thr_lin)) : 0.0;
+det_gated > env_fol ? (
+  env_fol = env_att_coeff * env_fol + (1.0 - env_att_coeff) * det_gated;
+) : (
+  env_fol = env_rel_coeff * env_fol + (1.0 - env_rel_coeff) * det_gated;
+);
+
+// =========================================================================
+// 2. INDEPENDENT PER-MODULE PHASE CLOCKS
+// =========================================================================
+rel_host_abs = (trig_mode >= 2) ? max(0, tracked_host_abs - trig_sync_abs) : tracked_host_abs;
+
+m_idx = 0;
+loop(NUM_MODS,
+  cfg_p = MOD_CFG_BASE + m_idx * 32;
+  r_idx = min(8, max(0, floor(cfg_p[10] + 0.1)));
+  mod_beats = rate_beats_tbl[r_idx];
+  mod_loop_samps = max(128.0, mod_beats * samples_per_beat);
+
+  trig_mode == 1 ? (
+    ph_m = cfg_p[12] + (free_hz / SAFE_SRATE) * (4.0 / mod_beats);
+    ph_m >= 1.0 ? ph_m -= floor(ph_m);
+  ) : (
+    ph_m = (rel_host_abs / mod_loop_samps);
+    ph_m = ph_m - floor(ph_m);
+  );
+  cfg_p[12] = ph_m;
+
+  raw_lfo = eval_module_lfo(m_idx, ph_m);
+  // Module 0 (Time Warp) uses raw_lfo directly so linear slopes stay 100% linear!
+  m_idx == 0 ? (
+    sm_lfo = raw_lfo;
+  ) : (
+    sm_lfo = cfg_p[9] * lfo_smooth_coeff + raw_lfo * (1.0 - lfo_smooth_coeff);
+  );
+  cfg_p[9] = sm_lfo;
+
+  l_dep = cfg_p[4];
+  e_dep = cfg_p[5];
+  cfg_p[6] == 1 ? (
+    comb_mod = max(0.0, min(1.0, (sm_lfo * l_dep) * (0.20 + env_fol * max(0.25, abs(e_dep) * 2.0))));
+  ) : (
+    comb_mod = max(0.0, min(1.0, sm_lfo * l_dep + env_fol * e_dep));
+  );
+  cfg_p[11] = comb_mod;
+
+  st_i = min(NUM_STEPS - 1, max(0, floor(ph_m * NUM_STEPS)));
+  target_gate = (MOD_STEP_ACT + m_idx * NUM_STEPS)[st_i] > 0.5 ? 1.0 : 0.0;
+  cfg_p[15] = cfg_p[15] * step_gate_coeff + target_gate * (1.0 - step_gate_coeff);
+
+  m_idx += 1;
+);
+
+// =========================================================================
+// 3. CLEAN BASS CROSSOVER SPLIT
+// =========================================================================
+clean_bass_on ? (
+  bass_l = process_svf(raw_l, C_BASS_LP, ST_BASS_L);
+  bass_r = process_svf(raw_r, C_BASS_LP, ST_BASS_R);
+  proc_l = process_svf(raw_l, C_BASS_HP, ST_BASS_L + 4);
+  proc_r = process_svf(raw_r, C_BASS_HP, ST_BASS_R + 4);
+) : (
+  bass_l = 0.0; bass_r = 0.0;
+  proc_l = raw_l; proc_r = raw_r;
+);
+
+w_ring_idx = (write_abs & RING_MASK) * 2;
+RING_BASE[w_ring_idx]     = proc_l;
+RING_BASE[w_ring_idx + 1] = proc_r;
+
+// =========================================================================
+// MODULE 0: TIME WARP (1:1 Linear Curve Tracking + Dual-Head Jump Crossfader)
+// =========================================================================
+cfg0 = MOD_CFG_BASE + 0 * 32;
+eff_mix0 = (m0_mix * 0.01) * cfg0[15];
+(m0_on && eff_mix0 > 0.001) ? (
+  r0_beats = rate_beats_tbl[min(8, max(0, floor(cfg0[10] + 0.1)))];
+  loop0_samps = floor(max(256.0, min(RING_FRAMES * 0.35, r0_beats * samples_per_beat)));
+
+  cycle_id = floor(rel_host_abs / loop0_samps);
+  pos_in_loop = rel_host_abs - (cycle_id * loop0_samps);
+  pos_in_loop < 0 ? pos_in_loop += loop0_samps;
+
+  (cycle_id != prev_cycle_id) || (abs((write_abs - pos_in_loop) - cycle_start_abs) > 16) ? (
+    old_read_anchor = cur_read_abs;
+    cycle_start_abs = write_abs - pos_in_loop;
+    prev_cycle_id   = cycle_id;
+  );
+
+  t_sub = floor(cfg0[0] + 0.1);
+  rev_t = cfg0[3] > 0.5;
+  t_mod = cfg0[11];
+
+  t_sub == 0 ? (
+    // 1:1 Direct Curve Offset Mode: Pure linear slope gives exact constant pitch!
+    target_del = (1.0 - t_mod) * loop0_samps;
+    // Detect sudden discontinuity jumps (HOLD step or loop wrap) and trigger 5ms crossfade
+    abs(target_del - prev_target_del) > 96.0 && jump_xfade <= 0.0 ? (
+      jump_old_offset = prev_target_del;
+      jump_xfade = 1.0;
+    );
+    prev_target_del = target_del;
+
+    !rev_t ? (
+      cur_read_abs = write_abs - target_del;
+    ) : (
+      cur_read_abs = (cycle_start_abs + loop0_samps) - pos_in_loop - target_del * 0.5;
+    );
+
+    read_ring_hermite(cur_read_abs, write_abs);
+    tl = out_herm_l;
+    tr = out_herm_r;
+
+    jump_xfade > 0.0 ? (
+      read_ring_hermite(write_abs - jump_old_offset, write_abs);
+      w_j = 0.5 - 0.5 * cos($pi * jump_xfade);
+      tl = tl * (1.0 - w_j) + out_herm_l * w_j;
+      tr = tr * (1.0 - w_j) + out_herm_r * w_j;
+      jump_xfade -= 1.0 / max(48.0, (0.003 + cfg0[1] * 0.015) * SAFE_SRATE);
+    );
+  ) : (
+    // Dedicated ChronoWarp Varispeed Modes: 2x (-1 Oct), 1.5x (-5 st), 4x (-2 Oct)
+    sp_rat = (t_sub == 1) ? 0.50 : (t_sub == 2) ? 0.6666667 : 0.25;
+    !rev_t ? (
+      cur_read_abs = cycle_start_abs + (pos_in_loop * sp_rat);
+    ) : (
+      cur_read_abs = cycle_start_abs - (pos_in_loop * sp_rat);
+    );
+    read_ring_hermite(cur_read_abs, write_abs);
+    tl = out_herm_l;
+    tr = out_herm_r;
+
+    xfade_samps = max(64.0, loop0_samps * (0.04 + cfg0[1] * 0.35));
+    pos_in_loop < xfade_samps ? (
+      alpha_w = pos_in_loop / xfade_samps;
+      w_new = 0.5 - 0.5 * cos($pi * alpha_w);
+      w_old = 1.0 - w_new;
+      tail_read_abs = old_read_anchor + pos_in_loop * sp_rat;
+      read_ring_hermite(tail_read_abs, write_abs);
+      tl = tl * w_new + out_herm_l * w_old;
+      tr = tr * w_new + out_herm_r * w_old;
+    );
+  );
+
+  // Octave-Up Shimmer Grain Layer
+  cfg0[2] > 0.02 ? (
+    sh_g = cfg0[2] * 0.40;
+    g_len = 2048.0;
+    gp1 = (pos_in_loop % g_len) / g_len;
+    gp2 = ((pos_in_loop + g_len * 0.5) % g_len) / g_len;
+    w1_s = 0.5 - 0.5 * cos(2.0 * $pi * gp1);
+    w2_s = 0.5 - 0.5 * cos(2.0 * $pi * gp2);
+    read_ring_hermite(cur_read_abs - (1.0 - gp1) * (g_len * 0.5), write_abs);
+    s1_l = out_herm_l; s1_r = out_herm_r;
+    read_ring_hermite(cur_read_abs - (1.0 - gp2) * (g_len * 0.5), write_abs);
+    tl += (s1_l * w1_s + out_herm_l * w2_s) * sh_g;
+    tr += (s1_r * w1_s + out_herm_r * w2_s) * sh_g;
+  );
+
+  proc_l = proc_l * (1.0 - eff_mix0) + tl * eff_mix0;
+  proc_r = proc_r * (1.0 - eff_mix0) + tr * eff_mix0;
+);
+
+// =========================================================================
+// MODULE 1: ZDF FILTER
+// =========================================================================
+cfg1 = MOD_CFG_BASE + 1 * 32;
+eff_mix1 = (m1_mix * 0.01) * cfg1[15];
+(m1_on && eff_mix1 > 0.001) ? (
+  f_norm = max(0.03, min(0.96, flt_cutoff_norm * 0.45 + cfg1[11] * 0.72));
+  cfg1[3] > 0.5 ? f_norm = quantize_pitch_norm(f_norm);
+
+  sm_f_norm = sm_f_norm * 0.985 + f_norm * 0.015;
+
+  st_off = (cfg1[2] - 0.5) * 0.28;
+  fc_l = exp(LOG_MIN + max(0.03, min(0.95, sm_f_norm - st_off)) * (LOG_MAX - LOG_MIN));
+  fc_r = exp(LOG_MIN + max(0.03, min(0.95, sm_f_norm + st_off)) * (LOG_MAX - LOG_MIN));
+  q_flt = 0.65 + pow(flt_res_pct * 0.01, 2.0) * 9.5;
+
+  f_drv = 1.0 + cfg1[1] * 2.2;
+  fl_in_l = (proc_l * f_drv) / (1.0 + 0.35 * abs(proc_l * f_drv));
+  fl_in_r = (proc_r * f_drv) / (1.0 + 0.35 * abs(proc_r * f_drv));
+
+  f_mode = floor(cfg1[0] + 0.1);
+  f_mode == 5 ? (
+    f1_v = 320.0 + sm_f_norm * 480.0;
+    f2_v = 800.0 + sm_f_norm * 1450.0;
+    svf_design_fast(C_FORM1, 2, f1_v, max(2.2, q_flt * 0.7), SAFE_SRATE);
+    svf_design_fast(C_FORM2, 2, f2_v, max(2.2, q_flt * 0.7), SAFE_SRATE);
+    fl_out_l = (process_svf(fl_in_l, C_FORM1, ST_FORM_L) + process_svf(fl_in_l, C_FORM2, ST_FORM_L + 4)) * 1.35;
+    fl_out_r = (process_svf(fl_in_r, C_FORM1, ST_FORM_R) + process_svf(fl_in_r, C_FORM2, ST_FORM_R + 4)) * 1.35;
+  ) : (
+    svf_t = f_mode <= 1 ? 1 : f_mode == 2 ? 2 : f_mode == 3 ? 3 : 4;
+    svf_design_fast(C_MOD_FLT_L, svf_t, fc_l, q_flt, SAFE_SRATE);
+    svf_design_fast(C_MOD_FLT_R, svf_t, fc_r, q_flt, SAFE_SRATE);
+    fl_out_l = process_svf(fl_in_l, C_MOD_FLT_L, ST_FLT_L);
+    fl_out_r = process_svf(fl_in_r, C_MOD_FLT_R, ST_FLT_R);
+    f_mode == 1 ? (
+      fl_out_l = process_svf(fl_out_l, C_MOD_FLT_L, ST_FLT_L + 4);
+      fl_out_r = process_svf(fl_out_r, C_MOD_FLT_R, ST_FLT_R + 4);
+    );
+  );
+
+  proc_l = proc_l * (1.0 - eff_mix1) + fl_out_l * eff_mix1;
+  proc_r = proc_r * (1.0 - eff_mix1) + fl_out_r * eff_mix1;
+);
+
+// =========================================================================
+// MODULE 2: DRIVE FOLD
+// =========================================================================
+cfg2 = MOD_CFG_BASE + 2 * 32;
+eff_mix2 = (m2_mix * 0.01) * cfg2[15];
+(m2_on && eff_mix2 > 0.001) ? (
+  d_amt  = max(0.0, min(1.0, (drv_amount_pct * 0.01) * 0.4 + cfg2[11] * 0.75));
+  d_gain = 1.0 + d_amt * 10.0;
+  d_bias = (cfg2[2] - 0.5) * 0.40 * d_amt;
+
+  dl = proc_l * d_gain + d_bias;
+  dr = proc_r * d_gain + d_bias;
+
+  d_style = floor(cfg2[0] + 0.1);
+  d_style == 0 ? (
+    dl = dl / (1.0 + abs(dl));
+    dr = dr / (1.0 + abs(dr));
+  ) : d_style == 1 ? (
+    dl = max(-0.92, min(0.92, dl * 1.35));
+    dr = max(-0.92, min(0.92, dr * 1.35));
+  ) : d_style == 2 ? (
+    dl = (abs(dl) * 1.3 - 0.3 * d_amt) / (1.0 + abs(dl));
+    dr = (abs(dr) * 1.3 - 0.3 * d_amt) / (1.0 + abs(dr));
+  ) : d_style == 3 ? (
+    dl = sin(dl * 1.6);
+    dr = sin(dr * 1.6);
+  ) : (
+    dl = sin(dl * 2.1 + 0.3 * sin(dl * 4.2));
+    dr = sin(dr * 2.1 + 0.3 * sin(dr * 4.2));
+  );
+
+  dl = process_svf(dl, C_DRV_TONE, ST_DRV_L);
+  dr = process_svf(dr, C_DRV_TONE, ST_DRV_R);
+
+  comp_g = 1.0 / (1.0 + d_amt * 0.45);
+  proc_l = proc_l * (1.0 - eff_mix2) + (dl * comp_g) * eff_mix2;
+  proc_r = proc_r * (1.0 - eff_mix2) + (dr * comp_g) * eff_mix2;
+);
+
+// =========================================================================
+// MODULE 3: LO-FI CRUSH
+// =========================================================================
+cfg3 = MOD_CFG_BASE + 3 * 32;
+eff_mix3 = (m3_mix * 0.01) * cfg3[15];
+(m3_on && eff_mix3 > 0.001) ? (
+  c_mod = max(0.0, min(1.0, (crs_rate_pct * 0.01) * 0.35 + cfg3[11] * 0.75));
+  decim_step = 1.0 + pow(c_mod, 2.3) * 56.0 * (1.0 + (rand(2.0) - 1.0) * cfg3[2] * 0.35);
+  snh_cnt += 1.0;
+  snh_cnt >= decim_step ? (
+    snh_cnt -= decim_step;
+    snh_l = proc_l;
+    snh_r = proc_r;
+  );
+
+  bits = 2.0 + (1.0 - c_mod * (1.0 - cfg3[1] * 0.7)) * 12.0;
+  q_steps = pow(2.0, max(2.0, min(16.0, bits)));
+  cl = floor(snh_l * q_steps + 0.5) / q_steps;
+  cr = floor(snh_r * q_steps + 0.5) / q_steps;
+
+  cfg3[3] > 0.01 ? (
+    n_amp = cfg3[3] * 0.06 * min(1.0, in_pk * 3.0);
+    cl += (rand(2.0) - 1.0) * n_amp;
+    cr += (rand(2.0) - 1.0) * n_amp;
+  );
+
+  proc_l = proc_l * (1.0 - eff_mix3) + cl * eff_mix3;
+  proc_r = proc_r * (1.0 - eff_mix3) + cr * eff_mix3;
+);
+
+// =========================================================================
+// MODULE 4: COMB & SPACE
+// =========================================================================
+spc_w_pos = (spc_w_pos + 1) & SPC_MASK;
+cfg4 = MOD_CFG_BASE + 4 * 32;
+eff_mix4 = (m4_mix * 0.01) * cfg4[15];
+(m4_on && eff_mix4 > 0.001) ? (
+  s_mod  = max(0.02, min(0.98, (spc_time_pct * 0.01) * 0.35 + cfg4[11] * 0.70));
+  s_mode = floor(cfg4[0] + 0.1);
+
+  s_mode <= 1 ? (
+    target_spc_del = (0.0005 + pow(1.0 - s_mod, 2.0) * 0.016) * SAFE_SRATE;
+  ) : (
+    target_spc_del = (0.025 + s_mod * 0.38) * SAFE_SRATE;
+  );
+  sm_spc_del = sm_spc_del * 0.995 + target_spc_del * 0.005;
+  del_samps_r = s_mode == 2 ? sm_spc_del * 0.75 : sm_spc_del * (1.0 + cfg4[3] * 0.15);
+
+  rp_l = spc_w_pos - sm_spc_del;  ri_l = floor(rp_l); rf_l = rp_l - ri_l;
+  rp_r = spc_w_pos - del_samps_r; ri_r = floor(rp_r); rf_r = rp_r - ri_r;
+
+  dl_l = SPC_BUF[(ri_l & SPC_MASK)*2] * (1.0 - rf_l) + SPC_BUF[((ri_l+1) & SPC_MASK)*2] * rf_l;
+  dl_r = SPC_BUF[(ri_r & SPC_MASK)*2 + 1] * (1.0 - rf_r) + SPC_BUF[((ri_r+1) & SPC_MASK)*2 + 1] * rf_r;
+
+  damp_c = 0.10 + (1.0 - cfg4[2]) * 0.78;
+  spc_lp_l = dl_l * (1.0 - damp_c) + spc_lp_l * damp_c;
+  spc_lp_r = dl_r * (1.0 - damp_c) + spc_lp_r * damp_c;
+
+  s_mode == 3 ? (
+    spc_lp_l = proc_allpass(spc_lp_l, AP_L1, 173, 0.55, spc_w_pos);
+    spc_lp_r = proc_allpass(spc_lp_r, AP_R1, 229, 0.55, spc_w_pos);
+  );
+
+  fb_g = min(0.90, cfg4[1] * 0.90) * (s_mode == 1 ? -1.0 : 1.0);
+  s_mode == 2 ? (
+    SPC_BUF[spc_w_pos * 2]     = max(-2.0, min(2.0, proc_l + spc_lp_r * fb_g));
+    SPC_BUF[spc_w_pos * 2 + 1] = max(-2.0, min(2.0, proc_r + spc_lp_l * fb_g));
+  ) : (
+    SPC_BUF[spc_w_pos * 2]     = max(-2.0, min(2.0, proc_l + spc_lp_l * fb_g));
+    SPC_BUF[spc_w_pos * 2 + 1] = max(-2.0, min(2.0, proc_r + spc_lp_r * fb_g));
+  );
+
+  proc_l = proc_l * (1.0 - eff_mix4 * 0.5) + spc_lp_l * eff_mix4;
+  proc_r = proc_r * (1.0 - eff_mix4 * 0.5) + spc_lp_r * eff_mix4;
+) : (
+  SPC_BUF[spc_w_pos * 2]     = proc_l;
+  SPC_BUF[spc_w_pos * 2 + 1] = proc_r;
+);
+
+// =========================================================================
+// MODULE 5: VOLUME GATE, PAN FLIP & HAAS WIDENER
+// =========================================================================
+haas_w_pos = (haas_w_pos + 1) & HAAS_MASK;
+HAAS_BUF[haas_w_pos * 2]     = proc_l;
+HAAS_BUF[haas_w_pos * 2 + 1] = proc_r;
+
+cfg5 = MOD_CFG_BASE + 5 * 32;
+eff_mix5 = (m5_mix * 0.01) * cfg5[15];
+(m5_on && eff_mix5 > 0.001) ? (
+  g_mod  = cfg5[11];
+  g_mode = floor(cfg5[0] + 0.1);
+  vol_env = g_mode == 2 ? 1.0 : g_mod;
+
+  target_haas = (gat_pan_pct * 0.01) * cfg5[1] * 0.010 * SAFE_SRATE * g_mod;
+  sm_haas_del = sm_haas_del * 0.995 + target_haas * 0.005;
+  hr_pos = haas_w_pos - sm_haas_del;
+  hr_i0  = floor(hr_pos);
+  hr_fr  = hr_pos - hr_i0;
+  haas_r = HAAS_BUF[(hr_i0 & HAAS_MASK)*2 + 1] * (1.0 - hr_fr) + HAAS_BUF[((hr_i0+1) & HAAS_MASK)*2 + 1] * hr_fr;
+
+  pan_bipolar = g_mode == 0 ? ((g_mod - 0.5) * (gat_pan_pct * 0.01) * 1.3) : 0.0;
+  pan_l_g = min(1.0, 1.0 - pan_bipolar);
+  pan_r_g = min(1.0, 1.0 + pan_bipolar);
+
+  gl = proc_l * vol_env * pan_l_g;
+  gr = haas_r * vol_env * pan_r_g;
+
+  w_mult = cfg5[2] * 2.0;
+  mid_v  = (gl + gr) * 0.5;
+  side_v = (gl - gr) * 0.5 * w_mult;
+  gl = mid_v + side_v;
+  gr = mid_v - side_v;
+
+  proc_l = proc_l * (1.0 - eff_mix5) + gl * eff_mix5;
+  proc_r = proc_r * (1.0 - eff_mix5) + gr * eff_mix5;
+);
+
+// =========================================================================
+// 4. RECOMBINE CLEAN BASS + MASTER SQUASH + SOFT CLIPPER
+// =========================================================================
+bass_solo_on ? (
+  wet_l = bass_l;
+  wet_r = bass_r;
+) : (
+  wet_l = bass_l + proc_l;
+  wet_r = bass_r + proc_r;
+);
+
+squash_pct > 0.5 ? (
+  sq_amt  = squash_pct * 0.01;
+  sq_pk   = max(abs(wet_l), abs(wet_r));
+  sq_env  = sq_pk > sq_env ? (sq_env * 0.992 + sq_pk * 0.008) : (sq_env * 0.9994 + sq_pk * 0.0006);
+  sq_gain = sq_env > 0.28 ? pow(0.28 / max(0.001, sq_env), sq_amt * 0.65) : 1.0;
+  makeup  = 1.0 + sq_amt * 0.45;
+  wet_l  *= sq_gain * makeup;
+  wet_r  *= sq_gain * makeup;
+);
+
+active_on ? (
+  mmx = master_mix_pct * 0.01;
+  out_l = (raw_l * (1.0 - mmx) + wet_l * mmx) * out_lin;
+  out_r = (raw_r * (1.0 - mmx) + wet_r * mmx) * out_lin;
+
+  master_clip ? (
+    out_l = out_l / (1.0 + 0.25 * out_l * out_l);
+    out_r = out_r / (1.0 + 0.25 * out_r * out_r);
+    out_l = max(-0.98, min(0.98, out_l * 1.15));
+    out_r = max(-0.98, min(0.98, out_r * 1.15));
+  );
+) : (
+  out_l = raw_l;
+  out_r = raw_r;
+);
+
+(out_l != out_l || abs(out_l) > 4.0) ? out_l = max(-4.0, min(4.0, out_l));
+(out_r != out_r || abs(out_r) > 4.0) ? out_r = max(-4.0, min(4.0, out_r));
+
+spl0 = out_l;
+spl1 = out_r;
+
+out_pk  = max(abs(out_l), abs(out_r));
+env_out = max(out_pk, env_out * meter_decay);
+
+sel_ph_now = (MOD_CFG_BASE + sel_mod * 32)[12];
+sc_bin = min(SCOPE_BINS - 1, max(0, floor(sel_ph_now * SCOPE_BINS)));
+(SCOPE_IN_BASE  + sel_mod * SCOPE_BINS)[sc_bin] = (SCOPE_IN_BASE  + sel_mod * SCOPE_BINS)[sc_bin] * 0.85 + in_pk  * 0.15;
+(SCOPE_OUT_BASE + sel_mod * SCOPE_BINS)[sc_bin] = (SCOPE_OUT_BASE + sel_mod * SCOPE_BINS)[sc_bin] * 0.85 + out_pk * 0.15;
+(SCOPE_MOD_BASE + sel_mod * SCOPE_BINS)[sc_bin] = (MOD_CFG_BASE   + sel_mod * 32)[11];
+trig_flash *= 0.9994;
+
+@gfx 1000 740
+// Catppuccin Mocha Base (#1E1E2E: R=30, G=30, B=46)
+gfx_clear = 30 + (30 * 256) + (46 * 65536);
+
+W = max(860, gfx_w);
+H = max(640, gfx_h);
+
+ui_zoom < 1.0 ? ui_zoom = 1.20;
+UI_S  = min(W / 1000.0, H / 740.0);
+UI_TS = UI_S * ui_zoom;
+
+f_title = max(18, floor(22 * UI_TS));
+f_sec   = max(12, floor(13 * UI_TS));
+f_val   = max(12, floor(13 * UI_TS));
+f_btn   = max(11, floor(12 * UI_TS));
+f_sub   = max(10, floor(11 * UI_TS));
+
+gfx_setfont(1, "sans-serif", f_title, 'b');
+gfx_setfont(2, "sans-serif", f_sec,   'b');
+gfx_setfont(3, "sans-serif", f_val,   0);
+gfx_setfont(4, "sans-serif", f_btn,   'b');
+gfx_setfont(5, "sans-serif", f_sub,   'b');
+
+target_adv = adv_open ? 1.0 : 0.0;
+adv_anim = adv_anim + (target_adv - adv_anim) * 0.40;
+abs(target_adv - adv_anim) < 0.005 ? adv_anim = target_adv;
+
+function set_mod_color(m_id, alpha)
+(
+  m_id == 0 ? gfx_set(0.58, 0.89, 0.84, alpha) : // Teal (Time Warp)
+  m_id == 1 ? gfx_set(0.54, 0.71, 0.98, alpha) : // Blue (ZDF Filter)
+  m_id == 2 ? gfx_set(0.98, 0.70, 0.53, alpha) : // Peach (Drive Fold)
+  m_id == 3 ? gfx_set(0.80, 0.65, 0.97, alpha) : // Mauve (Lo-Fi Crush)
+  m_id == 4 ? gfx_set(0.45, 0.78, 0.98, alpha) : // Sapphire (Comb Space)
+              gfx_set(0.65, 0.89, 0.63, alpha);  // Green (Gate & Haas)
+);
+
+function get_mod_rgb(m_id)
+(
+  m_id == 0 ? ( mr_c = 0.58; mg_c = 0.89; mb_c = 0.84; ) :
+  m_id == 1 ? ( mr_c = 0.54; mg_c = 0.71; mb_c = 0.98; ) :
+  m_id == 2 ? ( mr_c = 0.98; mg_c = 0.70; mb_c = 0.53; ) :
+  m_id == 3 ? ( mr_c = 0.80; mg_c = 0.65; mb_c = 0.97; ) :
+  m_id == 4 ? ( mr_c = 0.45; mg_c = 0.78; mb_c = 0.98; ) :
+              ( mr_c = 0.65; mg_c = 0.89; mb_c = 0.63; );
+);
+
+function draw_panel_box(bx, by, bw, bh, r_bg, g_bg, b_bg, r_bd, g_bd, b_bd)
+(
+  gfx_set(r_bg, g_bg, b_bg, 1.0);
+  gfx_rect(bx, by, bw, bh);
+  gfx_set(r_bd, g_bd, b_bd, 1.0);
+  gfx_rect(bx, by, bw, bh, 0);
+);
+
+function draw_diamond(cx, cy, rad)
+(
+  gfx_line(cx, cy - rad, cx + rad, cy, 1);
+  gfx_line(cx + rad, cy, cx, cy + rad, 1);
+  gfx_line(cx, cy + rad, cx - rad, cy, 1);
+  gfx_line(cx - rad, cy, cx, cy - rad, 1);
+);
+
+// Helper: Insert or Overwrite a Segment between [x_start, x_end] using Pen Tool
+function insert_pen_segment(m_id, x_s, y_s, x_e, y_e, c_type, tens_v)
+  local(cfg, nx, ny, nt, nc, n_cnt, x0, y0, x1, y1,
+        new_x, new_y, new_t, new_c, out_i, i_k)
+(
+  cfg   = MOD_CFG_BASE + m_id * 32;
+  nx    = MOD_NODE_X + m_id * MAX_NODES;
+  ny    = MOD_NODE_Y + m_id * MAX_NODES;
+  nt    = MOD_NODE_T + m_id * MAX_NODES;
+  nc    = MOD_NODE_C + m_id * MAX_NODES;
+  n_cnt = max(2, floor(cfg[16] + 0.1));
+
+  x_s <= x_e ? (
+    x0 = x_s; y0 = y_s; x1 = x_e; y1 = y_e;
+  ) : (
+    x0 = x_e; y0 = y_e; x1 = x_s; y1 = y_s;
+  );
+  x1 - x0 < 0.02 ? x1 = min(1.0, x0 + 0.0625);
+
+  new_x = 6200; new_y = 6230; new_t = 6260; new_c = 6290;
+  out_i = 0;
+
+  // Keep existing nodes strictly before x0
+  i_k = 0;
+  while (i_k < n_cnt) (
+    nx[i_k] < x0 - 0.015 ? (
+      new_x[out_i] = nx[i_k]; new_y[out_i] = ny[i_k];
+      new_t[out_i] = nt[i_k]; new_c[out_i] = nc[i_k];
+      out_i += 1;
+    );
+    i_k += 1;
+  );
+
+  // Ensure start boundary at 0.0
+  out_i == 0 && x0 > 0.01 ? (
+    new_x[0] = 0.0; new_y[0] = ny[0]; new_t[0] = 0.0; new_c[0] = 0;
+    out_i = 1;
+  );
+
+  // Add Pen Start & End Points
+  out_i < MAX_NODES - 2 ? (
+    new_x[out_i] = x0; new_y[out_i] = y0; new_t[out_i] = tens_v; new_c[out_i] = c_type;
+    out_i += 1;
+    new_x[out_i] = x1; new_y[out_i] = y1; new_t[out_i] = 0.0;    new_c[out_i] = 0;
+    out_i += 1;
+  );
+
+  // Keep existing nodes strictly after x1
+  i_k = 0;
+  while (i_k < n_cnt && out_i < MAX_NODES) (
+    nx[i_k] > x1 + 0.015 ? (
+      new_x[out_i] = nx[i_k]; new_y[out_i] = ny[i_k];
+      new_t[out_i] = nt[i_k]; new_c[out_i] = nc[i_k];
+      out_i += 1;
+    );
+    i_k += 1;
+  );
+
+  new_x[out_i - 1] < 0.99 && out_i < MAX_NODES ? (
+    new_x[out_i] = 1.0; new_y[out_i] = y1; new_t[out_i] = 0.0; new_c[out_i] = 0;
+    out_i += 1;
+  );
+  new_x[0] = 0.0;
+  new_x[out_i - 1] = 1.0;
+
+  i_k = 0;
+  loop(out_i,
+    nx[i_k] = new_x[i_k]; ny[i_k] = new_y[i_k];
+    nt[i_k] = new_t[i_k]; nc[i_k] = new_c[i_k];
+    i_k += 1;
+  );
+  cfg[16] = out_i;
+  sync_steps_from_nodes(m_id);
+);
+
+function draw_rf_knob(id, cx, cy, r, val, vmin, vmax, vdef, label, val_str, bipolar, rc, gc, bc)
+  local(norm, zero_norm, hit, hover, sens, delta, ang_start, ang_end, ang_val,
+        steps, st, t0, t1, a0, a1, active_seg, px0, py0, px1, py1, lw, lh, vw, vh,
+        pill_w, pill_h, pill_x, pill_y)
+(
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+
+  hit = ((mouse_x - cx)*(mouse_x - cx) + (mouse_y - cy)*(mouse_y - cy)) <= ((r + 7)*(r + 7));
+  hover = hit || (drag_id == id);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && hit ? (
+    (time_precise() - last_click_time < 0.28) && (last_click_id == id) ? (
+      val = vdef;
+      drag_id = 0;
+    ) : (
+      drag_id = id;
+      drag_start_y = mouse_y;
+      drag_start_val = val;
+      last_click_time = time_precise();
+      last_click_id = id;
+    );
+  );
+
+  drag_id == id ? (
+    (mouse_cap & 1) ? (
+      sens = (mouse_cap & 4) ? 520.0 : 145.0;
+      delta = (drag_start_y - mouse_y) / sens;
+      val = max(vmin, min(vmax, drag_start_val + delta * (vmax - vmin)));
+    ) : (
+      drag_id = 0;
+    );
+  );
+
+  norm = max(0.0, min(1.0, (val - vmin) / (vmax - vmin)));
+  ang_start = -2.356194;
+  ang_end   =  2.356194;
+  ang_val   = ang_start + norm * (ang_end - ang_start);
+  zero_norm = (0.0 - vmin) / (vmax - vmin);
+
+  gfx_set(0.04, 0.04, 0.08, 0.88);
+  gfx_circle(cx, cy + 2, r + 2, 1, 1);
+  hover ? (
+    gfx_set(rc, gc, bc, 0.18);
+    gfx_circle(cx, cy, r + 5, 1, 1);
+  );
+
+  gfx_set(0.11, 0.12, 0.17, 1.0);
+  gfx_circle(cx, cy, r, 1, 1);
+  hover ? gfx_set(rc, gc, bc, 0.95) : gfx_set(0.25, 0.27, 0.37, 1.0);
+  gfx_circle(cx, cy, r, 0, 1);
+
+  steps = 30;
+  st = 0;
+  loop(steps,
+    t0 = st / steps;
+    t1 = (st + 1) / steps;
+    a0 = ang_start + t0 * (ang_end - ang_start);
+    a1 = ang_start + t1 * (ang_end - ang_start);
+
+    bipolar ? (
+      active_seg = (t1 >= min(zero_norm, norm)) && (t0 <= max(zero_norm, norm));
+    ) : (
+      active_seg = (t1 <= norm);
+    );
+
+    active_seg ? gfx_set(rc, gc, bc, 0.98) : gfx_set(0.19, 0.20, 0.28, 0.88);
+
+    gfx_line(cx + sin(a0)*(r-3), cy - cos(a0)*(r-3), cx + sin(a1)*(r-3), cy - cos(a1)*(r-3), 1);
+    gfx_line(cx + sin(a0)*(r-4), cy - cos(a0)*(r-4), cx + sin(a1)*(r-4), cy - cos(a1)*(r-4), 1);
+    gfx_line(cx + sin(a0)*(r-5), cy - cos(a0)*(r-5), cx + sin(a1)*(r-5), cy - cos(a1)*(r-5), 1);
+    st += 1;
+  );
+
+  gfx_set(0.16, 0.18, 0.25, 1.0);
+  gfx_circle(cx, cy, floor(r * 0.26), 1, 1);
+  gfx_set(0.96, 0.98, 1.0, 1.0);
+  px0 = cx + sin(ang_val) * (r * 0.22);
+  py0 = cy - cos(ang_val) * (r * 0.22);
+  px1 = cx + sin(ang_val) * (r - 6);
+  py1 = cy - cos(ang_val) * (r - 6);
+  gfx_line(px0, py0, px1, py1, 1);
+  gfx_line(px0 + 0.6, py0, px1 + 0.6, py1, 1);
+
+  gfx_setfont(5);
+  gfx_measurestr(label, lw, lh);
+  gfx_set(0.78, 0.82, 0.92, 1.0);
+  gfx_x = cx - lw * 0.5;
+  gfx_y = cy + r + floor(4 * UI_S);
+  gfx_drawstr(label);
+
+  gfx_setfont(3);
+  gfx_measurestr(val_str, vw, vh);
+  pill_w = max(vw + floor(12 * UI_S), floor(62 * UI_S));
+  pill_h = vh + floor(4 * UI_S);
+  pill_x = cx - pill_w * 0.5;
+  pill_y = cy + r + lh + floor(5 * UI_S);
+
+  draw_panel_box(pill_x, pill_y, pill_w, pill_h, 0.06, 0.06, 0.10, hover ? rc : 0.22, hover ? gc : 0.24, hover ? bc : 0.34);
+  gfx_set(0.96, 0.98, 1.0, 1.0);
+  gfx_x = cx - vw * 0.5;
+  gfx_y = pill_y + (pill_h - vh) * 0.5;
+  gfx_drawstr(val_str);
+
+  val;
+);
+
+// =========================================================================
+// 1. TOP HEADER BAR
+// =========================================================================
+hdr_h = floor(48 * UI_S);
+gfx_set(0.09, 0.09, 0.15, 1.0);
+gfx_rect(0, 0, W, hdr_h);
+gfx_set(0.20, 0.22, 0.30, 1.0);
+gfx_line(0, hdr_h, W, hdr_h);
+
+gfx_setfont(1);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = floor(14 * UI_S);
+gfx_measurestr("RHYTHM", tw1, th1);
+gfx_y = (hdr_h - th1) * 0.5;
+gfx_drawstr("RHYTHM");
+gfx_set(0.94, 0.96, 1.0, 1.0);
+gfx_drawstr("FORGE");
+
+gfx_setfont(4);
+gfx_measurestr("?", qw, qh);
+q_x = gfx_x + floor(8 * UI_S);
+q_y = (hdr_h - qh - 4) * 0.5;
+gfx_set(0.18, 0.19, 0.28, 1.0);
+gfx_rect(q_x, q_y, qw + 10, qh + 4);
+gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = q_x + 5; gfx_y = q_y + 2;
+gfx_drawstr("?");
+
+title_hit = mouse_x >= 12 && mouse_x <= (q_x + qw + 14) && mouse_y >= 6 && mouse_y <= (hdr_h - 6);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && title_hit ? (
+  info_open = !info_open;
+);
+
+hb_h = floor(28 * UI_S);
+hb_y = (hdr_h - hb_h) * 0.5;
+
+// Trigger Mode Selector
+tr_w = floor(128 * UI_S);
+tr_x = floor(215 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= tr_x && mouse_x <= tr_x + tr_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  trig_mode = (trig_mode + 1) % 4;
+  slider_automate(slider2);
+);
+trig_mode == 0 ? (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.48);
+  strcpy(#tr_s, "TRIG: HOST SYNC");
+) : trig_mode == 1 ? (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.16, 0.36, 0.52, 0.45, 0.78, 0.98);
+  strcpy(#tr_s, "TRIG: FREE HZ");
+) : trig_mode == 2 ? (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.36, 0.24, 0.52, 0.80, 0.65, 0.97);
+  strcpy(#tr_s, "TRIG: MIDI (C2)");
+) : (
+  draw_panel_box(tr_x, hb_y, tr_w, hb_h, 0.48, 0.30, 0.18, 0.98, 0.70, 0.53);
+  strcpy(#tr_s, "TRIG: AUDIO");
+);
+gfx_setfont(4); gfx_set(0.95, 0.97, 1.0, 1.0);
+gfx_measurestr(#tr_s, tw, th); gfx_x = tr_x + (tr_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#tr_s);
+
+lamp_x = tr_x + tr_w + floor(10 * UI_S);
+gfx_set(0.18 + 0.40 * trig_flash, 0.22 + 0.66 * trig_flash, 0.30 + 0.64 * trig_flash, 1.0);
+gfx_circle(lamp_x, hdr_h * 0.5, floor(5 * UI_S), 1, 1);
+
+// Sync All Module Rates Button
+sa_w = floor(124 * UI_S);
+sa_x = lamp_x + floor(12 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= sa_x && mouse_x <= sa_x + sa_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  cur_r = (MOD_CFG_BASE + sel_mod * 32)[10];
+  m_k = 0; loop(NUM_MODS, (MOD_CFG_BASE + m_k * 32)[10] = cur_r; m_k += 1; );
+);
+draw_panel_box(sa_x, hb_y, sa_w, hb_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.48);
+strcpy(#sa_s, "LINK ALL RATES");
+gfx_measurestr(#sa_s, tw, th); gfx_x = sa_x + (sa_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#sa_s);
+
+// Clean Bass Split Toggle
+cb_w = floor(138 * UI_S);
+cb_x = sa_x + sa_w + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= cb_x && mouse_x <= cb_x + cb_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  clean_bass_on = !clean_bass_on;
+  slider_automate(slider30);
+);
+(mouse_cap & 2) && !(last_mouse_cap & 2) &&
+(mouse_x >= cb_x && mouse_x <= cb_x + cb_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  bass_solo_on = !bass_solo_on;
+);
+bass_solo_on ? (
+  draw_panel_box(cb_x, hb_y, cb_w, hb_h, 0.62, 0.36, 0.16, 0.98, 0.70, 0.53);
+  sprintf(#cb_s, "BASS SOLO (%dHz)", clean_bass_hz);
+) : clean_bass_on ? (
+  draw_panel_box(cb_x, hb_y, cb_w, hb_h, 0.16, 0.42, 0.40, 0.58, 0.89, 0.84);
+  sprintf(#cb_s, "CLEAN SUB <%dHz", clean_bass_hz);
+) : (
+  draw_panel_box(cb_x, hb_y, cb_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#cb_s, "CLEAN SUB: OFF");
+);
+gfx_measurestr(#cb_s, tw, th); gfx_x = cb_x + (cb_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#cb_s);
+
+// Randomize Curve/Steps Button
+rnd_w = floor(94 * UI_S);
+rnd_x = cb_x + cb_w + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= rnd_x && mouse_x <= rnd_x + rnd_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  sel_c = MOD_CFG_BASE + sel_mod * 32;
+  sel_c[7] == 0 ? (
+    n_c  = max(3, floor(sel_c[16] + 0.1));
+    ny_p = MOD_NODE_Y + sel_mod * MAX_NODES;
+    nc_p = MOD_NODE_C + sel_mod * MAX_NODES;
+    r_i = 0;
+    loop(n_c,
+      ny_p[r_i] = floor(rand(8.0)) / 8.0;
+      nc_p[r_i] = floor(rand(4.0));
+      r_i += 1;
+    );
+    sync_steps_from_nodes(sel_mod);
+  ) : (
+    vp = MOD_STEP_VAL + sel_mod * NUM_STEPS;
+    r_i = 0; loop(NUM_STEPS, vp[r_i] = rand(1.0); r_i += 1; );
+  );
+);
+draw_panel_box(rnd_x, hb_y, rnd_w, hb_h, 0.22, 0.18, 0.34, 0.80, 0.65, 0.97);
+gfx_measurestr("RANDOMIZE", tw, th); gfx_x = rnd_x + (rnd_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr("RANDOMIZE");
+
+// Text Scale Button
+zm_w = floor(66 * UI_S);
+zm_x = W - floor(156 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= zm_x && mouse_x <= zm_x + zm_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  ui_zoom < 1.1 ? ui_zoom = 1.20 : ui_zoom < 1.3 ? ui_zoom = 1.40 : ui_zoom = 1.0;
+  slider_automate(slider37);
+);
+draw_panel_box(zm_x, hb_y, zm_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+ui_zoom < 1.1 ? strcpy(#z_s, "100%") : ui_zoom < 1.3 ? strcpy(#z_s, "120%") : strcpy(#z_s, "140%");
+gfx_measurestr(#z_s, tw, th); gfx_x = zm_x + (zm_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#z_s);
+
+// Master Active Button
+act_w = floor(74 * UI_S);
+act_x = W - act_w - floor(10 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) &&
+(mouse_x >= act_x && mouse_x <= act_x + act_w && mouse_y >= hb_y && mouse_y <= hb_y + hb_h) ? (
+  active_on = !active_on;
+  slider_automate(slider36);
+);
+active_on ? (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.18, 0.52, 0.48, 0.58, 0.89, 0.84);
+  strcpy(#ac_s, "ACTIVE");
+) : (
+  draw_panel_box(act_x, hb_y, act_w, hb_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  strcpy(#ac_s, "BYP");
+);
+gfx_measurestr(#ac_s, tw, th); gfx_x = act_x + (act_w - tw)*0.5; gfx_y = hb_y + (hb_h - th)*0.5; gfx_drawstr(#ac_s);
+
+// =========================================================================
+// 2. SHAPER BAR: 6 MODULES WITH POWER LED, INDEPENDENT RATE BADGE & PHASE BAR
+// =========================================================================
+pad    = floor(10 * UI_S);
+full_w = W - (pad * 2);
+
+shaper_y = hdr_h + pad;
+shaper_h = floor(52 * UI_S);
+draw_panel_box(pad, shaper_y, full_w, shaper_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+sb_pad = floor(6 * UI_S);
+sb_gap = floor(6 * UI_S);
+sb_w   = floor((full_w - sb_pad * 2 - sb_gap * 5) / 6.0);
+sb_h   = shaper_h - floor(12 * UI_S);
+sb_y   = shaper_y + floor(6 * UI_S);
+
+mi = 0;
+loop(NUM_MODS,
+  bx_m = pad + sb_pad + mi * (sb_w + sb_gap);
+  get_mod_rgb(mi);
+  m_cfg_tab = MOD_CFG_BASE + mi * 32;
+
+  m_enabled = (mi == 0) ? m0_on : (mi == 1) ? m1_on : (mi == 2) ? m2_on :
+              (mi == 3) ? m3_on : (mi == 4) ? m4_on : m5_on;
+
+  pwr_sz = floor(16 * UI_S);
+  pwr_x  = bx_m + floor(7 * UI_S);
+  pwr_y  = sb_y + (sb_h - pwr_sz) * 0.5 - floor(2 * UI_S);
+  pwr_hit = mouse_x >= pwr_x && mouse_x <= pwr_x + pwr_sz && mouse_y >= pwr_y && mouse_y <= pwr_y + pwr_sz;
+  tab_hit = mouse_x >= bx_m && mouse_x <= bx_m + sb_w && mouse_y >= sb_y && mouse_y <= sb_y + sb_h;
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && tab_hit ? (
+    pwr_hit ? (
+      mi == 0 ? ( m0_on = !m0_on; slider_automate(slider7); ) :
+      mi == 1 ? ( m1_on = !m1_on; slider_automate(slider9); ) :
+      mi == 2 ? ( m2_on = !m2_on; slider_automate(slider11); ) :
+      mi == 3 ? ( m3_on = !m3_on; slider_automate(slider13); ) :
+      mi == 4 ? ( m4_on = !m4_on; slider_automate(slider15); ) :
+                ( m5_on = !m5_on; slider_automate(slider17); );
+    ) : (
+      sel_mod = mi;
+      slider_automate(slider1);
+    );
+  );
+
+  (mouse_cap & 2) && !(last_mouse_cap & 2) && tab_hit ? (
+    mi == 0 ? ( m0_on = !m0_on; slider_automate(slider7); ) :
+    mi == 1 ? ( m1_on = !m1_on; slider_automate(slider9); ) :
+    mi == 2 ? ( m2_on = !m2_on; slider_automate(slider11); ) :
+    mi == 3 ? ( m3_on = !m3_on; slider_automate(slider13); ) :
+    mi == 4 ? ( m4_on = !m4_on; slider_automate(slider15); ) :
+              ( m5_on = !m5_on; slider_automate(slider17); );
+  );
+
+  sel_mod == mi ? (
+    draw_panel_box(bx_m, sb_y, sb_w, sb_h, mr_c * 0.26, mg_c * 0.26, mb_c * 0.26, mr_c, mg_c, mb_c);
+  ) : (
+    draw_panel_box(bx_m, sb_y, sb_w, sb_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+  );
+
+  m_enabled ? (
+    gfx_set(mr_c, mg_c, mb_c, 1.0);
+    gfx_circle(pwr_x + pwr_sz*0.5, pwr_y + pwr_sz*0.5, floor(5 * UI_S), 1, 1);
+  ) : (
+    gfx_set(0.28, 0.30, 0.40, 1.0);
+    gfx_circle(pwr_x + pwr_sz*0.5, pwr_y + pwr_sz*0.5, floor(5 * UI_S), 0, 1);
+  );
+
+  mi == 0 ? strcpy(#m_nm, "1. TIME") :
+  mi == 1 ? strcpy(#m_nm, "2. FILTER"):
+  mi == 2 ? strcpy(#m_nm, "3. DRIVE"):
+  mi == 3 ? strcpy(#m_nm, "4. CRUSH"):
+  mi == 4 ? strcpy(#m_nm, "5. SPACE"):
+            strcpy(#m_nm, "6. GATE");
+
+  gfx_setfont(4);
+  m_enabled ? gfx_set(0.96, 0.98, 1.0, 1.0) : gfx_set(0.55, 0.58, 0.68, 1.0);
+  gfx_measurestr(#m_nm, tw, th);
+  gfx_x = pwr_x + pwr_sz + floor(4 * UI_S);
+  gfx_y = sb_y + (sb_h - th) * 0.5 - floor(3 * UI_S);
+  gfx_drawstr(#m_nm);
+
+  r_tb = floor(m_cfg_tab[10] + 0.1);
+  r_tb == 0 ? strcpy(#rt_b, "1/16") : r_tb == 1 ? strcpy(#rt_b, "1/8T") :
+  r_tb == 2 ? strcpy(#rt_b, "1/8")  : r_tb == 3 ? strcpy(#rt_b, "1/4T") :
+  r_tb == 4 ? strcpy(#rt_b, "1/4")  : r_tb == 5 ? strcpy(#rt_b, "1/2")  :
+  r_tb == 6 ? strcpy(#rt_b, "1B")   : r_tb == 7 ? strcpy(#rt_b, "2B")   : strcpy(#rt_b, "4B");
+
+  gfx_setfont(5);
+  gfx_set(mr_c, mg_c, mb_c, 0.95);
+  gfx_measurestr(#rt_b, rbw, rbh);
+  gfx_x = bx_m + sb_w - rbw - floor(7 * UI_S);
+  gfx_y = sb_y + (sb_h - rbh) * 0.5 - floor(3 * UI_S);
+  gfx_drawstr(#rt_b);
+
+  m_enabled ? (
+    ph_t  = m_cfg_tab[12];
+    mod_v = m_cfg_tab[11];
+    gfx_set(mr_c, mg_c, mb_c, 0.30);
+    gfx_rect(bx_m + 3, sb_y + sb_h - 6, (sb_w - 6) * ph_t, 2);
+    gfx_set(mr_c, mg_c, mb_c, 0.95);
+    gfx_rect(bx_m + 3, sb_y + sb_h - 3, (sb_w - 6) * mod_v, 2);
+  );
+
+  mi += 1;
+);
+
+// =========================================================================
+// 3. STATIC WORKSPACE GEOMETRY
+// =========================================================================
+work_y  = shaper_y + shaper_h + pad;
+avail_h = H - work_y - pad;
+
+view_h = floor(avail_h * 0.58);
+deck_y = work_y + view_h + pad;
+deck_h = avail_h - view_h - pad;
+
+pal_w  = floor(full_w * 0.21);
+pal_x  = pad;
+ed_x   = pal_x + pal_w + pad;
+ed_w   = full_w - pal_w - pad;
+
+get_mod_rgb(sel_mod);
+sel_cfg = MOD_CFG_BASE + sel_mod * 32;
+
+adv_btn_w = floor(106 * UI_S);
+adv_btn_h = floor(24 * UI_S);
+adv_btn_x = ed_x + ed_w - adv_btn_w - floor(8 * UI_S);
+adv_btn_y = work_y + floor(6 * UI_S);
+adv_hit   = mouse_x >= adv_btn_x && mouse_x <= (adv_btn_x + adv_btn_w) &&
+            mouse_y >= adv_btn_y && mouse_y <= (adv_btn_y + adv_btn_h);
+
+// =========================================================================
+// 3A. LEFT VIEWPORT CARD: PER-MODULE TIMING + 8 WAVE PRESETS
+// =========================================================================
+draw_panel_box(pal_x, work_y, pal_w, view_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+gfx_setfont(2);
+gfx_set(mr_c, mg_c, mb_c, 1.0);
+gfx_x = pal_x + floor(10 * UI_S);
+gfx_y = work_y + floor(7 * UI_S);
+gfx_drawstr("TIMING & WAVE PALETTE");
+
+p_pad = floor(8 * UI_S);
+p_gap = floor(4 * UI_S);
+tm_bar_y = work_y + floor(26 * UI_S);
+tm_bar_h = floor(24 * UI_S);
+tm_btn_w = floor((pal_w - p_pad * 2 - p_gap * 3) / 4.0);
+
+cur_mod_rate = floor(sel_cfg[10] + 0.1);
+ti = 0;
+loop(4,
+  tx_b = pal_x + p_pad + ti * (tm_btn_w + p_gap);
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= tx_b && mouse_x <= tx_b + tm_btn_w && mouse_y >= tm_bar_y && mouse_y <= tm_bar_y + tm_bar_h) ? (
+    ti == 0 ? sel_cfg[10] = 4 :
+    ti == 1 ? sel_cfg[10] = 5 :
+    ti == 2 ? sel_cfg[10] = 6 :
+              sel_cfg[10] = (cur_mod_rate + 1) % 9;
+  );
+
+  is_tm_sel = (ti == 0 && cur_mod_rate == 4) ||
+              (ti == 1 && cur_mod_rate == 5) ||
+              (ti == 2 && cur_mod_rate == 6) ||
+              (ti == 3 && cur_mod_rate != 4 && cur_mod_rate != 5 && cur_mod_rate != 6);
+
+  is_tm_sel ? (
+    draw_panel_box(tx_b, tm_bar_y, tm_btn_w, tm_bar_h, mr_c * 0.32, mg_c * 0.32, mb_c * 0.32, mr_c, mg_c, mb_c);
+    gfx_set(1,1,1,1);
+  ) : (
+    draw_panel_box(tx_b, tm_bar_y, tm_btn_w, tm_bar_h, 0.13, 0.14, 0.20, 0.25, 0.27, 0.36);
+    gfx_set(0.76, 0.80, 0.90, 1);
+  );
+
+  ti == 0 ? strcpy(#t_b, "1/4") :
+  ti == 1 ? strcpy(#t_b, "1/2") :
+  ti == 2 ? strcpy(#t_b, "1 BAR") : (
+    cur_mod_rate == 0 ? strcpy(#t_b, "1/16") :
+    cur_mod_rate == 1 ? strcpy(#t_b, "1/8T") :
+    cur_mod_rate == 2 ? strcpy(#t_b, "1/8")  :
+    cur_mod_rate == 3 ? strcpy(#t_b, "1/4T") :
+    cur_mod_rate == 7 ? strcpy(#t_b, "2 BAR"):
+    cur_mod_rate == 8 ? strcpy(#t_b, "4 BAR"): strcpy(#t_b, "OTHER");
+  );
+
+  gfx_setfont(5);
+  gfx_measurestr(#t_b, tw, th);
+  gfx_x = tx_b + (tm_btn_w - tw)*0.5;
+  gfx_y = tm_bar_y + (tm_bar_h - th)*0.5;
+  gfx_drawstr(#t_b);
+  ti += 1;
+);
+
+// 8 Wave Preset Buttons
+p_top = tm_bar_y + tm_bar_h + floor(6 * UI_S);
+p_avail_h = view_h - (p_top - work_y) - floor(8 * UI_S);
+p_btn_w = floor((pal_w - p_pad * 2 - p_gap) / 2.0);
+p_btn_h = floor((p_avail_h - p_gap * 3) / 4.0);
+
+pi = 0;
+loop(8,
+  pc = pi % 2;
+  pr = floor(pi / 2);
+  px_b = pal_x + p_pad + pc * (p_btn_w + p_gap);
+  py_b = p_top + pr * (p_btn_h + p_gap);
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= px_b && mouse_x <= px_b + p_btn_w && mouse_y >= py_b && mouse_y <= py_b + p_btn_h) ? (
+    load_module_pattern(sel_mod, pi);
+  );
+
+  sel_cfg[8] == pi ? (
+    draw_panel_box(px_b, py_b, p_btn_w, p_btn_h, mr_c * 0.28, mg_c * 0.28, mb_c * 0.28, mr_c, mg_c, mb_c);
+    gfx_set(1.0, 1.0, 1.0, 1.0);
+  ) : (
+    draw_panel_box(px_b, py_b, p_btn_w, p_btn_h, 0.13, 0.14, 0.20, 0.24, 0.26, 0.35);
+    gfx_set(0.78, 0.82, 0.92, 1.0);
+  );
+
+  sel_mod == 0 ? (
+    pi == 0 ? strcpy(#p_nm, "1. 2x LIN HALF") : pi == 1 ? strcpy(#p_nm, "2. 1.5x TRIP")  :
+    pi == 2 ? strcpy(#p_nm, "3. STUTT 1/4")   : pi == 3 ? strcpy(#p_nm, "4. BOUNCE")     :
+    pi == 4 ? strcpy(#p_nm, "5. SCRATCH")     : pi == 5 ? strcpy(#p_nm, "6. TAPE STOP")  :
+    pi == 6 ? strcpy(#p_nm, "7. HOLD JUMPS")  :           strcpy(#p_nm, "8. STAIRS");
+  ) : (
+    pi == 0 ? strcpy(#p_nm, "1. SC PUMP")     : pi == 1 ? strcpy(#p_nm, "2. LIN RAMP")   :
+    pi == 2 ? strcpy(#p_nm, "3. DBL PUMP")    : pi == 3 ? strcpy(#p_nm, "4. TRIPLET")    :
+    pi == 4 ? strcpy(#p_nm, "5. S-WOBBLE")    : pi == 5 ? strcpy(#p_nm, "6. RISER ARC")  :
+    pi == 6 ? strcpy(#p_nm, "7. HOLD STEPS")  :           strcpy(#p_nm, "8. STAIRS");
+  );
+
+  gfx_setfont(5);
+  gfx_measurestr(#p_nm, tw, th);
+  gfx_x = px_b + (p_btn_w - tw) * 0.5;
+  gfx_y = py_b + (p_btn_h - th) * 0.5;
+  gfx_drawstr(#p_nm);
+  pi += 1;
+);
+
+// =========================================================================
+// 3B. RIGHT VIEWPORT: SHAPERBOX LFO TOOL STRIP + WAVE EDITOR + CONTROL STRIP
+// =========================================================================
+draw_panel_box(ed_x, work_y, ed_w, view_h, 0.062, 0.065, 0.102, 0.22, 0.24, 0.34);
+
+ed_bar_h = floor(36 * UI_S);
+gfx_set(0.09, 0.10, 0.15, 1.0);
+gfx_rect(ed_x + 1, work_y + 1, ed_w - 2, ed_bar_h);
+gfx_set(0.18, 0.20, 0.28, 1.0);
+gfx_line(ed_x + 1, work_y + ed_bar_h, ed_x + ed_w - 2, work_y + ed_bar_h);
+
+// 1. NODES vs STEPS Mode Toggle
+cm_w = floor(96 * UI_S); cm_h = floor(24 * UI_S);
+cm_x = ed_x + floor(8 * UI_S); cm_y = work_y + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && !adv_open &&
+(mouse_x >= cm_x && mouse_x <= cm_x + cm_w && mouse_y >= cm_y && mouse_y <= cm_y + cm_h) ? (
+  sel_cfg[7] == 0 ? sync_steps_from_nodes(sel_mod);
+  sel_cfg[7] = !sel_cfg[7];
+);
+draw_panel_box(cm_x, cm_y, cm_w, cm_h, mr_c * 0.25, mg_c * 0.25, mb_c * 0.25, mr_c, mg_c, mb_c);
+gfx_setfont(4); gfx_set(0.96, 0.98, 1.0, 1.0);
+sel_cfg[7] == 0 ? strcpy(#cm_s, "MODE: NODES") : strcpy(#cm_s, "MODE: STEPS");
+gfx_measurestr(#cm_s, tw, th); gfx_x = cm_x + (cm_w - tw)*0.5; gfx_y = cm_y + (cm_h - th)*0.5; gfx_drawstr(#cm_s);
+
+// 2. Module Sub-Algorithm Selector
+alg_w = floor(168 * UI_S);
+alg_x = cm_x + cm_w + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && !adv_open &&
+(mouse_x >= alg_x && mouse_x <= alg_x + alg_w && mouse_y >= cm_y && mouse_y <= cm_y + cm_h) ? (
+  max_modes = sel_mod == 0 ? 4 : sel_mod == 1 ? 6 : sel_mod == 2 ? 5 : sel_mod == 3 ? 3 : sel_mod == 4 ? 4 : 3;
+  sel_cfg[0] = (floor(sel_cfg[0] + 0.1) + 1) % max_modes;
+);
+draw_panel_box(alg_x, cm_y, alg_w, cm_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.48);
+m_sub = floor(sel_cfg[0] + 0.1);
+sel_mod == 0 ? (
+  m_sub == 0 ? strcpy(#alg_s, "WARP: CURVE (1:1 LIN)") :
+  m_sub == 1 ? strcpy(#alg_s, "WARP: 2x (-1 OCT)")     :
+  m_sub == 2 ? strcpy(#alg_s, "WARP: 1.5x (-5 ST)")    :
+               strcpy(#alg_s, "WARP: 4x (-2 OCT)");
+) : sel_mod == 1 ? (
+  m_sub == 0 ? strcpy(#alg_s, "FLT: ZDF LP 12dB") : m_sub == 1 ? strcpy(#alg_s, "FLT: ZDF LP 24dB") :
+  m_sub == 2 ? strcpy(#alg_s, "FLT: ZDF BANDPASS"): m_sub == 3 ? strcpy(#alg_s, "FLT: ZDF HIGHPASS"):
+  m_sub == 4 ? strcpy(#alg_s, "FLT: ZDF NOTCH")   : strcpy(#alg_s, "FLT: FORMANT VOWEL");
+) : sel_mod == 2 ? (
+  m_sub == 0 ? strcpy(#alg_s, "DRV: SOFT TUBE")  : m_sub == 1 ? strcpy(#alg_s, "DRV: HARD FUZZ") :
+  m_sub == 2 ? strcpy(#alg_s, "DRV: RECTIFY OCT"): m_sub == 3 ? strcpy(#alg_s, "DRV: SINE FOLD") :
+               strcpy(#alg_s, "DRV: EXTREME FOLD");
+) : sel_mod == 3 ? (
+  m_sub == 0 ? strcpy(#alg_s, "CRS: S&H + BITS") : m_sub == 1 ? strcpy(#alg_s, "CRS: DECIMATE") : strcpy(#alg_s, "CRS: BIT CRUSH");
+) : sel_mod == 4 ? (
+  m_sub == 0 ? strcpy(#alg_s, "SPC: FLANGER +") : m_sub == 1 ? strcpy(#alg_s, "SPC: COMB -") :
+  m_sub == 2 ? strcpy(#alg_s, "SPC: PING-PONG") : strcpy(#alg_s, "SPC: CLOUD DIFF");
+) : (
+  m_sub == 0 ? strcpy(#alg_s, "GAT: GATE + PAN"): m_sub == 1 ? strcpy(#alg_s, "GAT: GATE ONLY") : strcpy(#alg_s, "GAT: HAAS WIDEN");
+);
+gfx_measurestr(#alg_s, tw, th); gfx_x = alg_x + (alg_w - tw)*0.5; gfx_y = cm_y + (cm_h - th)*0.5; gfx_drawstr(#alg_s);
+
+// 3. Default New-Segment Curve Type Selector in Top Bar
+dc_w = floor(128 * UI_S);
+dc_x = alg_x + alg_w + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && !adv_open &&
+(mouse_x >= dc_x && mouse_x <= dc_x + dc_w && mouse_y >= cm_y && mouse_y <= cm_y + cm_h) ? (
+  def_curve_type = (def_curve_type + 1) % 6;
+);
+draw_panel_box(dc_x, cm_y, dc_w, cm_h, 0.16, 0.22, 0.34, 0.45, 0.78, 0.98);
+def_curve_type == 0 ? strcpy(#dc_s, "SEG: LINEAR") :
+def_curve_type == 1 ? strcpy(#dc_s, "SEG: ARC EXP"):
+def_curve_type == 2 ? strcpy(#dc_s, "SEG: S-CURVE"):
+def_curve_type == 3 ? strcpy(#dc_s, "SEG: HOLD")   :
+def_curve_type == 4 ? strcpy(#dc_s, "SEG: STAIRS") :
+                      strcpy(#dc_s, "SEG: WAVE");
+gfx_measurestr(#dc_s, tw, th); gfx_x = dc_x + (dc_w - tw)*0.5; gfx_y = cm_y + (cm_h - th)*0.5; gfx_drawstr(#dc_s);
+
+// 4. Envelope Combine Mode (ADD vs MULT)
+ec_w = floor(92 * UI_S);
+ec_x = dc_x + dc_w + floor(6 * UI_S);
+(mouse_cap & 1) && !(last_mouse_cap & 1) && !adv_open &&
+(mouse_x >= ec_x && mouse_x <= ec_x + ec_w && mouse_y >= cm_y && mouse_y <= cm_y + cm_h) ? (
+  sel_cfg[6] = !sel_cfg[6];
+);
+draw_panel_box(ec_x, cm_y, ec_w, cm_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.48);
+sel_cfg[6] == 0 ? strcpy(#ec_s, "ENV: ADD +") : strcpy(#ec_s, "ENV: MULT x");
+gfx_measurestr(#ec_s, tw, th); gfx_x = ec_x + (ec_w - tw)*0.5; gfx_y = cm_y + (cm_h - th)*0.5; gfx_drawstr(#ec_s);
+
+// 5. Special Module Toggle (REVERSE for Time, SNAP KEY for Filter)
+sp_btn_w = floor(84 * UI_S);
+sp_btn_x = ec_x + ec_w + floor(6 * UI_S);
+(sel_mod == 0 || sel_mod == 1) ? (
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && !adv_open &&
+  (mouse_x >= sp_btn_x && mouse_x <= sp_btn_x + sp_btn_w && mouse_y >= cm_y && mouse_y <= cm_y + cm_h) ? (
+    sel_cfg[3] = !sel_cfg[3];
+  );
+  sel_cfg[3] > 0.5 ? (
+    draw_panel_box(sp_btn_x, cm_y, sp_btn_w, cm_h, mr_c * 0.35, mg_c * 0.35, mb_c * 0.35, mr_c, mg_c, mb_c);
+  ) : (
+    draw_panel_box(sp_btn_x, cm_y, sp_btn_w, cm_h, 0.14, 0.15, 0.22, 0.28, 0.30, 0.42);
+  );
+  sel_mod == 0 ? strcpy(#sp_b, "REVERSE") : strcpy(#sp_b, "SNAP KEY");
+  gfx_measurestr(#sp_b, tw, th); gfx_x = sp_btn_x + (sp_btn_w - tw)*0.5; gfx_y = cm_y + (cm_h - th)*0.5; gfx_drawstr(#sp_b);
+);
+
+// =========================================================================
+// 3C. SHAPERBOX VERTICAL LFO TOOL STRIP (Left Side of Editor Canvas)
+// [PTR] [SNAP] [GRID] [LINE] [ARC] [S-CRV]
+// =========================================================================
+tstrip_w   = floor(52 * UI_S);
+tstrip_x   = ed_x + floor(6 * UI_S);
+ctrl_bar_h = floor(24 * UI_S);
+seq_lane_h = floor(24 * UI_S);
+
+gr_x = tstrip_x + tstrip_w + floor(6 * UI_S);
+gr_y = work_y + ed_bar_h + floor(6 * UI_S);
+gr_w = (ed_x + ed_w) - gr_x - floor(8 * UI_S);
+gr_h = view_h - ed_bar_h - ctrl_bar_h - seq_lane_h - floor(16 * UI_S);
+
+ctrl_bar_y = gr_y + gr_h + floor(3 * UI_S);
+seq_y      = ctrl_bar_y + ctrl_bar_h + floor(3 * UI_S);
+
+ts_gap = floor(3 * UI_S);
+ts_btn_h = floor((gr_h - ts_gap * 5) / 6.0);
+
+tsi = 0;
+loop(6,
+  tsy_b = gr_y + tsi * (ts_btn_h + ts_gap);
+  tshit = !adv_open && mouse_x >= tstrip_x && mouse_x <= tstrip_x + tstrip_w &&
+          mouse_y >= tsy_b && mouse_y <= tsy_b + ts_btn_h;
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && tshit ? (
+    tsi == 0 ? pen_tool = 0 :
+    tsi == 1 ? snap_grid_on = !snap_grid_on :
+    tsi == 2 ? grid_div_mode = (grid_div_mode + 1) % 3 :
+    tsi == 3 ? ( pen_tool = 1; def_curve_type = 0; ) :
+    tsi == 4 ? ( pen_tool = 2; def_curve_type = 1; ) :
+               ( pen_tool = 3; def_curve_type = 2; );
+  );
+
+  ts_active = (tsi == 0 && pen_tool == 0) ||
+              (tsi == 1 && snap_grid_on)  ||
+              (tsi == 2)                  ||
+              (tsi == 3 && pen_tool == 1) ||
+              (tsi == 4 && pen_tool == 2) ||
+              (tsi == 5 && pen_tool == 3);
+
+  ts_active ? (
+    tsi == 1 ? (
+      draw_panel_box(tstrip_x, tsy_b, tstrip_w, ts_btn_h, 0.16, 0.42, 0.40, 0.58, 0.89, 0.84);
+    ) : tsi == 2 ? (
+      draw_panel_box(tstrip_x, tsy_b, tstrip_w, ts_btn_h, 0.14, 0.16, 0.24, 0.34, 0.38, 0.52);
+    ) : (
+      draw_panel_box(tstrip_x, tsy_b, tstrip_w, ts_btn_h, mr_c * 0.32, mg_c * 0.32, mb_c * 0.32, mr_c, mg_c, mb_c);
+    );
+    gfx_set(1,1,1,1);
+  ) : (
+    draw_panel_box(tstrip_x, tsy_b, tstrip_w, ts_btn_h, 0.11, 0.12, 0.18, 0.22, 0.24, 0.34);
+    gfx_set(0.68, 0.72, 0.84, 1);
+  );
+
+  tsi == 0 ? strcpy(#ts_l, "PTR") :
+  tsi == 1 ? ( snap_grid_on ? strcpy(#ts_l, "SNAP") : strcpy(#ts_l, "FREE"); ) :
+  tsi == 2 ? ( grid_div_mode == 0 ? strcpy(#ts_l, "G: 1/8") : grid_div_mode == 1 ? strcpy(#ts_l, "G:1/16") : strcpy(#ts_l, "G:12T"); ) :
+  tsi == 3 ? strcpy(#ts_l, "LINE") :
+  tsi == 4 ? strcpy(#ts_l, "ARC")  :
+             strcpy(#ts_l, "S-CRV");
+
+  gfx_setfont(5);
+  gfx_measurestr(#ts_l, tw, th);
+  gfx_x = tstrip_x + (tstrip_w - tw)*0.5;
+  gfx_y = tsy_b + (ts_btn_h - th)*0.5;
+  gfx_drawstr(#ts_l);
+  tsi += 1;
+);
+
+// =========================================================================
+// 3D. SHAPER GRAPH CANVAS (Grid, Safety Line, Oscilloscope, Multi-Curve & Midpoints)
+// =========================================================================
+draw_panel_box(gr_x, gr_y, gr_w, gr_h, 0.048, 0.050, 0.082, 0.20, 0.22, 0.32);
+
+grid_divs = grid_div_mode == 0 ? 8 : grid_div_mode == 1 ? 16 : 12;
+g_step_w  = gr_w / grid_divs;
+gi = 1;
+loop(grid_divs - 1,
+  gx = gr_x + gi * g_step_w;
+  major_g = (grid_div_mode == 2) ? (gi % 3 == 0) : (gi % 4 == 0);
+  major_g ? gfx_set(0.20, 0.22, 0.32, 1.0) : gfx_set(0.11, 0.12, 0.18, 1.0);
+  gfx_line(gx, gr_y + 1, gx, gr_y + gr_h - 1);
+  gi += 1;
+);
+gi = 1;
+loop(3,
+  gy = gr_y + (gi / 4.0) * gr_h;
+  gfx_set(0.12, 0.13, 0.20, 1.0);
+  gfx_line(gr_x + 1, gy, gr_x + gr_w - 1, gy);
+  gi += 1;
+);
+
+sel_mod == 0 ? (
+  // Gross Beat / TimeShaper Safety & 2x Half-Time Reference Guides
+  gfx_set(0.58, 0.89, 0.84, 0.26);
+  gfx_line(gr_x, gr_y, gr_x + gr_w, gr_y + gr_h, 1);
+  gfx_set(0.58, 0.89, 0.84, 0.14);
+  gfx_line(gr_x, gr_y, gr_x + gr_w, gr_y + gr_h * 0.5, 1);
+);
+
+// Render Live Oscilloscope
+sbin = 0;
+in_sc_ptr  = SCOPE_IN_BASE  + sel_mod * SCOPE_BINS;
+out_sc_ptr = SCOPE_OUT_BASE + sel_mod * SCOPE_BINS;
+mod_sc_ptr = SCOPE_MOD_BASE + sel_mod * SCOPE_BINS;
+
+loop(SCOPE_BINS,
+  sx0   = gr_x + (sbin / SCOPE_BINS) * gr_w;
+  in_h  = min(1.0, in_sc_ptr[sbin])  * (gr_h * 0.88);
+  out_h = min(1.0, out_sc_ptr[sbin]) * (gr_h * 0.88);
+
+  gfx_set(0.50, 0.54, 0.68, 0.15);
+  gfx_line(sx0, gr_y + gr_h, sx0, gr_y + gr_h - in_h);
+
+  set_mod_color(sel_mod, 0.22);
+  gfx_line(sx0, gr_y + gr_h, sx0, gr_y + gr_h - out_h);
+  sbin += 1;
+);
+
+val_ptr = MOD_STEP_VAL + sel_mod * NUM_STEPS;
+act_ptr = MOD_STEP_ACT + sel_mod * NUM_STEPS;
+nx_ptr  = MOD_NODE_X   + sel_mod * MAX_NODES;
+ny_ptr  = MOD_NODE_Y   + sel_mod * MAX_NODES;
+nt_ptr  = MOD_NODE_T   + sel_mod * MAX_NODES;
+nc_ptr  = MOD_NODE_C   + sel_mod * MAX_NODES;
+n_cnt   = max(2, floor(sel_cfg[16] + 0.1));
+st_w    = gr_w / NUM_STEPS;
+
+sel_cfg[7] == 1 ? (
+  // STEPS MODE RENDER
+  si = 0;
+  loop(NUM_STEPS,
+    sv = val_ptr[si];
+    bx_s = gr_x + si * st_w;
+    bw_s = max(2.0, st_w * (gate_pct * 0.01) - 2.0);
+    by_s = gr_y + (1.0 - sv) * gr_h;
+
+    act_ptr[si] ? set_mod_color(sel_mod, 0.35) : gfx_set(0.25, 0.27, 0.36, 0.20);
+    gfx_rect(bx_s + 1, by_s, bw_s, (gr_y + gr_h) - by_s);
+
+    act_ptr[si] ? set_mod_color(sel_mod, 0.95) : gfx_set(0.45, 0.48, 0.58, 0.55);
+    gfx_rect(bx_s + 1, by_s, bw_s, 3);
+    si += 1;
+  );
+) : (
+  // NODES MODE RENDER (High-Res 160-Point Multi-Curve + Nodes + Midpoint Tension Diamonds)
+  c_pts = 160; ci = 0;
+  loop(c_pts + 1,
+    ph_c = ci / c_pts;
+    cv   = eval_module_lfo(sel_mod, ph_c);
+    cx_p = gr_x + ph_c * gr_w;
+    cy_p = gr_y + (1.0 - cv) * gr_h;
+
+    set_mod_color(sel_mod, 0.16);
+    gfx_line(cx_p, gr_y + gr_h, cx_p, cy_p);
+
+    ci > 0 ? (
+      set_mod_color(sel_mod, 0.98);
+      gfx_line(prev_cx_p, prev_cy_p, cx_p, cy_p, 1);
+      gfx_line(prev_cx_p, prev_cy_p + 1, cx_p, cy_p + 1, 1);
+    );
+    prev_cx_p = cx_p; prev_cy_p = cy_p;
+    ci += 1;
+  );
+
+  abs(sel_cfg[14]) < 0.5 && abs(sel_cfg[13] - 50.0) < 0.5 ? (
+    node_hit_idx = -1;
+    mid_hit_idx  = -1;
+
+    // 1. Draw Segment Midpoint Tension Diamonds (Drag Up/Down for Tension, Right-Click to Cycle Curve Type)
+    mi_s = 0;
+    loop(n_cnt - 1,
+      mx_norm = 0.5 * (nx_ptr[mi_s] + nx_ptr[mi_s + 1]);
+      my_sh   = eval_segment_shape(0.5, floor(nc_ptr[mi_s] + 0.1), nt_ptr[mi_s]);
+      my_norm = ny_ptr[mi_s] + (ny_ptr[mi_s + 1] - ny_ptr[mi_s]) * my_sh;
+
+      m_px = gr_x + mx_norm * gr_w;
+      m_py = gr_y + (1.0 - my_norm) * gr_h;
+
+      mhit = ((mouse_x - m_px)*(mouse_x - m_px) + (mouse_y - m_py)*(mouse_y - m_py)) <= 85;
+      mhit ? mid_hit_idx = mi_s;
+
+      gfx_set(0.08, 0.09, 0.14, 0.95);
+      gfx_circle(m_px, m_py, floor(5 * UI_S), 1, 1);
+      mhit ? gfx_set(1.0, 0.90, 0.55, 1.0) : set_mod_color(sel_mod, 0.95);
+      draw_diamond(m_px, m_py, floor(5 * UI_S));
+      mi_s += 1;
+    );
+
+    // 2. Draw Main Breakpoint Nodes
+    ni = 0;
+    loop(n_cnt,
+      nx_px = gr_x + nx_ptr[ni] * gr_w;
+      ny_px = gr_y + (1.0 - ny_ptr[ni]) * gr_h;
+      nhit  = ((mouse_x - nx_px)*(mouse_x - nx_px) + (mouse_y - ny_px)*(mouse_y - ny_px)) <= 95;
+      nhit ? node_hit_idx = ni;
+
+      set_mod_color(sel_mod, 0.35);
+      gfx_circle(nx_px, ny_px, floor(7 * UI_S), 1, 1);
+      gfx_set(0.96, 0.98, 1.0, 1.0);
+      gfx_circle(nx_px, ny_px, floor(4 * UI_S), 1, 1);
+      ni += 1;
+    );
+  );
+);
+
+// Live Pen Drag Preview Overlay
+(drag_id == 525 && (mouse_cap & 1)) ? (
+  px0_p = gr_x + pen_x0 * gr_w; py0_p = gr_y + (1.0 - pen_y0) * gr_h;
+  px1_p = gr_x + pen_x1 * gr_w; py1_p = gr_y + (1.0 - pen_y1) * gr_h;
+  gfx_set(1.0, 1.0, 1.0, 0.85);
+  gfx_line(px0_p, py0_p, px1_p, py1_p, 1);
+  gfx_circle(px0_p, py0_p, 4, 1, 1);
+  gfx_circle(px1_p, py1_p, 4, 1, 1);
+);
+
+// Animated Combined Modulation Trace
+sbin = 1;
+loop(SCOPE_BINS - 1,
+  mx0 = gr_x + ((sbin - 1) / SCOPE_BINS) * gr_w;
+  my0 = gr_y + (1.0 - mod_sc_ptr[sbin - 1]) * gr_h;
+  mx1 = gr_x + (sbin / SCOPE_BINS) * gr_w;
+  my1 = gr_y + (1.0 - mod_sc_ptr[sbin]) * gr_h;
+  gfx_set(0.98, 0.99, 1.0, 0.68);
+  gfx_line(mx0, my0, mx1, my1, 1);
+  sbin += 1;
+);
+
+// Playhead Cursor
+ph_x = gr_x + sel_cfg[12] * gr_w;
+ph_y = gr_y + (1.0 - sel_cfg[11]) * gr_h;
+gfx_set(0.98, 0.99, 1.0, 0.90);
+gfx_line(ph_x, gr_y, ph_x, gr_y + gr_h);
+gfx_circle(ph_x, ph_y, floor(5 * UI_S), 1, 1);
+
+// =========================================================================
+// 3E. INTERACTIVE GRAPH MOUSE HANDLER (Nodes, Tension Diamonds, Pens, Steps)
+// =========================================================================
+!adv_open && !adv_hit ? (
+  in_graph = mouse_x >= gr_x && mouse_x <= gr_x + gr_w && mouse_y >= gr_y && mouse_y <= gr_y + gr_h;
+  use_snap = (snap_grid_on && !(mouse_cap & 16)) || (!snap_grid_on && (mouse_cap & 8));
+
+  (sel_cfg[7] == 0 && pen_tool == 0) ? (
+    // Left-Click in NODES Pointer Mode: Drag Node, Drag Midpoint Diamond, or Double-Click Add/Remove
+    (mouse_cap & 1) && !(last_mouse_cap & 1) && in_graph && drag_id == 0 ? (
+      sel_cfg[13] = 50.0; sel_cfg[14] = 0.0;
+      (time_precise() - last_click_time < 0.26) && (last_click_id == 550) ? (
+        (node_hit_idx > 0 && node_hit_idx < n_cnt - 1 && n_cnt > 2) ? (
+          // Double-click existing interior node -> Delete it
+          k_i = node_hit_idx;
+          while (k_i < n_cnt - 1) (
+            nx_ptr[k_i] = nx_ptr[k_i+1]; ny_ptr[k_i] = ny_ptr[k_i+1];
+            nt_ptr[k_i] = nt_ptr[k_i+1]; nc_ptr[k_i] = nc_ptr[k_i+1];
+            k_i += 1;
+          );
+          sel_cfg[16] = n_cnt - 1;
+          sync_steps_from_nodes(sel_mod);
+        ) : (mid_hit_idx >= 0) ? (
+          // Double-click midpoint diamond -> Reset segment tension to 0.0 (pure linear/default)
+          nt_ptr[mid_hit_idx] = 0.0;
+          sync_steps_from_nodes(sel_mod);
+        ) : (node_hit_idx == -1 && n_cnt < MAX_NODES) ? (
+          // Double-click empty space -> Insert new node with current default curve type
+          new_nx = max(0.01, min(0.99, (mouse_x - gr_x) / gr_w));
+          new_ny = max(0.0,  min(1.0,  1.0 - (mouse_y - gr_y) / gr_h));
+          use_snap ? (
+            new_nx = max(0.01, min(0.99, floor(new_nx * grid_divs + 0.5) / grid_divs));
+            new_ny = floor(new_ny * 8.0 + 0.5) / 8.0;
+          );
+          ins_i = 0;
+          while (ins_i < n_cnt && nx_ptr[ins_i] < new_nx) ( ins_i += 1; );
+          k_i = n_cnt;
+          while (k_i > ins_i) (
+            nx_ptr[k_i] = nx_ptr[k_i-1]; ny_ptr[k_i] = ny_ptr[k_i-1];
+            nt_ptr[k_i] = nt_ptr[k_i-1]; nc_ptr[k_i] = nc_ptr[k_i-1];
+            k_i -= 1;
+          );
+          nx_ptr[ins_i] = new_nx; ny_ptr[ins_i] = new_ny;
+          nt_ptr[ins_i] = 0.0;    nc_ptr[ins_i] = def_curve_type;
+          sel_cfg[16] = n_cnt + 1;
+          sync_steps_from_nodes(sel_mod);
+        );
+        drag_id = 0;
+      ) : (
+        last_click_time = time_precise();
+        last_click_id   = 550;
+        node_hit_idx >= 0 ? (
+          drag_id = 600 + node_hit_idx;
+        ) : mid_hit_idx >= 0 ? (
+          drag_id = 650 + mid_hit_idx;
+          drag_start_y   = mouse_y;
+          drag_start_val = nt_ptr[mid_hit_idx];
+        );
+      );
+    );
+
+    // Right-Click on Midpoint Diamond or Node in NODES Mode
+    (mouse_cap & 2) && !(last_mouse_cap & 2) && in_graph ? (
+      mid_hit_idx >= 0 ? (
+        // Cycle Segment Curve Type: LIN -> ARC -> S-CRV -> HOLD -> STAIR -> WAVE
+        nc_ptr[mid_hit_idx] = (floor(nc_ptr[mid_hit_idx] + 0.1) + 1) % 6;
+        def_curve_type = nc_ptr[mid_hit_idx];
+        sync_steps_from_nodes(sel_mod);
+      ) : (node_hit_idx > 0 && node_hit_idx < n_cnt - 1 && n_cnt > 2) ? (
+        // Right-Click interior node to delete it (Tantra/Gross Beat style)
+        k_i = node_hit_idx;
+        while (k_i < n_cnt - 1) (
+          nx_ptr[k_i] = nx_ptr[k_i+1]; ny_ptr[k_i] = ny_ptr[k_i+1];
+          nt_ptr[k_i] = nt_ptr[k_i+1]; nc_ptr[k_i] = nc_ptr[k_i+1];
+          k_i += 1;
+        );
+        sel_cfg[16] = n_cnt - 1;
+        sync_steps_from_nodes(sel_mod);
+      );
+    );
+
+    // Dragging a Breakpoint Node
+    drag_id >= 600 && drag_id < 640 ? (
+      (mouse_cap & 1) ? (
+        d_idx  = drag_id - 600;
+        ny_val = max(0.0, min(1.0, 1.0 - (mouse_y - gr_y) / gr_h));
+        use_snap ? ny_val = floor(ny_val * 8.0 + 0.5) / 8.0;
+        ny_ptr[d_idx] = ny_val;
+        (d_idx > 0 && d_idx < n_cnt - 1) ? (
+          raw_nx = (mouse_x - gr_x) / gr_w;
+          use_snap ? raw_nx = floor(raw_nx * grid_divs + 0.5) / grid_divs;
+          min_x = nx_ptr[d_idx - 1] + 0.01;
+          max_x = nx_ptr[d_idx + 1] - 0.01;
+          nx_ptr[d_idx] = max(min_x, min(max_x, raw_nx));
+        );
+        sync_steps_from_nodes(sel_mod);
+      ) : drag_id = 0;
+    );
+
+    // Dragging a Midpoint Tension Handle
+    drag_id >= 650 && drag_id < 690 ? (
+      (mouse_cap & 1) ? (
+        m_idx_d = drag_id - 650;
+        dy_norm = (drag_start_y - mouse_y) / (gr_h * 0.65);
+        dy_dir  = (ny_ptr[m_idx_d + 1] >= ny_ptr[m_idx_d]) ? 1.0 : -1.0;
+        nt_ptr[m_idx_d] = max(-0.95, min(0.95, drag_start_val + dy_norm * dy_dir));
+        // If segment was pure Linear (0), promote to Arc (1) when bending tension handle
+        nc_ptr[m_idx_d] == 0 && abs(nt_ptr[m_idx_d]) > 0.05 ? nc_ptr[m_idx_d] = 1;
+        sync_steps_from_nodes(sel_mod);
+      ) : drag_id = 0;
+    );
+  ) : (pen_tool > 0) ? (
+    // SHAPERBOX PEN TOOLS (Inserts True Nodes in NODES Mode, or Paints Steps in STEPS Mode)
+    (mouse_cap & 1) && !(last_mouse_cap & 1) && in_graph && drag_id == 0 ? (
+      pen_x0 = max(0.0, min(1.0, (mouse_x - gr_x) / gr_w));
+      pen_y0 = max(0.0, min(1.0, 1.0 - (mouse_y - gr_y) / gr_h));
+      use_snap ? (
+        pen_x0 = floor(pen_x0 * grid_divs + 0.5) / grid_divs;
+        pen_y0 = floor(pen_y0 * 8.0 + 0.5) / 8.0;
+      );
+      pen_x1 = pen_x0; pen_y1 = pen_y0;
+      drag_id = 525;
+    );
+    drag_id == 525 ? (
+      pen_x1 = max(0.0, min(1.0, (mouse_x - gr_x) / gr_w));
+      pen_y1 = max(0.0, min(1.0, 1.0 - (mouse_y - gr_y) / gr_h));
+      use_snap ? (
+        pen_x1 = floor(pen_x1 * grid_divs + 0.5) / grid_divs;
+        pen_y1 = floor(pen_y1 * 8.0 + 0.5) / 8.0;
+      );
+      !(mouse_cap & 1) ? (
+        c_pen = pen_tool == 1 ? 0 : pen_tool == 2 ? 1 : 2;
+        t_pen = pen_tool == 2 ? -0.45 : 0.0;
+        sel_cfg[7] == 0 ? (
+          insert_pen_segment(sel_mod, pen_x0, pen_y0, pen_x1, pen_y1, c_pen, t_pen);
+        ) : (
+          st_min = min(NUM_STEPS - 1, max(0, floor(min(pen_x0, pen_x1) * NUM_STEPS)));
+          st_max = min(NUM_STEPS - 1, max(0, floor(max(pen_x0, pen_x1) * NUM_STEPS)));
+          span_s = max(1, st_max - st_min);
+          p_k = st_min;
+          while (p_k <= st_max) (
+            t_p  = (p_k - st_min) / span_s;
+            sh_p = eval_segment_shape(t_p, c_pen, t_pen);
+            val_ptr[p_k] = pen_y0 + (pen_y1 - pen_y0) * sh_p;
+            p_k += 1;
+          );
+        );
+        drag_id = 0;
+      );
+    );
+  ) : (
+    // STEPS POINTER PAINTING
+    (mouse_cap & 1) && !(last_mouse_cap & 1) && in_graph && drag_id == 0 ? (
+      drag_id = 500;
+    );
+    drag_id == 500 ? (
+      (mouse_cap & 1) ? (
+        edit_step = min(NUM_STEPS - 1, max(0, floor(((mouse_x - gr_x) / gr_w) * NUM_STEPS)));
+        edit_val  = max(0.0, min(1.0, 1.0 - ((mouse_y - gr_y) / gr_h)));
+        use_snap ? edit_val = floor(edit_val * 8.0 + 0.5) / 8.0;
+        val_ptr[edit_step] = edit_val;
+      ) : drag_id = 0;
+    );
+  );
+);
+
+// =========================================================================
+// 3F. SHAPERBOX LFO CONTROL STRIP (Directly Below Graph Canvas)
+// [ALL LIN] [ALL S-CRV] [2x SPD] [FLIP X] [FLIP Y] [<<] [<] [>] [>>] [CLEAR]
+// =========================================================================
+cb_cnt = 10;
+cb_gap = floor(3 * UI_S);
+cb_btn_w = floor((gr_w - cb_gap * (cb_cnt - 1)) / cb_cnt);
+
+cbi = 0;
+loop(cb_cnt,
+  cb_bx = gr_x + cbi * (cb_btn_w + cb_gap);
+  cb_hit = !adv_open && mouse_x >= cb_bx && mouse_x <= cb_bx + cb_btn_w &&
+           mouse_y >= ctrl_bar_y && mouse_y <= ctrl_bar_y + ctrl_bar_h;
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && cb_hit ? (
+    cbi == 0 ? (
+      // ALL LINEAR: Converts all segments to pure straight lines (0) & zeroes tension
+      k_i = 0; loop(MAX_NODES, nc_ptr[k_i] = 0; nt_ptr[k_i] = 0.0; k_i += 1; );
+      def_curve_type = 0;
+      sync_steps_from_nodes(sel_mod);
+    ) : cbi == 1 ? (
+      // ALL S-CURVE: Converts all segments to smooth S-curves (2)
+      k_i = 0; loop(MAX_NODES, nc_ptr[k_i] = 2; nt_ptr[k_i] = 0.0; k_i += 1; );
+      def_curve_type = 2;
+      sync_steps_from_nodes(sel_mod);
+    ) : cbi == 2 ? (
+      // 2x DOUBLE-TIME: Compresses nodes into 0..0.5 and duplicates into 0.5..1.0
+      n_half = min(floor(MAX_NODES / 2), n_cnt);
+      k_i = 0;
+      loop(n_half,
+        nx_ptr[k_i] = nx_ptr[k_i] * 0.5;
+        k_i += 1;
+      );
+      k_i = 0;
+      loop(n_half - 1,
+        dst_i = n_half + k_i;
+        dst_i < MAX_NODES ? (
+          nx_ptr[dst_i] = 0.5 + nx_ptr[k_i + 1];
+          ny_ptr[dst_i] = ny_ptr[k_i + 1];
+          nt_ptr[dst_i] = nt_ptr[k_i + 1];
+          nc_ptr[dst_i] = nc_ptr[k_i + 1];
+        );
+        k_i += 1;
+      );
+      sel_cfg[16] = min(MAX_NODES, n_half * 2 - 1);
+      nx_ptr[sel_cfg[16] - 1] = 1.0;
+      sync_steps_from_nodes(sel_mod);
+    ) : cbi == 3 ? (
+      // FLIP X (Reverse horizontally in time)
+      k_i = 0;
+      loop(floor(n_cnt / 2),
+        opp_i = n_cnt - 1 - k_i;
+        tx_v = 1.0 - nx_ptr[k_i];
+        nx_ptr[k_i] = 1.0 - nx_ptr[opp_i];
+        nx_ptr[opp_i] = tx_v;
+        ty_v = ny_ptr[k_i]; ny_ptr[k_i] = ny_ptr[opp_i]; ny_ptr[opp_i] = ty_v;
+        k_i += 1;
+      );
+      (n_cnt % 2 == 1) ? nx_ptr[floor(n_cnt / 2)] = 1.0 - nx_ptr[floor(n_cnt / 2)];
+      sync_steps_from_nodes(sel_mod);
+    ) : cbi == 4 ? (
+      // FLIP Y (Invert vertically)
+      k_i = 0; loop(n_cnt, ny_ptr[k_i] = 1.0 - ny_ptr[k_i]; k_i += 1; );
+      k_i = 0; loop(NUM_STEPS, val_ptr[k_i] = 1.0 - val_ptr[k_i]; k_i += 1; );
+    ) : cbi == 5 ? (
+      sel_cfg[14] -= 12.5; sel_cfg[14] < -50.0 ? sel_cfg[14] += 100.0;
+    ) : cbi == 6 ? (
+      sel_cfg[14] -= 3.125; sel_cfg[14] < -50.0 ? sel_cfg[14] += 100.0;
+    ) : cbi == 7 ? (
+      sel_cfg[14] += 3.125; sel_cfg[14] > 50.0 ? sel_cfg[14] -= 100.0;
+    ) : cbi == 8 ? (
+      sel_cfg[14] += 12.5; sel_cfg[14] > 50.0 ? sel_cfg[14] -= 100.0;
+    ) : (
+      // CLEAR: Reset to flat line
+      sel_cfg[16] = 2; sel_cfg[13] = 50.0; sel_cfg[14] = 0.0;
+      def_y = (sel_mod == 0 || sel_mod == 5) ? 1.0 : 0.5;
+      nx_ptr[0] = 0.0; ny_ptr[0] = def_y; nt_ptr[0] = 0.0; nc_ptr[0] = 0;
+      nx_ptr[1] = 1.0; ny_ptr[1] = def_y; nt_ptr[1] = 0.0; nc_ptr[1] = 0;
+      sync_steps_from_nodes(sel_mod);
+    );
+  );
+
+  draw_panel_box(cb_bx, ctrl_bar_y, cb_btn_w, ctrl_bar_h, 0.12, 0.13, 0.19, 0.24, 0.26, 0.36);
+  cbi == 0 ? strcpy(#cb_l, "ALL LIN") :
+  cbi == 1 ? strcpy(#cb_l, "ALL S-CRV") :
+  cbi == 2 ? strcpy(#cb_l, "2x SPD") :
+  cbi == 3 ? strcpy(#cb_l, "FLIP X") :
+  cbi == 4 ? strcpy(#cb_l, "FLIP Y") :
+  cbi == 5 ? strcpy(#cb_l, "<<") :
+  cbi == 6 ? strcpy(#cb_l, "<")  :
+  cbi == 7 ? strcpy(#cb_l, ">")  :
+  cbi == 8 ? strcpy(#cb_l, ">>") :
+             strcpy(#cb_l, "CLEAR");
+
+  gfx_setfont(5); gfx_set(0.86, 0.90, 0.98, 1.0);
+  gfx_measurestr(#cb_l, tw, th);
+  gfx_x = cb_bx + (cb_btn_w - tw)*0.5;
+  gfx_y = ctrl_bar_y + (ctrl_bar_h - th)*0.5;
+  gfx_drawstr(#cb_l);
+  cbi += 1;
+);
+
+// =========================================================================
+// 3G. 16-STEP SEQUENCER ENABLE LANE
+// =========================================================================
+cur_mod_step = min(NUM_STEPS - 1, max(0, floor(sel_cfg[12] * NUM_STEPS)));
+si = 0;
+loop(NUM_STEPS,
+  sx_b = gr_x + si * st_w + 1;
+  sw_b = st_w - 2;
+  sh_b = seq_lane_h - floor(2 * UI_S);
+
+  step_hit = !adv_open && mouse_x >= sx_b && mouse_x <= sx_b + sw_b && mouse_y >= seq_y && mouse_y <= seq_y + sh_b;
+  (mouse_cap & 1) && !(last_mouse_cap & 1) && step_hit ? (
+    seq_paint_val = !act_ptr[si];
+    act_ptr[si] = seq_paint_val;
+    drag_id = 501;
+  );
+  (drag_id == 501 && (mouse_cap & 1) && step_hit) ? (
+    act_ptr[si] = seq_paint_val;
+  );
+
+  act_ptr[si] ? (
+    cur_mod_step == si ? (
+      draw_panel_box(sx_b, seq_y, sw_b, sh_b, mr_c * 0.55, mg_c * 0.55, mb_c * 0.55, 1.0, 1.0, 1.0);
+    ) : (
+      draw_panel_box(sx_b, seq_y, sw_b, sh_b, mr_c * 0.28, mg_c * 0.28, mb_c * 0.28, mr_c, mg_c, mb_c);
+    );
+    gfx_set(0.96, 0.98, 1.0, 1.0);
+  ) : (
+    draw_panel_box(sx_b, seq_y, sw_b, sh_b, 0.10, 0.11, 0.16, 0.20, 0.22, 0.30);
+    gfx_set(0.45, 0.48, 0.58, 1.0);
+  );
+
+  gfx_setfont(5);
+  sprintf(#st_n, "%d", si + 1);
+  gfx_measurestr(#st_n, tw, th);
+  gfx_x = sx_b + (sw_b - tw) * 0.5;
+  gfx_y = seq_y + (sh_b - th) * 0.5;
+  gfx_drawstr(#st_n);
+  si += 1;
+);
+!(mouse_cap & 1) && drag_id == 501 ? drag_id = 0;
+
+// =========================================================================
+// 3H. IN-PLACE TRIGGER, ENVELOPE FOLLOWER & MASTER SETUP OVERLAY
+// =========================================================================
+adv_anim > 0.05 ? (
+  gfx_set(0.075, 0.078, 0.122, 0.92 * adv_anim);
+  gfx_rect(ed_x + 1, work_y + 1, ed_w - 2, view_h - 2);
+
+  gfx_set(0.58, 0.89, 0.84, 0.75 * adv_anim);
+  gfx_rect(ed_x, work_y, ed_w, view_h, 0);
+
+  gfx_set(0.11, 0.12, 0.18, 0.96 * adv_anim);
+  gfx_rect(ed_x + 1, work_y + 1, ed_w - 2, ed_bar_h);
+  gfx_set(0.22, 0.25, 0.36, 0.96 * adv_anim);
+  gfx_line(ed_x + 1, work_y + ed_bar_h, ed_x + ed_w - 2, work_y + ed_bar_h);
+
+  gfx_setfont(2);
+  gfx_set(0.58, 0.89, 0.84, adv_anim);
+  gfx_x = ed_x + floor(14 * UI_S);
+  gfx_y = work_y + floor(10 * UI_S);
+  gfx_drawstr("ENVELOPE FOLLOWER, TRANSIENT TRIGGER & MASTER FINISHER");
+
+  adv_open ? (
+    ov_y  = work_y + ed_bar_h;
+    ov_h  = view_h - ed_bar_h;
+    ov_cy = ov_y + ov_h * 0.42;
+    r_ov  = min(floor(33 * UI_S), floor(ov_h * 0.22));
+
+    src_w = floor(148 * UI_S); src_h = floor(24 * UI_S);
+    src_x = ed_x + floor(390 * UI_S); src_y = work_y + floor(6 * UI_S);
+    (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+    (mouse_x >= src_x && mouse_x <= src_x + src_w && mouse_y >= src_y && mouse_y <= src_y + src_h) ? (
+      env_src = !env_src;
+      slider_automate(slider25);
+    );
+    draw_panel_box(src_x, src_y, src_w, src_h, env_src ? 0.45 : 0.14, env_src ? 0.28 : 0.15, env_src ? 0.18 : 0.22, 0.98, 0.70, 0.53);
+    gfx_setfont(4); gfx_set(1,1,1,1);
+    env_src == 0 ? strcpy(#src_s, "DET: MAIN IN (1/2)") : strcpy(#src_s, "DET: SIDECHAIN (3/4)");
+    gfx_measurestr(#src_s, tw, th); gfx_x = src_x + (src_w - tw)*0.5; gfx_y = src_y + (src_h - th)*0.5; gfx_drawstr(#src_s);
+
+    clp_w = floor(108 * UI_S);
+    clp_x = src_x + src_w + floor(6 * UI_S);
+    (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+    (mouse_x >= clp_x && mouse_x <= clp_x + clp_w && mouse_y >= src_y && mouse_y <= src_y + src_h) ? (
+      master_clip = !master_clip;
+      slider_automate(slider32);
+    );
+    draw_panel_box(clp_x, src_y, clp_w, src_h, master_clip ? 0.18 : 0.14, master_clip ? 0.46 : 0.15, master_clip ? 0.42 : 0.22, 0.58, 0.89, 0.84);
+    master_clip ? strcpy(#clp_s, "CLIP 0dB: ON") : strcpy(#clp_s, "CLIP 0dB: OFF");
+    gfx_measurestr(#clp_s, tw, th); gfx_x = clp_x + (clp_w - tw)*0.5; gfx_y = src_y + (src_h - th)*0.5; gfx_drawstr(#clp_s);
+
+    ov_col = ed_w / 6.0;
+
+    sprintf(#v_s, "%.1f dB", env_thr_db);
+    new_v = draw_rf_knob(201, ed_x + ov_col * 0.5, ov_cy, r_ov, env_thr_db, -48.0, 0.0, -18.0, "TRIG THRESH", #v_s, 0, 0.98, 0.70, 0.53);
+    abs(new_v - env_thr_db) > 0.05 ? ( env_thr_db = new_v; update_parameters(); slider_automate(slider26); );
+
+    sprintf(#v_s, "%.1f ms", env_att_ms);
+    new_v = draw_rf_knob(202, ed_x + ov_col * 1.5, ov_cy, r_ov, env_att_ms, 0.5, 150.0, 5.0, "ENV ATTACK", #v_s, 0, 0.98, 0.70, 0.53);
+    abs(new_v - env_att_ms) > 0.05 ? ( env_att_ms = new_v; update_parameters(); slider_automate(slider27); );
+
+    sprintf(#v_s, "%d ms", env_rel_ms);
+    new_v = draw_rf_knob(203, ed_x + ov_col * 2.5, ov_cy, r_ov, env_rel_ms, 10.0, 800.0, 110.0, "ENV RELEASE", #v_s, 0, 0.98, 0.70, 0.53);
+    abs(new_v - env_rel_ms) > 0.5 ? ( env_rel_ms = new_v; update_parameters(); slider_automate(slider28); );
+
+    sprintf(#v_s, "%.2f Hz", free_hz);
+    new_v = draw_rf_knob(204, ed_x + ov_col * 3.5, ov_cy, r_ov, free_hz, 0.2, 16.0, 2.0, "FREE RATE", #v_s, 0, 0.45, 0.78, 0.98);
+    abs(new_v - free_hz) > 0.01 ? ( free_hz = new_v; slider_automate(slider3); );
+
+    sprintf(#v_s, "%d Hz", clean_bass_hz);
+    new_v = draw_rf_knob(205, ed_x + ov_col * 4.5, ov_cy, r_ov, clean_bass_hz, 20.0, 500.0, 90.0, "CLEAN SUB", #v_s, 0, 0.58, 0.89, 0.84);
+    abs(new_v - clean_bass_hz) > 0.5 ? ( clean_bass_hz = new_v; update_parameters(); slider_automate(slider29); );
+
+    sprintf(#v_s, "%.0f %%", squash_pct);
+    new_v = draw_rf_knob(206, ed_x + ov_col * 5.5, ov_cy, r_ov, squash_pct, 0.0, 100.0, 20.0, "SQUASH COMP", #v_s, 0, 0.80, 0.65, 0.97);
+    abs(new_v - squash_pct) > 0.1 ? ( squash_pct = new_v; slider_automate(slider31); );
+  );
+);
+
+// Pinned "TRIG / MASTER" Button
+(mouse_cap & 1) && !(last_mouse_cap & 1) && adv_hit ? (
+  adv_open = !adv_open;
+  drag_id = 0;
+  slider_automate(slider35);
+);
+adv_open ? (
+  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.18, 0.48, 0.45, 0.58, 0.89, 0.84);
+) : (
+  draw_panel_box(adv_btn_x, adv_btn_y, adv_btn_w, adv_btn_h, 0.14, 0.15, 0.22, 0.30, 0.34, 0.48);
+);
+gfx_setfont(4); gfx_set(0.96, 0.98, 1.0, 1.0);
+adv_open ? strcpy(#av_s, "CLOSE SETUP") : strcpy(#av_s, "TRIG / MASTER");
+gfx_measurestr(#av_s, tw, th); gfx_x = adv_btn_x + (adv_btn_w - tw)*0.5; gfx_y = adv_btn_y + (adv_btn_h - th)*0.5; gfx_drawstr(#av_s);
+
+// =========================================================================
+// 4. BOTTOM CONTROL DECK: MODULE DSP KNOBS | MODULATION & CURVE | MASTER I/O
+// =========================================================================
+c1_w = floor((full_w - pad * 2) * 0.44);
+c2_w = floor((full_w - pad * 2) * 0.36);
+c3_w = full_w - (pad * 2) - c1_w - c2_w;
+
+c1_x = pad;
+c2_x = c1_x + c1_w + pad;
+c3_x = c2_x + c2_w + pad;
+
+draw_panel_box(c1_x, deck_y, c1_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(c2_x, deck_y, c2_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+draw_panel_box(c3_x, deck_y, c3_w, deck_h, 0.095, 0.098, 0.145, 0.20, 0.22, 0.31);
+
+r_deck  = min(floor(31 * UI_S), floor(deck_h * 0.21));
+deck_cy = deck_y + deck_h * 0.46;
+
+// --- CARD 1: ACTIVE MODULE DSP PARAMETERS ---
+gfx_setfont(2); set_mod_color(sel_mod, 1.0);
+gfx_x = c1_x + floor(12 * UI_S); gfx_y = deck_y + floor(8 * UI_S);
+sel_mod == 0 ? gfx_drawstr("TIME WARP PARAMETERS (1:1 HERMITE ENGINE)") :
+sel_mod == 1 ? gfx_drawstr("ZDF FILTER PARAMETERS") :
+sel_mod == 2 ? gfx_drawstr("DRIVE FOLD PARAMETERS") :
+sel_mod == 3 ? gfx_drawstr("LO-FI CRUSH PARAMETERS") :
+sel_mod == 4 ? gfx_drawstr("COMB & SPACE PARAMETERS") :
+               gfx_drawstr("GATE & HAAS PARAMETERS");
+
+k1_col = c1_w / 4.0;
+
+sel_mod == 0 ? (
+  sprintf(#v_s, "%.0f %%", sel_cfg[1] * 100.0);
+  sel_cfg[1] = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, sel_cfg[1], 0.0, 1.0, 0.25, "DE-CLICK WIN", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[2] * 100.0);
+  sel_cfg[2] = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.0, "SHIMMER +1", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", gate_pct);
+  new_v = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, gate_pct, 15.0, 100.0, 100.0, "STEP GATE", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - gate_pct) > 0.1 ? ( gate_pct = new_v; slider_automate(slider6); );
+
+  sprintf(#v_s, "%.0f %%", m0_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m0_mix, 0.0, 100.0, 100.0, "TIME MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m0_mix) > 0.1 ? ( m0_mix = new_v; slider_automate(slider8); );
+) : sel_mod == 1 ? (
+  fc_disp = exp(LOG_MIN + flt_cutoff_norm * (LOG_MAX - LOG_MIN));
+  fc_disp >= 1000 ? sprintf(#v_s, "%.2f kHz", fc_disp * 0.001) : sprintf(#v_s, "%d Hz", fc_disp);
+  new_v = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, flt_cutoff_norm, 0.0, 1.0, 0.58, "CUTOFF", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - flt_cutoff_norm) > 0.001 ? ( flt_cutoff_norm = new_v; slider_automate(slider19); );
+
+  sprintf(#v_s, "%.0f %%", flt_res_pct);
+  new_v = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, flt_res_pct, 0.0, 92.0, 35.0, "RESONANCE", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - flt_res_pct) > 0.1 ? ( flt_res_pct = new_v; slider_automate(slider20); );
+
+  sprintf(#v_s, "%+.0f %%", (sel_cfg[2] - 0.5) * 200.0);
+  sel_cfg[2] = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.50, "STEREO SPLIT", #v_s, 1, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", m1_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m1_mix, 0.0, 100.0, 100.0, "FILTER MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m1_mix) > 0.1 ? ( m1_mix = new_v; slider_automate(slider10); );
+) : sel_mod == 2 ? (
+  sprintf(#v_s, "%.0f %%", drv_amount_pct);
+  new_v = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, drv_amount_pct, 0.0, 100.0, 45.0, "DRIVE", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - drv_amount_pct) > 0.1 ? ( drv_amount_pct = new_v; slider_automate(slider21); );
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[1] * 100.0);
+  new_v = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, sel_cfg[1], 0.0, 1.0, 0.60, "TONE LP", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - sel_cfg[1]) > 0.005 ? ( sel_cfg[1] = new_v; update_parameters(); );
+
+  sprintf(#v_s, "%+.0f %%", (sel_cfg[2] - 0.5) * 200.0);
+  sel_cfg[2] = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.50, "PUSH BIAS", #v_s, 1, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", m2_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m2_mix, 0.0, 100.0, 85.0, "DRIVE MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m2_mix) > 0.1 ? ( m2_mix = new_v; slider_automate(slider12); );
+) : sel_mod == 3 ? (
+  sprintf(#v_s, "%.0f %%", crs_rate_pct);
+  new_v = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, crs_rate_pct, 0.0, 100.0, 60.0, "DECIMATE", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - crs_rate_pct) > 0.1 ? ( crs_rate_pct = new_v; slider_automate(slider22); );
+
+  sprintf(#v_s, "%.1f bit", 2.0 + sel_cfg[1] * 14.0);
+  sel_cfg[1] = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, sel_cfg[1], 0.0, 1.0, 0.70, "BIT DEPTH", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[2] * 100.0);
+  sel_cfg[2] = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.15, "JITTER", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", m3_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m3_mix, 0.0, 100.0, 80.0, "CRUSH MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m3_mix) > 0.1 ? ( m3_mix = new_v; slider_automate(slider14); );
+) : sel_mod == 4 ? (
+  sprintf(#v_s, "%.0f %%", spc_time_pct);
+  new_v = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, spc_time_pct, 0.0, 100.0, 42.0, "DELAY / FREQ", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - spc_time_pct) > 0.1 ? ( spc_time_pct = new_v; slider_automate(slider23); );
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[1] * 100.0);
+  sel_cfg[1] = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, sel_cfg[1], 0.0, 1.0, 0.58, "FEEDBACK", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[2] * 100.0);
+  sel_cfg[2] = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.65, "TONE DAMP", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", m4_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m4_mix, 0.0, 100.0, 45.0, "SPACE MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m4_mix) > 0.1 ? ( m4_mix = new_v; slider_automate(slider16); );
+) : (
+  sprintf(#v_s, "%.0f %%", gat_pan_pct);
+  new_v = draw_rf_knob(11, c1_x + k1_col*0.5, deck_cy, r_deck, gat_pan_pct, 0.0, 100.0, 35.0, "PAN / HAAS", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - gat_pan_pct) > 0.1 ? ( gat_pan_pct = new_v; slider_automate(slider24); );
+
+  sprintf(#v_s, "%.1f ms", sel_cfg[1] * 10.0);
+  sel_cfg[1] = draw_rf_knob(12, c1_x + k1_col*1.5, deck_cy, r_deck, sel_cfg[1], 0.0, 1.0, 0.45, "HAAS DELAY", #v_s, 0, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", sel_cfg[2] * 200.0);
+  sel_cfg[2] = draw_rf_knob(13, c1_x + k1_col*2.5, deck_cy, r_deck, sel_cfg[2], 0.0, 1.0, 0.50, "M/S WIDTH", #v_s, 1, mr_c, mg_c, mb_c);
+
+  sprintf(#v_s, "%.0f %%", m5_mix);
+  new_v = draw_rf_knob(14, c1_x + k1_col*3.5, deck_cy, r_deck, m5_mix, 0.0, 100.0, 100.0, "GATE MIX", #v_s, 0, mr_c, mg_c, mb_c);
+  abs(new_v - m5_mix) > 0.1 ? ( m5_mix = new_v; slider_automate(slider18); );
+);
+
+// --- CARD 2: MODULATION & CURVE SHAPING ---
+gfx_setfont(2); gfx_set(0.80, 0.65, 0.97, 1.0);
+gfx_x = c2_x + floor(12 * UI_S); gfx_y = deck_y + floor(8 * UI_S);
+gfx_drawstr("MODULATION & POCKET SHAPING");
+
+k2_col = c2_w / 4.0;
+
+sprintf(#v_s, "%.0f %%", sel_cfg[4] * 100.0);
+sel_cfg[4] = draw_rf_knob(21, c2_x + k2_col*0.5, deck_cy, r_deck, sel_cfg[4], 0.0, 1.0, 0.75, "LFO DEPTH", #v_s, 0, 0.80, 0.65, 0.97);
+
+sprintf(#v_s, "%+.0f %%", sel_cfg[5] * 100.0);
+sel_cfg[5] = draw_rf_knob(22, c2_x + k2_col*1.5, deck_cy, r_deck, sel_cfg[5], -1.0, 1.0, 0.0, "ENV DEPTH", #v_s, 1, 0.98, 0.70, 0.53);
+
+sprintf(#v_s, "%.1f ms", smooth_ms);
+new_v = draw_rf_knob(23, c2_x + k2_col*2.5, deck_cy, r_deck, smooth_ms, 0.2, 60.0, 2.5, "SMOOTH", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - smooth_ms) > 0.1 ? ( smooth_ms = new_v; update_parameters(); slider_automate(slider5); );
+
+sel_cfg[7] == 1 ? (
+  sprintf(#v_s, "%+.0f %%", swing_pct);
+  new_v = draw_rf_knob(24, c2_x + k2_col*3.5, deck_cy, r_deck, swing_pct, -50.0, 50.0, 0.0, "SWING", #v_s, 1, 0.45, 0.78, 0.98);
+  abs(new_v - swing_pct) > 0.5 ? ( swing_pct = new_v; slider_automate(slider4); );
+) : (
+  sprintf(#v_s, "%.0f %%", sel_cfg[13]);
+  sel_cfg[13] = draw_rf_knob(24, c2_x + k2_col*3.5, deck_cy, r_deck, sel_cfg[13], 10.0, 90.0, 50.0, "SLOPE SKEW", #v_s, 1, 0.45, 0.78, 0.98);
+);
+
+// --- CARD 3: MASTER OUTPUT & I/O METERS ---
+gfx_setfont(2); gfx_set(0.58, 0.89, 0.84, 1.0);
+gfx_x = c3_x + floor(12 * UI_S); gfx_y = deck_y + floor(8 * UI_S);
+gfx_drawstr("MASTER OUTPUT");
+
+k3_w = c3_w - floor(42 * UI_S);
+sprintf(#v_s, "%+.1f dB", out_gain_db);
+new_v = draw_rf_knob(31, c3_x + k3_w * 0.28, deck_cy, r_deck, out_gain_db, -24.0, 18.0, 0.0, "OUT GAIN", #v_s, 1, 0.58, 0.89, 0.84);
+abs(new_v - out_gain_db) > 0.05 ? ( out_gain_db = new_v; update_parameters(); slider_automate(slider33); );
+
+sprintf(#v_s, "%.0f %%", master_mix_pct);
+new_v = draw_rf_knob(32, c3_x + k3_w * 0.74, deck_cy, r_deck, master_mix_pct, 0.0, 100.0, 100.0, "MASTER MIX", #v_s, 0, 0.58, 0.89, 0.84);
+abs(new_v - master_mix_pct) > 0.1 ? ( master_mix_pct = new_v; slider_automate(slider34); );
+
+mt_x = c3_x + c3_w - floor(30 * UI_S);
+mt_y = deck_y + floor(30 * UI_S);
+mt_w = floor(9 * UI_S);
+mt_h = deck_h - floor(42 * UI_S);
+
+draw_panel_box(mt_x, mt_y, mt_w, mt_h, 0.05, 0.05, 0.08, 0.20, 0.22, 0.30);
+draw_panel_box(mt_x + mt_w + 4, mt_y, mt_w, mt_h, 0.05, 0.05, 0.08, 0.20, 0.22, 0.30);
+
+in_m_h  = min(1.0, max(0.0, (K_TO_DB(env_in) + 48.0) / 48.0)) * (mt_h - 2);
+out_m_h = min(1.0, max(0.0, (K_TO_DB(env_out) + 48.0) / 48.0)) * (mt_h - 2);
+
+gfx_set(0.45, 0.78, 0.98, 0.9);
+gfx_rect(mt_x + 1, mt_y + mt_h - 1 - in_m_h, mt_w - 2, in_m_h);
+gfx_set(0.58, 0.89, 0.84, 0.95);
+gfx_rect(mt_x + mt_w + 5, mt_y + mt_h - 1 - out_m_h, mt_w - 2, out_m_h);
+
+// =========================================================================
+// 5. INFO OVERLAY MODAL
+// =========================================================================
+info_open ? (
+  mw = floor(W * 0.80);
+  mh = floor(340 * UI_S);
+  mx = (W - mw) * 0.5;
+  my = (H - mh) * 0.5;
+
+  draw_panel_box(mx, my, mw, mh, 0.07, 0.07, 0.11, 0.58, 0.89, 0.84);
+
+  gfx_setfont(1);
+  gfx_set(0.58, 0.89, 0.84, 1.0);
+  gfx_x = mx + 24; gfx_y = my + 20;
+  gfx_drawstr("RhythmForge v2.1 (Multi-Curve & ShaperBox Tool Strip Edition)");
+
+  gfx_setfont(3);
+  gfx_set(0.92, 0.94, 0.98, 1.0);
+  lh_step = floor(26 * UI_S);
+  ty = my + 60;
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 6 Per-Segment Curve Types: Linear (LIN), Arc (ARC), S-Curve, Hold Step, Stairs & Sine Wave");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Midpoint Tension Diamonds: Drag up/down to bend any segment; Right-Click diamond to change Curve Type");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Left LFO Tool Strip: PTR (Pointer), SNAP (Grid Snap), G:1/16 (Grid), LINE Pen, ARC Pen, S-CRV Pen");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Bottom LFO Control Strip: ALL LIN, ALL S-CRV, 2x SPD, FLIP X, FLIP Y, Phase Shift & CLEAR");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Double-Click empty graph space to add a node; Double-Click or Right-Click an interior node to delete");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Pure Linear Time Warp: Preset 1 (2x LIN HALF) & Preset 2 (1.5x TRIP) use true linear ramps for zero pitch wobble");
+
+  gfx_set(0.58, 0.72, 0.70, 1.0);
+  gfx_x = mx + 24; gfx_y = my + mh - 32;
+  gfx_drawstr("Click anywhere on this card or the header logo to close.");
+
+  (mouse_cap & 1) && !(last_mouse_cap & 1) &&
+  (mouse_x >= mx && mouse_x <= mx + mw && mouse_y >= my && mouse_y <= my + mh) ? (
+    info_open = 0;
+  );
+);
+
+last_mouse_cap = mouse_cap;
