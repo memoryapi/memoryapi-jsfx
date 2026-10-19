@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="d0cd57169518fad2d29f123d3fb1a7518f68f38b">
+<index version="1" name="MemoryAPI JSFX" commit="ff9a6f36c839afde473ca139835320790e663a0b">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -209,16 +209,16 @@
 \widowctrl\hyphauto
 
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 VelvetClip\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 Transparent threshold-linear soft clipper and peak dynamics controller with 100% bit-identical pass-through below threshold, 808 Sub Safe preservation, and HQ 2x oversampling.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Transparent threshold-linear soft clipper and peak dynamics controller with 100% bit-identical pass-through below threshold, 808 Sub Safe preservation, and delta-filtered 2x oversampling.\par}
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 100% Bit-Identical Pass-Through (y = x) for all audio below threshold (0% harmonic coloration until clipping)\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive Transfer Graph: Drag vertically directly on the response curve to offset clipping threshold\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 3 Specialized Clipper Topologies:\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Fruity Soft: Asymptotic rational curve that smoothly approaches ceiling without folding\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Cubic Knee: Smooth punchy polynomial knee that clamps strictly at 0 dBFS ceiling\par}
-{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Bass Shaper: Exponential logarithmic curve tailored for aggressive 808s and kick drums\sa180\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 808 Sub Safe: Crossover filter that isolates and preserves low-end (<95 Hz) sub frequencies so deep bass notes never buzz or degrade\par}
-{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab HQ 2x Oversampling: Zero-latency linear phase half-band filtering to eliminate digital alias distortion\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Classic Exponential (Mode 0): Exact exponential knee y = T + W(1 - exp(-d/W)) with C1 continuity\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Cubic Knee (Mode 1): Smooth punchy polynomial knee that clamps strictly at 0 dBFS ceiling\par}
+{\pard \ql \f0 \sa0 \li720 \fi-360 \endash \tx360\tab Velvet Rational (Mode 2): Slower asymptotic curve y = T + W(d / (W + d)) for warm saturation\sa180\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 808 Sub Safe: 95 Hz SVF shelf pre-attenuates & post-restores sub-bass to prevent buzz\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Delta-Filtered 2x OS: Antialiases only the shaved distortion delta (0% dry phase smear)\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Dual Waveform & Shaved-Peak History Scope: Live scrolling view showing output waveform and shaved peak transients in real-time\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Calibrated Peak & Clip Metering: Precision output level bar and shaved dB clip amount indicator\par}
 {\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Scalable HiDPI UI: Vector interface with selectable text scaling presets (100% - 150%)\sa180\par}
@@ -228,6 +228,16 @@
       <version name="1.0.0" author="MemoryAPI" time="2026-10-16T11:31:15Z">
         <changelog><![CDATA[Initial release in repository]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/646e571f0a83540b5ac4fef8f2832299b68a35c7/Dynamics/VelvetClip.jsfx</source>
+      </version>
+      <version name="1.1.0" author="MemoryAPI" time="2026-10-19T00:04:49Z">
+        <changelog><![CDATA[- Fixed Mode 0 to use the exact exponential soft knee: T + W * (1 - exp(-d / W))
+- Precomputed knee width W and 1/W in parameter update block
+- Improved 2x oversampling to filter only the nonlinear shaved delta (100% bit-identical below T)
+- Fixed 256-sample peak accumulation for the real-time waveform & shaved transient scope
+- Sample-rate compensated 12 Hz DC blocker
+- Complete Catppuccin Mocha UI overhaul with segmented curve selector, calibrated dB grid, and studio metering
+- Fixed about dialog click dismissal bug so modal stays open smoothly]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/ff9a6f36c839afde473ca139835320790e663a0b/Dynamics/VelvetClip.jsfx</source>
       </version>
     </reapack>
   </category>
