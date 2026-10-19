@@ -1,14 +1,24 @@
 desc:OverTop (3-Band Upward/Downward Multiband Compressor)
 // @description OverTop (3-Band Upward/Downward Multiband Compressor)
 // @author MemoryAPI
-// @version 1.1.0
-// @changelog Initial release in repository
+// @version 1.2.0
+// @changelog
+//   - Applied exact OTT 0.15x Attack and 0.25x Release internal time multipliers
+//   - Corrected High Band makeup gain to +10.3 dB (1.0 + 2.27304697 * Depth)
+//   - Eliminated destructive dry/wet phase cancellation: Depth now scales compression slopes & makeup directly
+//   - Switched from Peak detection to true stereo RMS power detection (L^2 + R^2)
+//   - Moved Attack/Release smoothing into the dB gain-reduction domain
+//   - Upgraded crossover to phase-aligned 4th-Order Linkwitz-Riley (LR4, 24 dB/oct)
 // @about
 //   # OverTop
 //   3-Band Upward and Downward Multiband Dynamics Processor (OTT style) for aggressive presence, punch, and detail leveling.
 //
 //   ### Features
-//   - 3-band split crossover (88 Hz and 2.5 kHz) with independent upward and downward compression engines
+//   - Phase-aligned 4th-Order Linkwitz-Riley (LR4, 24 dB/oct) crossover at 88.3 Hz and 2.5 kHz
+//   - True stereo RMS power detection (L^2 + R^2) with Attack/Release smoothing in the dB gain domain
+//   - Authentic OTT nominal time constants with 0.15x Attack and 0.25x Release multipliers
+//   - Calibrated +10.3 dB High Band linear makeup gain (1.0 + 2.27304697 * Depth)
+//   - Phase-coherent Depth scaling directly modulating compression slopes and makeup without comb filtering
 //   - Interactive threshold bar editing: drag horizontally to shift thresholds per band
 //   - Per-band bypass switches and dedicated band output gain trims
 //   - Global Depth, Time scaling, and In/Out gain controls
@@ -47,12 +57,12 @@ ext_noinit = 1.0;
 
 function DB_TO_K(x)
 (
-  10 ^ (x / 20.0)
+  exp((x) * 0.11512925464970229)
 );
 
 function K_TO_DB(lin)
 (
-  8.685889638 * log(max(0.0000001, lin))
+  8.685889638065036 * log(max(0.000000000001, lin))
 );
 
 // Crossover Frequencies
@@ -60,33 +70,44 @@ XOVER_LOW_HZ  = 88.3;
 XOVER_HIGH_HZ = 2500.0;
 
 // Factory Base Thresholds (dB)
-BASE_DN_L = -33.8; BASE_UP_L = -40.8; BASE_MAKEUP_L = 5.2;
-BASE_DN_M = -30.2; BASE_UP_M = -41.8; BASE_MAKEUP_M = 5.7;
-BASE_DN_H = -35.5; BASE_UP_H = -40.8; BASE_MAKEUP_H = 5.2;
+BASE_DN_L = -33.8; BASE_UP_L = -40.8;
+BASE_DN_M = -30.2; BASE_UP_M = -41.8;
+BASE_DN_H = -35.5; BASE_UP_H = -40.8;
+
+// Exact OTT Linear Makeup Multipliers at 100% Depth:
+// Low:  1 + 0.81970084 = 1.8197 (+5.20 dB)
+// Mid:  1 + 0.92752498 = 1.9275 (+5.70 dB)
+// High: 1 + 2.27304697 = 3.2730 (+10.30 dB)
+MAKEUP_MULT_L = 0.81970084;
+MAKEUP_MULT_M = 0.927524984;
+MAKEUP_MULT_H = 2.27304697;
 
 // Factory Base Ratios
 RATIO_DN_L = 66.7; RATIO_UP_L = 4.17;
 RATIO_DN_M = 66.7; RATIO_UP_M = 4.17;
 RATIO_DN_H = 99.0; RATIO_UP_H = 4.17;
 
-// Factory Base Attack / Release (ms)
+// Factory Base Nominal Time Constants (ms)
+// Multiplied internally by 0.15 (Attack) and 0.25 (Release) per OTT.vst3
 ATT_L_MS = 47.8; REL_L_MS = 282.0;
 ATT_M_MS = 22.4; REL_M_MS = 282.0;
 ATT_H_MS = 13.5; REL_H_MS = 132.0;
 
 function update_parameters()
-  local(SAFE_SRATE, k_bw, g_lo, g_hi, t_scale,
+  local(SAFE_SRATE, depth, k_bw, g_lo, g_hi, t_scale,
+        att_scale, rel_scale, dn_eff, up_eff,
         att_l_s, rel_l_s, att_m_s, rel_m_s, att_h_s, rel_h_s)
 (
   SAFE_SRATE = max(8000.0, srate);
+  depth      = depth_pct * 0.01;
 
   in_lin  = DB_TO_K(in_gain_db);
   out_lin = DB_TO_K(out_gain_db);
 
-  // Post-compression band gain includes user knob + band makeup
-  band_lin_l = DB_TO_K(gain_l_db + BASE_MAKEUP_L * (depth_pct * 0.01));
-  band_lin_m = DB_TO_K(gain_m_db + BASE_MAKEUP_M * (depth_pct * 0.01));
-  band_lin_h = DB_TO_K(gain_h_db + BASE_MAKEUP_H * (depth_pct * 0.01));
+  // Exact OTT linear makeup scaling + user band gain knob
+  band_lin_l = (1.0 + depth * MAKEUP_MULT_L) * DB_TO_K(gain_l_db);
+  band_lin_m = (1.0 + depth * MAKEUP_MULT_M) * DB_TO_K(gain_m_db);
+  band_lin_h = (1.0 + depth * MAKEUP_MULT_H) * DB_TO_K(gain_h_db);
 
   // Effective thresholds (shifted by interactive bar drag offsets)
   dn_thr_l = BASE_DN_L + thresh_offset_l;
@@ -96,26 +117,29 @@ function update_parameters()
   dn_thr_h = BASE_DN_H + thresh_offset_h;
   up_thr_h = BASE_UP_H + thresh_offset_h;
 
-  dn_scale = dn_str_pct * 0.01;
-  up_scale = up_str_pct * 0.01;
+  // Depth directly scales upward and downward compression intensity (no dry/wet comb filtering)
+  dn_eff = min(1.5, depth * (dn_str_pct * 0.01));
+  up_eff = depth * (up_str_pct * 0.01);
 
-  dn_slope_l = (1.0 - (1.0 / RATIO_DN_L)) * dn_scale;
-  dn_slope_m = (1.0 - (1.0 / RATIO_DN_M)) * dn_scale;
-  dn_slope_h = (1.0 - (1.0 / RATIO_DN_H)) * dn_scale;
+  dn_slope_l = (1.0 - (1.0 / RATIO_DN_L)) * dn_eff;
+  dn_slope_m = (1.0 - (1.0 / RATIO_DN_M)) * dn_eff;
+  dn_slope_h = (1.0 - (1.0 / RATIO_DN_H)) * dn_eff;
 
-  up_slope_l = (1.0 - (1.0 / RATIO_UP_L)) * up_scale;
-  up_slope_m = (1.0 - (1.0 / RATIO_UP_M)) * up_scale;
-  up_slope_h = (1.0 - (1.0 / RATIO_UP_H)) * up_scale;
+  up_slope_l = (1.0 - (1.0 / RATIO_UP_L)) * up_eff;
+  up_slope_m = (1.0 - (1.0 / RATIO_UP_M)) * up_eff;
+  up_slope_h = (1.0 - (1.0 / RATIO_UP_H)) * up_eff;
 
-  // Time scaling (1% to 1000%)
-  t_scale = max(0.05, time_pct * 0.01);
+  // Exact OTT internal time scaling: 0.15x Attack, 0.25x Release
+  t_scale   = max(0.01, time_pct * 0.01);
+  att_scale = t_scale * 0.150000006;
+  rel_scale = t_scale * 0.25;
 
-  att_l_s = max(0.0005, (ATT_L_MS * 0.001) * t_scale);
-  rel_l_s = max(0.0020, (REL_L_MS * 0.001) * t_scale);
-  att_m_s = max(0.0005, (ATT_M_MS * 0.001) * t_scale);
-  rel_m_s = max(0.0020, (REL_M_MS * 0.001) * t_scale);
-  att_h_s = max(0.0002, (ATT_H_MS * 0.001) * t_scale);
-  rel_h_s = max(0.0020, (REL_H_MS * 0.001) * t_scale);
+  att_l_s = max(0.0001, (ATT_L_MS * 0.001) * att_scale);
+  rel_l_s = max(0.0005, (REL_L_MS * 0.001) * rel_scale);
+  att_m_s = max(0.0001, (ATT_M_MS * 0.001) * att_scale);
+  rel_m_s = max(0.0005, (REL_M_MS * 0.001) * rel_scale);
+  att_h_s = max(0.0001, (ATT_H_MS * 0.001) * att_scale);
+  rel_h_s = max(0.0005, (REL_H_MS * 0.001) * rel_scale);
 
   att_coeff_l = exp(-1.0 / (att_l_s * SAFE_SRATE));
   rel_coeff_l = exp(-1.0 / (rel_l_s * SAFE_SRATE));
@@ -124,8 +148,11 @@ function update_parameters()
   att_coeff_h = exp(-1.0 / (att_h_s * SAFE_SRATE));
   rel_coeff_h = exp(-1.0 / (rel_h_s * SAFE_SRATE));
 
-  // Cytomic SVF Butterworth coefficients for 88.3 Hz and 2500 Hz crossovers
-  k_bw = 1.41421356;
+  // Fast 2.0 ms RMS power window coefficient (tracks stereo energy L^2 + R^2)
+  rms_coeff = exp(-1.0 / (0.0020 * SAFE_SRATE));
+
+  // Cytomic SVF Butterworth (Q = 0.7071) cascaded twice -> 4th-Order Linkwitz-Riley (LR4)
+  k_bw = 1.4142135623730951;
 
   g_lo  = tan($pi * XOVER_LOW_HZ / SAFE_SRATE);
   lo_a1 = 1.0 / (1.0 + g_lo * (g_lo + k_bw));
@@ -146,10 +173,11 @@ function compute_ott_gain_db(in_db, up_thr, dn_thr, up_slope, dn_slope)
   g_db = 0.0;
   in_db > dn_thr ? (
     g_db = -(in_db - dn_thr) * dn_slope;
-  ) : (in_db < up_thr && in_db > -70.0) ? (
-    below_db = min(36.0, up_thr - max(-62.0, in_db));
-    in_db < -55.0 ? (
-      below_db *= max(0.0, (in_db + 70.0) / 15.0);
+  ) : (in_db < up_thr && in_db > -80.0) ? (
+    // OTT upward knee clamps maximum boost below -70 dB noise floor
+    below_db = up_thr - max(-70.0, in_db);
+    in_db < -60.0 ? (
+      below_db *= max(0.0, (in_db + 80.0) * 0.05);
     );
     g_db = below_db * up_slope;
   );
@@ -159,7 +187,9 @@ function compute_ott_gain_db(in_db, up_thr, dn_thr, up_slope, dn_slope)
 !init_done ? (
   ui_zoom < 1.0 ? ui_zoom = 1.20;
   active_on = 1;
-  env_l = 0.001; env_m = 0.001; env_h = 0.001;
+  rms_sq_l = 0.000001; rms_sq_m = 0.000001; rms_sq_h = 0.000001;
+  gr_db_l  = 0.0;      gr_db_m  = 0.0;      gr_db_h  = 0.0;
+  db_in_l  = -60.0;    db_in_m  = -60.0;    db_in_h  = -60.0;
   update_parameters();
   init_done = 1;
 );
@@ -179,87 +209,174 @@ raw_r = spl1;
 x_l = raw_l * in_lin;
 x_r = raw_r * in_lin;
 
-// -------------------------------------------------------------------------
-// 1. 3-BAND CROSSOVER SPLIT (88.3 Hz & 2500 Hz)
-// -------------------------------------------------------------------------
-v3 = x_l - lo_l_ic2;
-v1 = lo_a1 * lo_l_ic1 + lo_a2 * v3;
-v2 = lo_l_ic2 + lo_a2 * lo_l_ic1 + lo_a3 * v3;
-lo_l_ic1 = 2.0 * v1 - lo_l_ic1;
-lo_l_ic2 = 2.0 * v2 - lo_l_ic2;
-band_l_L = v2;
-mh_L     = x_l - lo_k * v1 - v2;
+// =========================================================================
+// 1. 4TH-ORDER LINKWITZ-RILEY (LR4, 24 dB/oct) 3-BAND CROSSOVER
+// =========================================================================
+// --- LEFT CHANNEL: LOW SPLIT (88.3 Hz LR4) ---
+v3 = x_l - lo1_l_ic2;
+v1 = lo_a1 * lo1_l_ic1 + lo_a2 * v3;
+v2 = lo1_l_ic2 + lo_a2 * lo1_l_ic1 + lo_a3 * v3;
+lo1_l_ic1 = 2.0 * v1 - lo1_l_ic1; lo1_l_ic2 = 2.0 * v2 - lo1_l_ic2;
+lp1_l = v2;
+hp1_l = x_l - lo_k * v1 - v2;
 
-v3 = x_r - lo_r_ic2;
-v1 = lo_a1 * lo_r_ic1 + lo_a2 * v3;
-v2 = lo_r_ic2 + lo_a2 * lo_r_ic1 + lo_a3 * v3;
-lo_r_ic1 = 2.0 * v1 - lo_r_ic1;
-lo_r_ic2 = 2.0 * v2 - lo_r_ic2;
-band_l_R = v2;
-mh_R     = x_r - lo_k * v1 - v2;
+v3 = lp1_l - lo2_l_ic2;
+v1 = lo_a1 * lo2_l_ic1 + lo_a2 * v3;
+v2 = lo2_l_ic2 + lo_a2 * lo2_l_ic1 + lo_a3 * v3;
+lo2_l_ic1 = 2.0 * v1 - lo2_l_ic1; lo2_l_ic2 = 2.0 * v2 - lo2_l_ic2;
+raw_low_L = v2;
 
-v3 = mh_L - hi_l_ic2;
-v1 = hi_a1 * hi_l_ic1 + hi_a2 * v3;
-v2 = hi_l_ic2 + hi_a2 * hi_l_ic1 + hi_a3 * v3;
-hi_l_ic1 = 2.0 * v1 - hi_l_ic1;
-hi_l_ic2 = 2.0 * v2 - hi_l_ic2;
+v3 = hp1_l - lo3_l_ic2;
+v1 = lo_a1 * lo3_l_ic1 + lo_a2 * v3;
+v2 = lo3_l_ic2 + lo_a2 * lo3_l_ic1 + lo_a3 * v3;
+lo3_l_ic1 = 2.0 * v1 - lo3_l_ic1; lo3_l_ic2 = 2.0 * v2 - lo3_l_ic2;
+mh_L = hp1_l - lo_k * v1 - v2;
+
+// Allpass on Low Band at 2.5 kHz to keep Low phase-aligned with Mid + High
+v3 = raw_low_L - ap_l_ic2;
+v1 = hi_a1 * ap_l_ic1 + hi_a2 * v3;
+v2 = ap_l_ic2 + hi_a2 * ap_l_ic1 + hi_a3 * v3;
+ap_l_ic1 = 2.0 * v1 - ap_l_ic1; ap_l_ic2 = 2.0 * v2 - ap_l_ic2;
+band_l_L = raw_low_L - 2.0 * hi_k * v1;
+
+// --- LEFT CHANNEL: HIGH SPLIT (2500 Hz LR4) ---
+v3 = mh_L - hi1_l_ic2;
+v1 = hi_a1 * hi1_l_ic1 + hi_a2 * v3;
+v2 = hi1_l_ic2 + hi_a2 * hi1_l_ic1 + hi_a3 * v3;
+hi1_l_ic1 = 2.0 * v1 - hi1_l_ic1; hi1_l_ic2 = 2.0 * v2 - hi1_l_ic2;
+lp_hi1_l = v2;
+hp_hi1_l = mh_L - hi_k * v1 - v2;
+
+v3 = lp_hi1_l - hi2_l_ic2;
+v1 = hi_a1 * hi2_l_ic1 + hi_a2 * v3;
+v2 = hi2_l_ic2 + hi_a2 * hi2_l_ic1 + hi_a3 * v3;
+hi2_l_ic1 = 2.0 * v1 - hi2_l_ic1; hi2_l_ic2 = 2.0 * v2 - hi2_l_ic2;
 band_m_L = v2;
-band_h_L = mh_L - hi_k * v1 - v2;
 
-v3 = mh_R - hi_r_ic2;
-v1 = hi_a1 * hi_r_ic1 + hi_a2 * v3;
-v2 = hi_r_ic2 + hi_a2 * hi_r_ic1 + hi_a3 * v3;
-hi_r_ic1 = 2.0 * v1 - hi_r_ic1;
-hi_r_ic2 = 2.0 * v2 - hi_r_ic2;
+v3 = hp_hi1_l - hi3_l_ic2;
+v1 = hi_a1 * hi3_l_ic1 + hi_a2 * v3;
+v2 = hi3_l_ic2 + hi_a2 * hi3_l_ic1 + hi_a3 * v3;
+hi3_l_ic1 = 2.0 * v1 - hi3_l_ic1; hi3_l_ic2 = 2.0 * v2 - hi3_l_ic2;
+band_h_L = hp_hi1_l - hi_k * v1 - v2;
+
+// --- RIGHT CHANNEL: LOW SPLIT (88.3 Hz LR4) ---
+v3 = x_r - lo1_r_ic2;
+v1 = lo_a1 * lo1_r_ic1 + lo_a2 * v3;
+v2 = lo1_r_ic2 + lo_a2 * lo1_r_ic1 + lo_a3 * v3;
+lo1_r_ic1 = 2.0 * v1 - lo1_r_ic1; lo1_r_ic2 = 2.0 * v2 - lo1_r_ic2;
+lp1_r = v2;
+hp1_r = x_r - lo_k * v1 - v2;
+
+v3 = lp1_r - lo2_r_ic2;
+v1 = lo_a1 * lo2_r_ic1 + lo_a2 * v3;
+v2 = lo2_r_ic2 + lo_a2 * lo2_r_ic1 + lo_a3 * v3;
+lo2_r_ic1 = 2.0 * v1 - lo2_r_ic1; lo2_r_ic2 = 2.0 * v2 - lo2_r_ic2;
+raw_low_R = v2;
+
+v3 = hp1_r - lo3_r_ic2;
+v1 = lo_a1 * lo3_r_ic1 + lo_a2 * v3;
+v2 = lo3_r_ic2 + lo_a2 * lo3_r_ic1 + lo_a3 * v3;
+lo3_r_ic1 = 2.0 * v1 - lo3_r_ic1; lo3_r_ic2 = 2.0 * v2 - lo3_r_ic2;
+mh_R = hp1_r - lo_k * v1 - v2;
+
+// Allpass on Low Band at 2.5 kHz (Right Channel)
+v3 = raw_low_R - ap_r_ic2;
+v1 = hi_a1 * ap_r_ic1 + hi_a2 * v3;
+v2 = ap_r_ic2 + hi_a2 * ap_r_ic1 + hi_a3 * v3;
+ap_r_ic1 = 2.0 * v1 - ap_r_ic1; ap_r_ic2 = 2.0 * v2 - ap_r_ic2;
+band_l_R = raw_low_R - 2.0 * hi_k * v1;
+
+// --- RIGHT CHANNEL: HIGH SPLIT (2500 Hz LR4) ---
+v3 = mh_R - hi1_r_ic2;
+v1 = hi_a1 * hi1_r_ic1 + hi_a2 * v3;
+v2 = hi1_r_ic2 + hi_a2 * hi1_r_ic1 + hi_a3 * v3;
+hi1_r_ic1 = 2.0 * v1 - hi1_r_ic1; hi1_r_ic2 = 2.0 * v2 - hi1_r_ic2;
+lp_hi1_r = v2;
+hp_hi1_r = mh_R - hi_k * v1 - v2;
+
+v3 = lp_hi1_r - hi2_r_ic2;
+v1 = hi_a1 * hi2_r_ic1 + hi_a2 * v3;
+v2 = hi2_r_ic2 + hi_a2 * hi2_r_ic1 + hi_a3 * v3;
+hi2_r_ic1 = 2.0 * v1 - hi2_r_ic1; hi2_r_ic2 = 2.0 * v2 - hi2_r_ic2;
 band_m_R = v2;
-band_h_R = mh_R - hi_k * v1 - v2;
 
-// -------------------------------------------------------------------------
-// 2. PER-BAND ENVELOPE FOLLOWERS & UPWARD/DOWNWARD GAIN COMPUTATION
-// -------------------------------------------------------------------------
-pk_l = max(abs(band_l_L), abs(band_l_R));
-pk_m = max(abs(band_m_L), abs(band_m_R));
-pk_h = max(abs(band_h_L), abs(band_h_R));
+v3 = hp_hi1_r - hi3_r_ic2;
+v1 = hi_a1 * hi3_r_ic1 + hi_a2 * v3;
+v2 = hi3_r_ic2 + hi_a2 * hi3_r_ic1 + hi_a3 * v3;
+hi3_r_ic1 = 2.0 * v1 - hi3_r_ic1; hi3_r_ic2 = 2.0 * v2 - hi3_r_ic2;
+band_h_R = hp_hi1_r - hi_k * v1 - v2;
 
-pk_l > env_l ? ( env_l = att_coeff_l * env_l + (1.0 - att_coeff_l) * pk_l; ) : ( env_l = rel_coeff_l * env_l + (1.0 - rel_coeff_l) * pk_l; );
-pk_m > env_m ? ( env_m = att_coeff_m * env_m + (1.0 - att_coeff_m) * pk_m; ) : ( env_m = rel_coeff_m * env_m + (1.0 - rel_coeff_m) * pk_m; );
-pk_h > env_h ? ( env_h = att_coeff_h * env_h + (1.0 - att_coeff_h) * pk_h; ) : ( env_h = rel_coeff_h * env_h + (1.0 - rel_coeff_h) * pk_h; );
+// =========================================================================
+// 2. STEREO RMS POWER DETECTION (L^2 + R^2) & dB-DOMAIN GAIN SMOOTHING
+// =========================================================================
+// Stereo power = (L^2 + R^2) * 0.5 (normalized so 0 dBFS stereo = 0 dB)
+pwr_l = 0.5 * (band_l_L * band_l_L + band_l_R * band_l_R) + 0.000000000000000000000001;
+pwr_m = 0.5 * (band_m_L * band_m_L + band_m_R * band_m_R) + 0.000000000000000000000001;
+pwr_h = 0.5 * (band_h_L * band_h_L + band_h_R * band_h_R) + 0.000000000000000000000001;
 
-db_in_l = K_TO_DB(env_l);
-db_in_m = K_TO_DB(env_m);
-db_in_h = K_TO_DB(env_h);
+rms_sq_l = (rms_sq_l - pwr_l) * rms_coeff + pwr_l;
+rms_sq_m = (rms_sq_m - pwr_m) * rms_coeff + pwr_m;
+rms_sq_h = (rms_sq_h - pwr_h) * rms_coeff + pwr_h;
 
+// 0.5 * 8.685889638 * log(rms_sq) == 8.685889638 * log(sqrt(rms_sq))
+raw_db_l = 4.342944819032518 * log(max(0.000000000000000000000001, rms_sq_l));
+raw_db_m = 4.342944819032518 * log(max(0.000000000000000000000001, rms_sq_m));
+raw_db_h = 4.342944819032518 * log(max(0.000000000000000000000001, rms_sq_h));
+
+// Smooth UI input level meters slightly for visual readability
+db_in_l = max(raw_db_l, db_in_l - 0.15);
+db_in_m = max(raw_db_m, db_in_m - 0.15);
+db_in_h = max(raw_db_h, db_in_h - 0.15);
+
+// --- LOW BAND GAIN SMOOTHING IN dB DOMAIN ---
 !byp_l ? (
-  gr_db_l  = compute_ott_gain_db(db_in_l, up_thr_l, dn_thr_l, up_slope_l, dn_slope_l);
+  tgt_gr_l = compute_ott_gain_db(raw_db_l, up_thr_l, dn_thr_l, up_slope_l, dn_slope_l);
+  tgt_gr_l < gr_db_l ? (
+    gr_db_l = att_coeff_l * gr_db_l + (1.0 - att_coeff_l) * tgt_gr_l;
+  ) : (
+    gr_db_l = rel_coeff_l * gr_db_l + (1.0 - rel_coeff_l) * tgt_gr_l;
+  );
   lin_gr_l = DB_TO_K(gr_db_l) * band_lin_l;
 ) : (
   gr_db_l  = 0.0;
   lin_gr_l = 1.0;
 );
 
+// --- MID BAND GAIN SMOOTHING IN dB DOMAIN ---
 !byp_m ? (
-  gr_db_m  = compute_ott_gain_db(db_in_m, up_thr_m, dn_thr_m, up_slope_m, dn_slope_m);
+  tgt_gr_m = compute_ott_gain_db(raw_db_m, up_thr_m, dn_thr_m, up_slope_m, dn_slope_m);
+  tgt_gr_m < gr_db_m ? (
+    gr_db_m = att_coeff_m * gr_db_m + (1.0 - att_coeff_m) * tgt_gr_m;
+  ) : (
+    gr_db_m = rel_coeff_m * gr_db_m + (1.0 - rel_coeff_m) * tgt_gr_m;
+  );
   lin_gr_m = DB_TO_K(gr_db_m) * band_lin_m;
 ) : (
   gr_db_m  = 0.0;
   lin_gr_m = 1.0;
 );
 
+// --- HIGH BAND GAIN SMOOTHING IN dB DOMAIN ---
 !byp_h ? (
-  gr_db_h  = compute_ott_gain_db(db_in_h, up_thr_h, dn_thr_h, up_slope_h, dn_slope_h);
+  tgt_gr_h = compute_ott_gain_db(raw_db_h, up_thr_h, dn_thr_h, up_slope_h, dn_slope_h);
+  tgt_gr_h < gr_db_h ? (
+    gr_db_h = att_coeff_h * gr_db_h + (1.0 - att_coeff_h) * tgt_gr_h;
+  ) : (
+    gr_db_h = rel_coeff_h * gr_db_h + (1.0 - rel_coeff_h) * tgt_gr_h;
+  );
   lin_gr_h = DB_TO_K(gr_db_h) * band_lin_h;
 ) : (
   gr_db_h  = 0.0;
   lin_gr_h = 1.0;
 );
 
+// 100% Wet Phase-Coherent Sum (Depth is already baked into slopes and band_lin makeup!)
 wet_l = band_l_L * lin_gr_l + band_m_L * lin_gr_m + band_h_L * lin_gr_h;
 wet_r = band_l_R * lin_gr_l + band_m_R * lin_gr_m + band_h_R * lin_gr_h;
 
 active_on ? (
-  mix = depth_pct * 0.01;
-  out_l = (x_l * (1.0 - mix) + wet_l * mix) * out_lin;
-  out_r = (x_r * (1.0 - mix) + wet_r * mix) * out_lin;
+  out_l = wet_l * out_lin;
+  out_r = wet_r * out_lin;
 ) : (
   out_l = raw_l;
   out_r = raw_r;
@@ -644,7 +761,7 @@ col_knb_cx = col_gr_x + gr_bar_w + floor(8 * S) + k_col_w * 0.5;
 gfx_setfont(5);
 gfx_set(0.58, 0.62, 0.76, 1.0);
 gfx_x = col_btn_x;  gfx_y = mid_y + floor(6 * S); gfx_drawstr("BAND");
-gfx_x = col_lvl_x;  gfx_y = mid_y + floor(6 * S); gfx_drawstr("THRESHOLDS & INPUT LEVEL (DRAG TO SHIFT)");
+gfx_x = col_lvl_x;  gfx_y = mid_y + floor(6 * S); gfx_drawstr("THRESHOLDS & RMS LEVEL (DRAG TO SHIFT)");
 gfx_x = col_gr_x;   gfx_y = mid_y + floor(6 * S); gfx_drawstr("GAIN CHANGE");
 gfx_measurestr("BAND GAIN", bgw, bgh);
 gfx_x = col_knb_cx - bgw * 0.5; gfx_y = mid_y + floor(6 * S); gfx_drawstr("BAND GAIN");
@@ -833,8 +950,8 @@ gfx_line(pad + full_w * 0.50, bot_y + floor(16 * S), pad + full_w * 0.50, bot_y 
 // 5. INFO OVERLAY MODAL (Click OVERTOP Logo to Toggle)
 // =========================================================================
 info_open ? (
-  mw = floor(W * 0.76);
-  mh = floor(285 * S);
+  mw = floor(W * 0.78);
+  mh = floor(300 * S);
   mx = (W - mw) * 0.5;
   my = (H - mh) * 0.5;
 
@@ -843,17 +960,17 @@ info_open ? (
   gfx_setfont(1);
   gfx_set(0.54, 0.71, 0.98, 1.0);
   gfx_x = mx + 24; gfx_y = my + 20;
-  gfx_drawstr("OverTop v1.1 (3-Band Upward/Downward Compressor)");
+  gfx_drawstr("OverTop v1.2 (Authentic OTT 3-Band Dynamics)");
 
   gfx_setfont(3);
   gfx_set(0.90, 0.93, 0.98, 1.0);
   lh_step = floor(27 * S);
   ty = my + 62;
-  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• Top Row: Depth, Time, In Gain, and Out Gain");
-  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• Middle Rows: Click HIGH/MID/LOW badges on the left to bypass a band");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Drag horizontally inside any band's level bar to shift its thresholds");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Adjust each band's output Gain knob on the right end of its row");
-  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Bottom Row: Upward % and Downward % compression scaling");
+  gfx_x = mx + 24; gfx_y = ty;             gfx_drawstr("• 4th-Order Linkwitz-Riley (24 dB/oct) phase-aligned crossover (88.3 Hz & 2.5 kHz)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step;   gfx_drawstr("• True stereo RMS power detection + dB-domain gain smoothing");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*2; gfx_drawstr("• Authentic OTT time scaling (0.15x Attack / 0.25x Release) & +10.3 dB High lift");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*3; gfx_drawstr("• Phase-coherent Depth scaling (scales ratios & makeup with zero comb filtering)");
+  gfx_x = mx + 24; gfx_y = ty + lh_step*4; gfx_drawstr("• Drag horizontally inside any band's level bar to shift its thresholds");
   gfx_x = mx + 24; gfx_y = ty + lh_step*5; gfx_drawstr("• Double-click any knob or threshold bar to reset to factory default");
 
   gfx_set(0.58, 0.64, 0.78, 1.0);

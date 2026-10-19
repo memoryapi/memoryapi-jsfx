@@ -74,10 +74,11 @@ Every plugin in this repository shares a unified design standard:
     <td width="50%" valign="top">
       <h3 align="center">OverTop</h3>
       <p align="center"><img src="screenshots/overtop.webp" width="340" alt="OverTop" /></p>
-      <p><b>3-Band Upward/Downward Compressor</b> — Combines upward expansion of quiet details with downward peak control across Low (&lt;88 Hz), Mid, and High (&gt;2.5 kHz) bands.</p>
+      <p><b>3-Band Upward/Downward Compressor</b> — Authentic OTT-style multiband dynamics processor combining upward expansion of quiet details with downward peak control across Low (&lt;88 Hz), Mid, and High (&gt;2.5 kHz) bands.</p>
       <ul>
-        <li>Inline channel strips with draggable per-band thresholds, gain knobs, and bypasses.</li>
-        <li>Global <b>Depth</b>, <b>Time</b>, and <b>Upward / Downward %</b> ratio scalers.</li>
+        <li>Phase-aligned 4th-Order Linkwitz-Riley (LR4, 24 dB/oct) crossover with true stereo RMS power detection.</li>
+        <li>Authentic OTT time constants (0.15x Attack / 0.25x Release multipliers), +10.3 dB High makeup lift, and phase-coherent Depth scaling.</li>
+        <li>Inline channel strips with draggable per-band thresholds, gain knobs, bypasses, and global Upward/Downward % scalers.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
