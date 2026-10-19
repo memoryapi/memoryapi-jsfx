@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="MemoryAPI JSFX" commit="ff9a6f36c839afde473ca139835320790e663a0b">
+<index version="1" name="MemoryAPI JSFX" commit="8e861a568fdfc3b7b60fbf15b304f2a92454ca80">
   <category name="Creative">
     <reapack name="ChronoWarp.jsfx" type="effect" desc="ChronoWarp (Creative Half-Time &amp; Varispeed Engine)">
       <metadata>
@@ -28,6 +28,29 @@
       <version name="1.2.0" author="MemoryAPI" time="2026-10-15T23:18:01Z">
         <changelog><![CDATA[Symmetrical 30/40/30 layout, centered Hero Power button with radial fade ring, larger knobs]]></changelog>
         <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/11a3863d0cf6db7206d0e6f8f903f394fe77208b/Creative/ChronoWarp.jsfx</source>
+      </version>
+    </reapack>
+    <reapack name="RhythmForge.jsfx" type="effect" desc="RhythmForge (6-Module Polyrhythmic Shaper &amp; Multi-FX Workstation)">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 RhythmForge v2.1\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 6-Module Polyrhythmic Multi-Effect, Time-Warp & Envelope Shaper Workstation combining the best of ShaperBox 3, Tantra 2, Infiltrator, Gross Beat, ChronoWarp, and PulseDuck.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab 6 Per-Segment Curve Types: Linear (pure constant-pitch ramps for Half-Time/Scratch), Arc (exponential/logarithmic), S-Curve, Hold (instant step jumps), Stairs, and Sine Wave\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Interactive Midpoint Tension Handles: Drag the diamond handle between any two nodes to bend the curve, or Right-Click the diamond to switch that segment's curve type\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab ShaperBox LFO Tool Strip: Pointer, Snap-to-Grid, Grid Size (8 / 12T / 16), Line Pen, Arc Pen, and S-Curve Pen\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab ShaperBox LFO Control Strip: All-Linear, All-Smooth, 2x Double-Time, Flip Horizontal, Flip Vertical, Grid Shift, and Clear\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Independent Per-Module Timing (1/16 to 4 Bars) + 16-Step Sequencer Enable Lane\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Clean Bass Crossover (20 - 500 Hz) with Bass Solo + Master Squash Compressor & Soft Clipper\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="2.1.0" author="MemoryAPI" time="2026-10-19T00:18:16Z">
+        <changelog><![CDATA[Added 6 per-segment curve types (Linear, Arc, S-Curve, Hold, Stairs, Wave), draggable midpoint tension handles, ShaperBox LFO Tool Strip (Pointer, Snap, Grid, Line/Arc/S-Curve Pens), LFO Control Strip (2x, Flip X/Y, All-Lin), and 1:1 linear Time Warp tracking]]></changelog>
+        <source type="effect">https://github.com/memoryapi/memoryapi-jsfx/raw/8e861a568fdfc3b7b60fbf15b304f2a92454ca80/Creative/RhythmForge.jsfx</source>
       </version>
     </reapack>
     <reapack name="VintageFlux.jsfx" type="effect" desc="VintageFlux (6-Module Vintage Multi-FX &amp; Lo-Fi Color)">
@@ -455,7 +478,7 @@
 \widowctrl\hyphauto
 
 {\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 MemoryAPI JSFX Suite\par}
-{\pard \ql \f0 \sa180 \li0 \fi0 A cross-platform collection of 15 studio mixing, mastering, and synthesis JSFX plugins for {\field{\*\fldinst{HYPERLINK "https://www.reaper.fm/"}}{\fldrslt{\ul
+{\pard \ql \f0 \sa180 \li0 \fi0 A cross-platform collection of 16 studio mixing, mastering, and synthesis JSFX plugins for {\field{\*\fldinst{HYPERLINK "https://www.reaper.fm/"}}{\fldrslt{\ul
 Cockos REAPER
 }}}
 , featuring custom hardware-accelerated vector UIs styled in the {\b Catppuccin Mocha} palette.\par}
@@ -512,6 +535,9 @@ Cockos REAPER
 {\b ChronoWarp}
 }}}
  | Tempo-synced half-time, varispeed & octave-shimmer engine | | {\b Creative FX} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
+{\b RhythmForge}
+}}}
+ | 6-module polyrhythmic multi-effect & envelope shaper workstation | | {\b Creative FX} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
 {\b VintageFlux}
 }}}
  | 6-module retro multi-FX & lo-fi texture processor | | {\b Synthesis} | {\field{\*\fldinst{HYPERLINK "#creative--synthesis"}}{\fldrslt{\ul
